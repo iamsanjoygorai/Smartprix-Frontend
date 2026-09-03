@@ -26,12 +26,12 @@ export default async function AdminProductsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
-        >
-          + Add Product
-        </button>
+        <Link
+  href="/admin/products/new"
+  className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
+>
+  + Add Product
+</Link>
       </div>
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
@@ -124,7 +124,7 @@ export default async function AdminProductsPage() {
                   </tr>
                 );
               })}
-            </tbody>
+            </tbody>    
           </table>
         </div>
 

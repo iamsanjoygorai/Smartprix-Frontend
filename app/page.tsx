@@ -1,55 +1,60 @@
-export default function Home() {
+import ProductCard from "@/components/products/ProductCard";
+import { getProducts } from "@/lib/api/products";
+import type { Product } from "@/types/product";
+
+interface ProductsPageProps {
+  searchParams: Promise<{
+    search?: string;
+  }>;
+}
+
+export default async function ProductsPage({
+  searchParams,
+}: ProductsPageProps) {
+  const params = await searchParams;
+
+  let products: Product[] = [];
+
+  try {
+    const response = await getProducts({
+      search: params.search,
+    });
+
+    products = response.data;
+  } catch {
+    products = [];
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {/* Hero */}
-      <section className="rounded-xl bg-white p-8 shadow-sm">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
-          Find the best products at the best prices
+          {params.search
+            ? `Search results for "${params.search}"`
+            : "Products"}
         </h1>
 
-        <p className="mt-3 max-w-2xl text-gray-600">
-          Compare smartphones, laptops, specifications and prices
-          from different sellers.
+        <p className="mt-2 text-gray-600">
+          Compare products and find the best prices.
         </p>
+      </div>
 
-        <div className="mt-6 flex max-w-2xl">
-          <input
-            type="search"
-            placeholder="Search mobiles, laptops and more..."
-            className="h-12 flex-1 rounded-l-lg border border-gray-300 px-4 outline-none focus:border-gray-500"
-          />
-
-          <button
-            type="button"
-            className="rounded-r-lg bg-black px-6 font-medium text-white hover:bg-gray-800"
-          >
-            Search
-          </button>
+      {products.length === 0 ? (
+        <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+          <p className="text-gray-600">
+            No products found.
+          </p>
         </div>
-      </section>
-
-      {/* Categories */}
-      <section className="mt-8">
-        <h2 className="mb-4 text-2xl font-bold text-gray-900">
-          Explore Categories
-        </h2>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-semibold">Mobiles</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Compare smartphones and find the best deals.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-semibold">Laptops</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Find laptops based on price and specifications.
-            </p>
-          </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+            />
+          ))}
         </div>
-      </section>
+      )}
     </div>
   );
 }

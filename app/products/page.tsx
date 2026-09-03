@@ -1,6 +1,7 @@
 import ProductCard from "@/components/products/ProductCard";
 import { getProducts } from "@/lib/api/products";
 import type { Product } from "@/types/product";
+import { getProductPriceHistory } from "@/lib/api/priceHistory";
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -19,9 +20,8 @@ export default async function ProductsPage({
     const response = await getProducts({
       search: params.search,
     });
-    console.log("PRODUCT API RESPONSE:", response);
-    products = response.data;
 
+    products = response.data;
   } catch {
     products = [];
   }

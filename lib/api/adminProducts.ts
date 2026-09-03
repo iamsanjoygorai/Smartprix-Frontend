@@ -25,3 +25,14 @@ export async function updateProduct(
     },
   );
 }
+
+export async function deleteProduct(
+  id: string,
+): Promise<ApiResponse<null>> {
+  return apiFetch<ApiResponse<null>>(
+    `/admin/products/${id}`,
+    {
+      method: "DELETE",
+    },
+  );
+}

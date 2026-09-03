@@ -1,16 +1,22 @@
 import Link from "next/link";
 
 import { getProducts } from "@/lib/api/products";
+import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
+
 import type { Product } from "@/types/product";
 
 export default async function AdminProductsPage() {
   let products: Product[] = [];
+  let error = "";
 
   try {
     const response = await getProducts();
     products = response.data;
-  } catch {
-    products = [];
+  } catch (err) {
+    error =
+      err instanceof Error
+        ? err.message
+        : "Failed to load products.";
   }
 
   return (
@@ -27,12 +33,18 @@ export default async function AdminProductsPage() {
         </div>
 
         <Link
-  href="/admin/products/new"
-  className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
->
-  + Add Product
-</Link>
+          href="/admin/products/new"
+          className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800"
+        >
+          + Add Product
+        </Link>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -55,7 +67,7 @@ export default async function AdminProductsPage() {
                   Price
                 </th>
 
-                <th className="px-6 py-4 text-sm font-semibold text-gray-700">
+                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
                   Actions
                 </th>
               </tr>
@@ -66,10 +78,7 @@ export default async function AdminProductsPage() {
                 const lowestPrice = product.prices[0]?.amount;
 
                 return (
-                  <tr
-                    key={product.id}
-                    className="hover:bg-gray-50"
-                  >
+                  <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">
                         {product.name}
@@ -80,11 +89,11 @@ export default async function AdminProductsPage() {
                       </div>
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-600">
                       {product.brand.name}
                     </td>
 
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm text-gray-600">
                       {product.category.name}
                     </td>
 
@@ -97,39 +106,29 @@ export default async function AdminProductsPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className="flex gap-2">
+                      <div className="flex justify-end gap-2">
                         <Link
-                          href={`/products/${product.slug}`}
-                          target="_blank"
-                          className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                          href={`/admin/products/${product.id}`}
+                          className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
                         >
-                          View
+                          Edit
                         </Link>
 
-                        <Link
-  href={`/admin/products/${product.id}`}
-  className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
->
-  Edit
-</Link>
-
-                        <button
-                          type="button"
-                          className="rounded-md bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
+                        <ProductDeleteButton
+                          productId={product.id}
+                          productName={product.name}
+                        />
                       </div>
                     </td>
                   </tr>
                 );
               })}
-            </tbody>    
+            </tbody>
           </table>
         </div>
 
-        {products.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
+        {products.length === 0 && !error && (
+          <div className="p-8 text-center text-sm text-gray-500">
             No products found.
           </div>
         )}

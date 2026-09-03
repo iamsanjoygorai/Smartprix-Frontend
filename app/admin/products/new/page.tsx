@@ -1,28 +1,82 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { apiFetch } from "@/lib/api/client";
+import { getCategories } from "@/lib/api/categories";
+import { getBrands } from "@/lib/api/brands";
+import { getSellers } from "@/lib/api/sellers";
+
 import type { ApiResponse } from "@/types/api";
 import type { Product } from "@/types/product";
+import type { AdminCategory } from "@/lib/api/categories";
+import type { AdminBrand } from "@/lib/api/brands";
+import type { AdminSeller } from "@/lib/api/sellers";
+
+interface FormOptions {
+  categories: AdminCategory[];
+  brands: AdminBrand[];
+  sellers: AdminSeller[];
+}
 
 export default function NewProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
   const [brandSlug, setBrandSlug] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
+  const [sellerSlug, setSellerSlug] = useState("");
+
   const [image, setImage] = useState("");
   const [price, setPrice] = useState("");
-  const [sellerSlug, setSellerSlug] = useState("");
 
   const [ram, setRam] = useState("");
   const [storage, setStorage] = useState("");
   const [processor, setProcessor] = useState("");
 
+  const [options, setOptions] = useState<FormOptions>({
+    categories: [],
+    brands: [],
+    sellers: [],
+  });
+
+  const [loadingOptions, setLoadingOptions] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [
+          categoriesResponse,
+          brandsResponse,
+          sellersResponse,
+        ] = await Promise.all([
+          getCategories(),
+          getBrands(),
+          getSellers(),
+        ]);
+
+        setOptions({
+          categories: categoriesResponse.data,
+          brands: brandsResponse.data,
+          sellers: sellersResponse.data,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load product options.",
+        );
+      } finally {
+        setLoadingOptions(false);
+      }
+    }
+
+    loadOptions();
+  }, []);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -55,11 +109,11 @@ export default function NewProductPage() {
           body: JSON.stringify({
             name: name.trim(),
             description: description.trim(),
-            brandSlug: brandSlug.trim(),
-            categorySlug: categorySlug.trim(),
+            brandSlug,
+            categorySlug,
             image: image.trim() || undefined,
             price: Number(price),
-            sellerSlug: sellerSlug.trim(),
+            sellerSlug,
             specifications,
           }),
         },
@@ -150,30 +204,42 @@ export default function NewProductPage() {
               placeholder="Enter product description..."
               rows={5}
               required
+              minLength={10}
               className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
             />
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-3">
             <div>
               <label
                 htmlFor="brand"
                 className="mb-2 block text-sm font-medium text-gray-700"
               >
-                Brand Slug
+                Brand
               </label>
 
-              <input
+              <select
                 id="brand"
-                type="text"
                 value={brandSlug}
                 onChange={(event) =>
                   setBrandSlug(event.target.value)
                 }
-                placeholder="e.g. samsung"
                 required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-              />
+                disabled={loadingOptions}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black disabled:bg-gray-100"
+              >
+                <option value="">
+                  {loadingOptions
+                    ? "Loading brands..."
+                    : "Select brand"}
+                </option>
+
+                {options.brands.map((brand) => (
+                  <option key={brand.id} value={brand.slug}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -181,20 +247,66 @@ export default function NewProductPage() {
                 htmlFor="category"
                 className="mb-2 block text-sm font-medium text-gray-700"
               >
-                Category Slug
+                Category
               </label>
 
-              <input
+              <select
                 id="category"
-                type="text"
                 value={categorySlug}
                 onChange={(event) =>
                   setCategorySlug(event.target.value)
                 }
-                placeholder="e.g. mobiles"
                 required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-              />
+                disabled={loadingOptions}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black disabled:bg-gray-100"
+              >
+                <option value="">
+                  {loadingOptions
+                    ? "Loading categories..."
+                    : "Select category"}
+                </option>
+
+                {options.categories.map((category) => (
+                  <option
+                    key={category.id}
+                    value={category.slug}
+                  >
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="seller"
+                className="mb-2 block text-sm font-medium text-gray-700"
+              >
+                Seller
+              </label>
+
+              <select
+                id="seller"
+                value={sellerSlug}
+                onChange={(event) =>
+                  setSellerSlug(event.target.value)
+                }
+                required
+                disabled={loadingOptions}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-black disabled:bg-gray-100"
+              >
+                <option value="">
+                  {loadingOptions
+                    ? "Loading sellers..."
+                    : "Select seller"}
+                </option>
+
+                {options.sellers.map((seller) => (
+                  <option key={seller.id} value={seller.slug}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -222,46 +334,25 @@ export default function NewProductPage() {
 
             <div>
               <label
-                htmlFor="seller"
+                htmlFor="image"
                 className="mb-2 block text-sm font-medium text-gray-700"
               >
-                Seller Slug
+                Image URL
               </label>
 
               <input
-                id="seller"
-                type="text"
-                value={sellerSlug}
-                onChange={(event) =>
-                  setSellerSlug(event.target.value)
-                }
-                placeholder="e.g. amazon"
-                required
+                id="image"
+                type="url"
+                value={image}
+                onChange={(event) => setImage(event.target.value)}
+                placeholder="https://example.com/product-image.jpg"
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
               />
+
+              <p className="mt-1 text-xs text-gray-500">
+                Optional.
+              </p>
             </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="image"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Image URL
-            </label>
-
-            <input
-              id="image"
-              type="url"
-              value={image}
-              onChange={(event) => setImage(event.target.value)}
-              placeholder="https://example.com/product-image.jpg"
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
-            />
-
-            <p className="mt-1 text-xs text-gray-500">
-              Optional.
-            </p>
           </div>
 
           <div>
@@ -326,7 +417,7 @@ export default function NewProductPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || loadingOptions}
               className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Product"}

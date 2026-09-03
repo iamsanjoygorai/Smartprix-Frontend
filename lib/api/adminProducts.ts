@@ -36,3 +36,22 @@ export async function deleteProduct(
     },
   );
 }
+
+export async function restoreProduct(
+  id: string,
+): Promise<ApiResponse<null>> {
+  return apiFetch<ApiResponse<null>>(
+    `/admin/products/${id}/restore`,
+    {
+      method: "PATCH",
+    },
+  );
+}
+
+export async function getAdminProducts(): Promise<
+  ApiResponse<Product[]>
+> {
+  return apiFetch<ApiResponse<Product[]>>(
+    "/admin/products",
+  );
+}

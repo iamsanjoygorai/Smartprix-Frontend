@@ -41,6 +41,7 @@ export interface Product {
   name: string;
   slug: string;
   description?: string | null;
+  isActive: boolean;
   brand: Brand;
   category: Category;
   images: ProductImage[];

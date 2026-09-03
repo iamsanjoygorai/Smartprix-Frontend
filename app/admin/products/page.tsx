@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getProducts } from "@/lib/api/products";
 import ProductDeleteButton from "@/components/admin/ProductDeleteButton";
+import ProductRestoreButton from "@/components/admin/ProductRestoreButton";
 
 import type { Product } from "@/types/product";
 
@@ -78,7 +79,10 @@ export default async function AdminProductsPage() {
                 const lowestPrice = product.prices[0]?.amount;
 
                 return (
-                  <tr key={product.id} className="hover:bg-gray-50">
+                  <tr
+                    key={product.id}
+                    className="hover:bg-gray-50"
+                  >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">
                         {product.name}
@@ -99,9 +103,9 @@ export default async function AdminProductsPage() {
 
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {lowestPrice
-                        ? `₹${Number(lowestPrice).toLocaleString(
-                            "en-IN",
-                          )}`
+                        ? `₹${Number(
+                            lowestPrice,
+                          ).toLocaleString("en-IN")}`
                         : "N/A"}
                     </td>
 
@@ -114,10 +118,17 @@ export default async function AdminProductsPage() {
                           Edit
                         </Link>
 
-                        <ProductDeleteButton
-                          productId={product.id}
-                          productName={product.name}
-                        />
+                        {product.isActive ? (
+                          <ProductDeleteButton
+                            productId={product.id}
+                            productName={product.name}
+                          />
+                        ) : (
+                          <ProductRestoreButton
+                            productId={product.id}
+                            productName={product.name}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>

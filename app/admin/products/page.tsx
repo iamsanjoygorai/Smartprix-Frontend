@@ -106,12 +106,12 @@ export default async function AdminProductsPage() {
                           View
                         </Link>
 
-                        <button
-                          type="button"
-                          className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                        >
-                          Edit
-                        </button>
+                        <Link
+  href={`/admin/products/${product.id}`}
+  className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+>
+  Edit
+</Link>
 
                         <button
                           type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+
 import { useEffect, useRef, useState } from "react";
 
 import { apiFetch } from "@/lib/api/client";
@@ -10,6 +11,7 @@ import { getSellers } from "@/lib/api/sellers";
 
 import type { ApiResponse } from "@/types/api";
 import type { Product } from "@/types/product";
+
 import type { AdminCategory } from "@/lib/api/categories";
 import type { AdminBrand } from "@/lib/api/brands";
 import type { AdminSeller } from "@/lib/api/sellers";
@@ -23,6 +25,17 @@ interface FormOptions {
 interface UploadResponse {
   url: string;
   filename: string;
+  originalName?: string;
+  sortOrder?: number;
+  isPrimary?: boolean;
+}
+
+interface SelectedImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+  uploadedUrl: string;
+  uploading: boolean;
 }
 
 const API_URL =
@@ -34,13 +47,11 @@ const API_SERVER_URL = API_URL.replace(/\/api\/?$/, "");
 export default function NewProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-
   const [brandSlug, setBrandSlug] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
   const [sellerSlug, setSellerSlug] = useState("");
 
-  const [image, setImage] = useState("");
-  const [imagePreview, setImagePreview] = useState("");
+  const [images, setImages] = useState<SelectedImage[]>([]);
 
   const [price, setPrice] = useState("");
 
@@ -58,8 +69,7 @@ export default function NewProductPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [draggingImage, setDraggingImage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,67 +106,148 @@ export default function NewProductPage() {
     loadOptions();
   }, []);
 
-  async function uploadImage(file: File) {
+  async function uploadImages(files: File[]) {
     setMessage("");
     setError("");
 
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file.");
+    if (files.length === 0) {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size must be 5 MB or less.");
+    if (images.length + files.length > 10) {
+      setError("You can upload a maximum of 10 images.");
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
+    const validFiles: File[] = [];
 
-    setImagePreview(previewUrl);
-    setUploadingImage(true);
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) {
+        setError(
+          `"${file.name}" is not a valid image file.`,
+        );
+        continue;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setError(
+          `"${file.name}" is larger than 5 MB.`,
+        );
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    const selectedImages: SelectedImage[] =
+      validFiles.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        uploadedUrl: "",
+        uploading: true,
+      }));
+
+    setImages((current) => [
+      ...current,
+      ...selectedImages,
+    ]);
+
+    setUploadingImages(true);
 
     try {
       const formData = new FormData();
 
-      formData.append("image", file);
+      for (const file of validFiles) {
+        formData.append("images", file);
+      }
 
       const response = await apiFetch<
-        ApiResponse<UploadResponse>
-      >("/admin/products/upload-image", {
+        ApiResponse<UploadResponse[]>
+      >("/admin/products/upload-images", {
         method: "POST",
         body: formData,
       });
 
-      const uploadedUrl = response.data.url;
+      const uploadedImages = response.data;
 
-      const fullImageUrl = uploadedUrl.startsWith("http")
-        ? uploadedUrl
-        : `${API_SERVER_URL}${uploadedUrl}`;
+      setImages((current) => {
+        const updated = [...current];
 
-      setImage(fullImageUrl);
+        selectedImages.forEach(
+          (selectedImage, index) => {
+            const uploadedImage =
+              uploadedImages[index];
 
-      setMessage("Image uploaded successfully.");
+            const currentIndex = updated.findIndex(
+              (image) =>
+                image.id === selectedImage.id,
+            );
+
+            if (
+              currentIndex !== -1 &&
+              uploadedImage
+            ) {
+              const uploadedUrl =
+                uploadedImage.url.startsWith("http")
+                  ? uploadedImage.url
+                  : `${API_SERVER_URL}${uploadedImage.url}`;
+
+              updated[currentIndex] = {
+                ...updated[currentIndex],
+                uploadedUrl,
+                uploading: false,
+              };
+            }
+          },
+        );
+
+        return updated;
+      });
+
+      setMessage(
+        `${uploadedImages.length} image${
+          uploadedImages.length > 1 ? "s" : ""
+        } uploaded successfully.`,
+      );
     } catch (err) {
-      setImage("");
-      setImagePreview("");
+      setImages((current) =>
+        current.filter(
+          (image) =>
+            !selectedImages.some(
+              (selected) =>
+                selected.id === image.id,
+            ),
+        ),
+      );
+
+      for (const image of selectedImages) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
 
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to upload image.",
+          : "Failed to upload images.",
       );
     } finally {
-      setUploadingImage(false);
+      setUploadingImages(false);
     }
   }
 
   function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
-    const file = event.target.files?.[0];
+    const files = Array.from(
+      event.target.files ?? [],
+    );
 
-    if (file) {
-      uploadImage(file);
+    if (files.length > 0) {
+      uploadImages(files);
     }
 
     event.target.value = "";
@@ -182,16 +273,30 @@ export default function NewProductPage() {
     event.preventDefault();
     setDraggingImage(false);
 
-    const file = event.dataTransfer.files?.[0];
+    const files = Array.from(
+      event.dataTransfer.files ?? [],
+    );
 
-    if (file) {
-      uploadImage(file);
+    if (files.length > 0) {
+      uploadImages(files);
     }
   }
 
-  function removeImage() {
-    setImage("");
-    setImagePreview("");
+  function removeImage(id: string) {
+    setImages((current) => {
+      const image = current.find(
+        (item) => item.id === id,
+      );
+
+      if (image) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+
+      return current.filter(
+        (item) => item.id !== id,
+      );
+    });
+
     setMessage("");
   }
 
@@ -203,15 +308,35 @@ export default function NewProductPage() {
     setMessage("");
     setError("");
 
-    if (uploadingImage) {
-      setError("Please wait for the image upload to finish.");
+    if (uploadingImages) {
+      setError(
+        "Please wait for the image uploads to finish.",
+      );
+      return;
+    }
+
+    const uploadedImageUrls = images
+      .filter(
+        (image) =>
+          image.uploadedUrl &&
+          !image.uploading,
+      )
+      .map((image) => image.uploadedUrl);
+
+    if (images.length > 0 && uploadedImageUrls.length !== images.length) {
+      setError(
+        "Please make sure all selected images are uploaded successfully.",
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      const specifications: Record<string, string> = {};
+      const specifications: Record<
+        string,
+        string
+      > = {};
 
       if (ram.trim()) {
         specifications.ram = ram.trim();
@@ -222,28 +347,32 @@ export default function NewProductPage() {
       }
 
       if (processor.trim()) {
-        specifications.processor = processor.trim();
+        specifications.processor =
+          processor.trim();
       }
 
-      const response = await apiFetch<ApiResponse<Product>>(
-        "/admin/products",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim(),
-            brandSlug,
-            categorySlug,
-            image: image.trim() || undefined,
-            price: Number(price),
-            sellerSlug,
-            specifications,
-          }),
-        },
-      );
+      const response = await apiFetch<
+        ApiResponse<Product>
+      >("/admin/products", {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          brandSlug,
+          categorySlug,
+          images:
+            uploadedImageUrls.length > 0
+              ? uploadedImageUrls
+              : undefined,
+          price: Number(price),
+          sellerSlug,
+          specifications,
+        }),
+      });
 
       setMessage(
-        response.message ?? "Product created successfully.",
+        response.message ??
+          "Product created successfully.",
       );
 
       setName("");
@@ -251,12 +380,17 @@ export default function NewProductPage() {
       setBrandSlug("");
       setCategorySlug("");
       setSellerSlug("");
-      setImage("");
-      setImagePreview("");
       setPrice("");
+
       setRam("");
       setStorage("");
       setProcessor("");
+
+      images.forEach((image) => {
+        URL.revokeObjectURL(image.previewUrl);
+      });
+
+      setImages([]);
     } catch (err) {
       setError(
         err instanceof Error
@@ -283,7 +417,8 @@ export default function NewProductPage() {
         </h2>
 
         <p className="mt-2 text-gray-600">
-          Create a new product for the Smartprix website.
+          Create a new product for the Smartprix
+          website.
         </p>
       </div>
 
@@ -292,6 +427,7 @@ export default function NewProductPage() {
         className="rounded-xl bg-white p-6 shadow-sm"
       >
         <div className="grid gap-6">
+          {/* Product Name */}
           <div>
             <label
               htmlFor="name"
@@ -313,6 +449,7 @@ export default function NewProductPage() {
             />
           </div>
 
+          {/* Description */}
           <div>
             <label
               htmlFor="description"
@@ -325,7 +462,9 @@ export default function NewProductPage() {
               id="description"
               value={description}
               onChange={(event) =>
-                setDescription(event.target.value)
+                setDescription(
+                  event.target.value,
+                )
               }
               placeholder="Enter product description..."
               rows={5}
@@ -335,6 +474,7 @@ export default function NewProductPage() {
             />
           </div>
 
+          {/* Brand / Category / Seller */}
           <div className="grid gap-6 md:grid-cols-3">
             <div>
               <label
@@ -348,7 +488,9 @@ export default function NewProductPage() {
                 id="brand"
                 value={brandSlug}
                 onChange={(event) =>
-                  setBrandSlug(event.target.value)
+                  setBrandSlug(
+                    event.target.value,
+                  )
                 }
                 required
                 disabled={loadingOptions}
@@ -383,7 +525,9 @@ export default function NewProductPage() {
                 id="category"
                 value={categorySlug}
                 onChange={(event) =>
-                  setCategorySlug(event.target.value)
+                  setCategorySlug(
+                    event.target.value,
+                  )
                 }
                 required
                 disabled={loadingOptions}
@@ -395,14 +539,16 @@ export default function NewProductPage() {
                     : "Select category"}
                 </option>
 
-                {options.categories.map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.slug}
-                  >
-                    {category.name}
-                  </option>
-                ))}
+                {options.categories.map(
+                  (category) => (
+                    <option
+                      key={category.id}
+                      value={category.slug}
+                    >
+                      {category.name}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
 
@@ -418,7 +564,9 @@ export default function NewProductPage() {
                 id="seller"
                 value={sellerSlug}
                 onChange={(event) =>
-                  setSellerSlug(event.target.value)
+                  setSellerSlug(
+                    event.target.value,
+                  )
                 }
                 required
                 disabled={loadingOptions}
@@ -442,6 +590,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
+          {/* Price */}
           <div>
             <label
               htmlFor="price"
@@ -465,102 +614,133 @@ export default function NewProductPage() {
             />
           </div>
 
+          {/* Multiple Product Images */}
           <div>
             <div className="mb-2 flex items-center justify-between">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Product Image
+                  Product Images
                 </label>
 
                 <p className="mt-1 text-xs text-gray-500">
-                  JPG, PNG, WebP, AVIF, HEIC or HEIF. Maximum 5 MB.
+                  Upload up to 10 images. JPG, PNG,
+                  WebP, AVIF, HEIC or HEIF. Maximum
+                  5 MB per image.
                 </p>
               </div>
+
+              <span className="text-xs font-medium text-gray-500">
+                {images.length}/10
+              </span>
             </div>
 
-            {!imagePreview ? (
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() =>
-                  fileInputRef.current?.click()
-                }
-                className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
-                  draggingImage
-                    ? "border-black bg-gray-100"
-                    : "border-gray-300 hover:border-gray-500 hover:bg-gray-50"
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
+                draggingImage
+                  ? "border-black bg-gray-100"
+                  : "border-gray-300 hover:border-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={images.length >= 10}
+              />
 
-                <div className="text-4xl">🖼️</div>
-
-                <p className="mt-3 text-sm font-medium text-gray-800">
-                  {draggingImage
-                    ? "Drop your image here"
-                    : "Drag & drop your product image here"}
-                </p>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  or click to select a file
-                </p>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="mt-4 rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
-                >
-                  Select File
-                </button>
+              <div className="text-4xl">
+                🖼️
               </div>
-            ) : (
-              <div className="rounded-xl border border-gray-200 p-4">
-                <div className="relative overflow-hidden rounded-lg bg-gray-100">
-                  <img
-                    src={imagePreview}
-                    alt="Product preview"
-                    className="mx-auto max-h-80 object-contain"
-                  />
 
-                  {uploadingImage && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <div className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-gray-800">
-                        Uploading image...
-                      </div>
-                    </div>
-                  )}
-                </div>
+              <p className="mt-3 text-sm font-medium text-gray-800">
+                {draggingImage
+                  ? "Drop your images here"
+                  : "Drag & drop your product images here"}
+              </p>
 
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm text-green-600">
-                    {uploadingImage
-                      ? "Uploading..."
-                      : "✓ Image uploaded"}
-                  </span>
+              <p className="mt-1 text-sm text-gray-500">
+                or click to select multiple files
+              </p>
 
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    disabled={uploadingImage}
-                    className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              <button
+                type="button"
+                disabled={images.length >= 10}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="mt-4 rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Select Images
+              </button>
+            </div>
+
+            {/* Image previews */}
+            {images.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                {images.map((image, index) => (
+                  <div
+                    key={image.id}
+                    className="relative overflow-hidden rounded-xl border border-gray-200 bg-white"
                   >
-                    Remove
-                  </button>
-                </div>
+                    <div className="relative flex h-40 items-center justify-center bg-gray-50 p-3">
+                      <img
+                        src={image.previewUrl}
+                        alt={`Product image ${
+                          index + 1
+                        }`}
+                        className="h-full w-full object-contain"
+                      />
+
+                      {image.uploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                          <div className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-gray-800">
+                            Uploading...
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between border-t px-3 py-2">
+                      <div>
+                        {index === 0 ? (
+                          <span className="text-xs font-semibold text-blue-600">
+                            Primary
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-500">
+                            Image {index + 1}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeImage(image.id)
+                        }
+                        disabled={image.uploading}
+                        className="text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
+          {/* Specifications */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
               Specifications
@@ -595,7 +775,9 @@ export default function NewProductPage() {
                 type="text"
                 value={processor}
                 onChange={(event) =>
-                  setProcessor(event.target.value)
+                  setProcessor(
+                    event.target.value,
+                  )
                 }
                 placeholder="Processor: Snapdragon"
                 className="rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
@@ -603,6 +785,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
+          {/* Messages */}
           {message && (
             <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">
               {message}
@@ -615,6 +798,7 @@ export default function NewProductPage() {
             </div>
           )}
 
+          {/* Buttons */}
           <div className="flex justify-end gap-3 border-t pt-6">
             <Link
               href="/admin/products"
@@ -628,7 +812,7 @@ export default function NewProductPage() {
               disabled={
                 loading ||
                 loadingOptions ||
-                uploadingImage
+                uploadingImages
               }
               className="rounded-lg bg-black px-5 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >

@@ -46,4 +46,8 @@ export interface Product {
   category: Category;
   images: ProductImage[];
   prices: Price[];
+  /** Optional catalogue values returned by the product API. */
+  averageRating?: number | null;
+  rating?: number | null;
+  reviewCount?: number | null;
 }

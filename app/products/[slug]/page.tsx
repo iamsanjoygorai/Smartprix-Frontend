@@ -32,6 +32,19 @@ const priceHistory = priceHistoryResponse.data.history;
       {/* Product information + starting price */}
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="rounded-xl bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="mb-8 flex min-h-[420px] items-center justify-center rounded-xl bg-gray-50 p-6">
+  {product.images[0]?.url ? (
+    <img
+      src={product.images[0].url}
+      alt={product.images[0].altText ?? product.name}
+      className="max-h-[380px] max-w-full object-contain"
+    />
+  ) : (
+    <span className="text-sm text-gray-400">
+      No image available
+    </span>
+  )}
+</div>
           <p className="text-sm font-medium text-gray-500">
             {product.brand.name} · {product.category.name}
           </p>

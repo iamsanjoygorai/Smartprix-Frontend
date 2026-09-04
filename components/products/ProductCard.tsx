@@ -6,21 +6,42 @@ interface ProductCardProps {
   product: Product;
 }
 
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
+const API_SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+function getImageUrl(url: string) {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  return `${API_SERVER_URL}${url}`;
+}
+
 export default function ProductCard({
   product,
 }: ProductCardProps) {
   const lowestPrice = product.prices[0]?.amount;
+
+  const imageUrl = product.images[0]?.url
+    ? getImageUrl(product.images[0].url)
+    : null;
 
   return (
     <Link
       href={`/products/${product.slug}`}
       className="group rounded-xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
     >
-      <div className="flex h-52 items-center justify-center rounded-lg bg-gray-50">
-        {product.images[0]?.url ? (
+      <div className="flex h-52 items-center justify-center overflow-hidden rounded-lg bg-gray-50">
+        {imageUrl ? (
           <img
-            src={product.images[0].url}
-            alt={product.images[0].altText ?? product.name}
+            src={imageUrl}
+            alt={
+              product.images[0]?.altText ??
+              product.name
+            }
             className="max-h-full max-w-full object-contain"
           />
         ) : (
@@ -46,7 +67,9 @@ export default function ProductCard({
 
           <p className="text-xl font-bold text-gray-900">
             {lowestPrice
-              ? `₹${Number(lowestPrice).toLocaleString("en-IN")}`
+              ? `₹${Number(
+                  lowestPrice,
+                ).toLocaleString("en-IN")}`
               : "Price unavailable"}
           </p>
         </div>

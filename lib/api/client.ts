@@ -1,5 +1,6 @@
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
 
 export async function apiFetch<T>(
   endpoint: string,
@@ -12,7 +13,11 @@ export async function apiFetch<T>(
 
   const headers = new Headers(options.headers);
 
-  headers.set("Content-Type", "application/json");
+  const isFormData = options.body instanceof FormData;
+
+  if (!isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -24,13 +29,13 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-  const errorData = await response.json().catch(() => null);
+    const errorData = await response.json().catch(() => null);
 
-  throw new Error(
-    errorData?.message ??
-      `API request failed: ${response.status}`,
-  );
-}
+    throw new Error(
+      errorData?.message ??
+        `API request failed: ${response.status}`,
+    );
+  }
 
   return response.json() as Promise<T>;
 }

@@ -763,7 +763,16 @@ export default function NewProductPage() {
   const [sellerSlug, setSellerSlug] = useState("");
 
   const [price, setPrice] = useState("");
-  const [images, setImages] = useState<string[]>([]);
+  interface ImageItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  url: string | null;
+  uploading: boolean;
+  error?: string;
+}
+
+const [images, setImages] = useState<ImageItem[]>([]);
 
   const [specifications, setSpecifications] = useState<
     Record<string, string>
@@ -897,8 +906,10 @@ export default function NewProductPage() {
     }
 
     if (sectionId === "media") {
-      return 10;
-    }
+  return images.filter(
+    (image) => image.url,
+  ).length;
+}
 
     if (sectionId === "variants") {
       return 1;
@@ -958,10 +969,34 @@ export default function NewProductPage() {
     }
 
     if (!price || Number(price) <= 0) {
-      setError("Please enter a valid price.");
-      setActiveSection("variants");
-      return;
-    }
+  setError("Please enter a valid price.");
+  setActiveSection("variants");
+  return;
+}
+
+const uploadingImages = images.some(
+  (image) => image.uploading,
+);
+
+const failedImages = images.some(
+  (image) => image.error || !image.url,
+);
+
+if (uploadingImages) {
+  setError("Please wait for all images to finish uploading.");
+  setActiveSection("media");
+  return;
+}
+
+if (failedImages) {
+  setError(
+    "One or more images failed to upload. Please remove them and try again.",
+  );
+  setActiveSection("media");
+  return;
+}
+
+setSaving(true);
 
     setSaving(true);
 
@@ -978,9 +1013,14 @@ export default function NewProductPage() {
           sellerSlug,
           price: Number(price),
           images:
-            images.length > 0
-              ? images
-              : undefined,
+  images.length > 0
+    ? images
+        .map((image) => image.url)
+        .filter(
+          (url): url is string =>
+            Boolean(url),
+        )
+    : undefined,
           specifications,
           isActive: publish,
         }),
@@ -1611,36 +1651,205 @@ function MediaSection({
   images,
   setImages,
 }: {
-  images: string[];
-  setImages: React.Dispatch<
-    React.SetStateAction<string[]>
-  >;
+  images: ImageItem[];
+  setImages: React.Dispatch<React.SetStateAction<ImageItem[]>>;
 }) {
-  const [url, setUrl] = useState("");
+  const [dragActive, setDragActive] = useState(false);
 
-  function addImage() {
-    const trimmed = url.trim();
+ async function uploadImage(file: File, id: string) {
+  try {
+    const formData = new FormData();
+    formData.append("images", file);
 
-    if (!trimmed) {
-      return;
+    const API_URL =
+      process.env.NEXT_PUBLIC_API_URL ??
+      "http://localhost:5000/api";
+
+    const token = localStorage.getItem("smartprix_token");
+
+    if (!token) {
+      throw new Error("Please login again.");
     }
 
-    setImages((current) => [
-      ...current,
-      trimmed,
-    ]);
+    const response = await fetch(
+      `${API_URL}/admin/products/upload-images`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      },
+    );
 
-    setUrl("");
-  }
+    const data = await response.json();
 
-  function removeImage(index: number) {
+    if (!response.ok) {
+      throw new Error(
+        data.message ?? "Image upload failed.",
+      );
+    }
+
+    const uploadedUrl =
+  data.data?.[0]?.url ??
+  data.url;
+
+    if (!uploadedUrl) {
+      throw new Error(
+        "Upload succeeded but no image URL was returned.",
+      );
+    }
+
     setImages((current) =>
-      current.filter(
-        (_, imageIndex) =>
-          imageIndex !== index,
+      current.map((image) =>
+        image.id === id
+          ? {
+              ...image,
+              url: uploadedUrl,
+              uploading: false,
+              error: undefined,
+            }
+          : image,
+      ),
+    );
+  } catch (error) {
+    setImages((current) =>
+      current.map((image) =>
+        image.id === id
+          ? {
+              ...image,
+              uploading: false,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Image upload failed.",
+            }
+          : image,
       ),
     );
   }
+}
+
+  function processFiles(files: FileList | File[]) {
+    const selectedFiles = Array.from(files)
+      .filter((file) =>
+        [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/avif",
+        ].includes(file.type),
+      )
+      .slice(0, 10 - images.length);
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    const newImages: ImageItem[] =
+      selectedFiles.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        url: null,
+        uploading: true,
+      }));
+
+    setImages((current) => [
+      ...current,
+      ...newImages,
+    ]);
+
+    for (const image of newImages) {
+      void uploadImage(image.file, image.id);
+    }
+  }
+
+  function handleFileChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    if (event.target.files) {
+      processFiles(event.target.files);
+    }
+
+    event.target.value = "";
+  }
+
+  function handleDrop(
+    event: React.DragEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragActive(false);
+
+    if (event.dataTransfer.files) {
+      processFiles(event.dataTransfer.files);
+    }
+  }
+
+  function handleDragOver(
+    event: React.DragEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragActive(true);
+  }
+
+  function handleDragLeave(
+    event: React.DragEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragActive(false);
+  }
+
+  function removeImage(index: number) {
+    setImages((current) => {
+      const image = current[index];
+
+      if (image?.previewUrl) {
+        URL.revokeObjectURL(image.previewUrl);
+      }
+
+      return current.filter(
+        (_, imageIndex) => imageIndex !== index,
+      );
+    });
+  }
+
+  function moveImage(
+    fromIndex: number,
+    toIndex: number,
+  ) {
+    if (
+      toIndex < 0 ||
+      toIndex >= images.length
+    ) {
+      return;
+    }
+
+    setImages((current) => {
+      const updated = [...current];
+
+      const [movedImage] =
+        updated.splice(fromIndex, 1);
+
+      updated.splice(toIndex, 0, movedImage);
+
+      return updated;
+    });
+  }
+
+  const uploadingCount = images.filter(
+    (image) => image.uploading,
+  ).length;
+
+  const failedCount = images.filter(
+    (image) => image.error,
+  ).length;
 
   return (
     <div className="space-y-7">
@@ -1650,93 +1859,215 @@ function MediaSection({
         </h3>
 
         <p className="mt-1 text-xs text-gray-500">
-          Add product images. The first image
-          will be treated as the primary image.
+          Upload high-quality product images.
+          The first image will be used as the
+          primary product image.
         </p>
       </div>
 
-      <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-white text-xl shadow-sm">
-          +
-        </div>
+      <div
+        onDragEnter={handleDragOver}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`rounded-2xl border-2 border-dashed p-10 text-center transition ${
+          dragActive
+            ? "border-gray-950 bg-gray-100"
+            : "border-gray-300 bg-gray-50 hover:border-gray-400"
+        }`}
+      >
+        <input
+          id="product-image-upload"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+        />
 
-        <p className="mt-3 text-sm font-semibold text-gray-900">
-          Add product image
+        <label
+          htmlFor="product-image-upload"
+          className="cursor-pointer"
+        >
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+            🖼️
+          </div>
+
+          <p className="mt-4 text-sm font-bold text-gray-900">
+            {dragActive
+              ? "Drop your images here"
+              : "Drag & drop product images"}
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            or click below to choose files
+          </p>
+
+          <span className="mt-5 inline-flex rounded-lg bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black">
+            Choose Files
+          </span>
+        </label>
+
+        <p className="mt-4 text-[11px] text-gray-400">
+          JPG, PNG, WEBP or AVIF • Maximum 10 images
         </p>
-
-        <p className="mt-1 text-xs text-gray-500">
-          Enter an image URL for now. File upload
-          can be connected to your existing
-          upload endpoint next.
-        </p>
-
-        <div className="mx-auto mt-5 flex max-w-xl gap-2">
-          <input
-            value={url}
-            onChange={(event) =>
-              setUrl(event.target.value)
-            }
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                addImage();
-              }
-            }}
-            placeholder="https://example.com/product.jpg"
-            className={inputClass}
-          />
-
-          <button
-            type="button"
-            onClick={addImage}
-            className="rounded-lg bg-gray-950 px-5 text-sm font-semibold text-white hover:bg-black"
-          >
-            Add
-          </button>
-        </div>
       </div>
+
+      {uploadingCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
+
+          <span className="text-xs font-medium text-blue-700">
+            Uploading {uploadingCount} image
+            {uploadingCount !== 1 ? "s" : ""}...
+          </span>
+        </div>
+      )}
+
+      {failedCount > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
+          {failedCount} image
+          {failedCount !== 1 ? "s" : ""} failed to upload.
+          Remove the failed image and try again.
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-gray-900">
+              Product Images
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              {images.length} image
+              {images.length !== 1 ? "s" : ""} added
+            </p>
+          </div>
+
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+            {images.length} / 10
+          </span>
+        </div>
+      )}
 
       {images.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((image, index) => (
             <div
-              key={`${image}-${index}`}
-              className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+              key={image.id}
+              className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
             >
-              <div className="aspect-square bg-gray-100">
+              <div className="relative aspect-square bg-gray-100">
                 <img
-                  src={image}
-                  alt={`Product image ${
-                    index + 1
-                  }`}
+                  src={image.previewUrl}
+                  alt={`Product image ${index + 1}`}
                   className="h-full w-full object-contain"
                 />
-              </div>
 
-              <div className="flex items-center justify-between border-t border-gray-100 p-3">
-                <span className="text-xs font-semibold text-gray-600">
-                  {index === 0
-                    ? "Primary Image"
-                    : `Image ${index + 1}`}
-                </span>
+                {index === 0 && (
+                  <span className="absolute left-3 top-3 rounded-full bg-gray-950 px-3 py-1 text-[10px] font-bold text-white">
+                    PRIMARY
+                  </span>
+                )}
+
+                {image.uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                    <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 shadow">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-950" />
+
+                      <span className="text-xs font-semibold text-gray-700">
+                        Uploading...
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {image.error && (
+                  <div className="absolute inset-x-0 bottom-0 bg-red-600 px-3 py-2 text-center text-[11px] font-semibold text-white">
+                    Upload failed
+                  </div>
+                )}
 
                 <button
                   type="button"
                   onClick={() =>
                     removeImage(index)
                   }
-                  className="text-xs font-semibold text-red-600 hover:text-red-700"
+                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-bold text-red-600 opacity-0 shadow-sm transition group-hover:opacity-100 hover:bg-red-50"
+                  title="Remove image"
                 >
-                  Remove
+                  ×
                 </button>
+              </div>
+
+              <div className="border-t border-gray-100 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">
+                    {index === 0
+                      ? "Primary Image"
+                      : `Image ${index + 1}`}
+                  </span>
+
+                  <span className="text-[10px] text-gray-400">
+                    #{index + 1}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    onClick={() =>
+                      moveImage(
+                        index,
+                        index - 1,
+                      )
+                    }
+                    className="flex-1 rounded-md border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    ← Move
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      index ===
+                      images.length - 1
+                    }
+                    onClick={() =>
+                      moveImage(
+                        index,
+                        index + 1,
+                      )
+                    }
+                    className="flex-1 rounded-md border border-gray-200 px-2 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Move →
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {images.length === 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+          <p className="text-sm font-semibold text-gray-700">
+            No product images added
+          </p>
+
+          <p className="mt-1 text-xs text-gray-400">
+            Add at least one image to use as the
+            primary product image.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function VariantsSection({
   price,

@@ -3,6 +3,20 @@
 import { useEffect, useState } from "react";
 import type { ProductImage } from "@/types/product";
 
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
+const API_SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+
+function getImageUrl(url: string) {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  return `${API_SERVER_URL}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
 interface ProductImageGalleryProps {
   images: ProductImage[];
   productName: string;
@@ -161,10 +175,10 @@ const handleThumbnailNext = () => {
             onAnimationEnd={() => setIsSliding(false)}
           >
             <img
-              src={selectedImage.url}
-              alt={selectedImage.altText ?? productName}
-              className="max-h-full max-w-full object-contain"
-            />
+  src={getImageUrl(selectedImage.url)}
+  alt={selectedImage.altText ?? productName}
+  className="max-h-full max-w-full object-contain"
+/>
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-400">
@@ -233,13 +247,13 @@ const handleThumbnailNext = () => {
               >
                 {image ? (
                   <img
-                    src={image.url}
-                    alt={
-                      image.altText ??
-                      `${productName} image ${actualIndex + 1}`
-                    }
-                    className="h-full w-full object-contain"
-                  />
+  src={getImageUrl(image.url)}
+  alt={
+    image.altText ??
+    `${productName} image ${actualIndex + 1}`
+  }
+  className="h-full w-full object-contain"
+/>
                 ) : (
                   <span className="text-2xl text-gray-300">
                     +

@@ -1,6 +1,8 @@
+
 export default function Navbar() {
   return (
     <nav className="border-b bg-gray-50">
+      
       <div className="mx-auto flex h-12 max-w-7xl items-center gap-8 px-4">
         <a
           href="/products"

@@ -1,90 +1,877 @@
 "use client";
 
-import {
-  useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import NewsEditor from "@/components/admin/news/NewsEditor";
+import { apiFetch } from "@/lib/api/client";
+
+type NewsStatus = "DRAFT" | "PUBLISHED";
+
+type NewsForm = {
+  title: string;
+  authorName: string;
+  featuredImage: string;
+  status: NewsStatus;
+  allowLikes: boolean;
+  allowComments: boolean;
+  allowSharing: boolean;
+};
+
+type ApiResponse = {
+  success?: boolean;
+  message?: string;
+  data?: any;
+  error?: string;
+};
 
 export default function NewNewsPage() {
-  const [title, setTitle] =
+  const router = useRouter();
+
+  const [form, setForm] = useState<NewsForm>({
+    title: "",
+    authorName: "",
+    featuredImage: "",
+    status: "DRAFT",
+    allowLikes: true,
+    allowComments: true,
+    allowSharing: true,
+  });
+
+  const [content, setContent] = useState("");
+
+  const [saving, setSaving] = useState(false);
+
+  const [saveMessage, setSaveMessage] = useState("");
+
+  const [featuredImageInput, setFeaturedImageInput] =
     useState("");
 
-  const [authorName, setAuthorName] =
-    useState("");
+  const [showPublishSettings, setShowPublishSettings] =
+    useState(false);
 
-  const [content, setContent] =
-    useState("");
+  const [showVisibilitySettings, setShowVisibilitySettings] =
+    useState(false);
+
+  const [showPreview, setShowPreview] = useState(false);
+
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * Auto focus title.
+   */
+  useEffect(() => {
+    titleInputRef.current?.focus();
+  }, []);
+
+  /**
+   * Generate a slug-like permalink for display.
+   *
+   * The backend remains responsible for the actual slug.
+   */
+  const previewSlug = useMemo(() => {
+    const slug = form.title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-");
+
+    return slug || "your-news-title";
+  }, [form.title]);
+
+  /**
+   * Update a single form field.
+   */
+  const updateForm = <K extends keyof NewsForm>(
+    field: K,
+    value: NewsForm[K]
+  ) => {
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  /**
+   * Create NewsBlock payload from the rich editor.
+   *
+   * We store the complete article HTML as one rich-text block.
+   */
+  const createBlocks = () => {
+    return [
+      {
+        type: "rich-text",
+        position: 0,
+        content: {
+          html: content,
+        },
+      },
+    ];
+  };
+
+  /**
+   * Save article.
+   */
+  const savePost = async (status: NewsStatus) => {
+    if (!form.title.trim()) {
+      window.alert("Please enter a title.");
+      titleInputRef.current?.focus();
+      return;
+    }
+
+    if (!form.authorName.trim()) {
+      window.alert("Please enter the author name.");
+      return;
+    }
+
+    if (!content.trim()) {
+      const shouldContinue = window.confirm(
+        "The article content is empty. Do you want to continue?"
+      );
+
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
+    try {
+      setSaving(true);
+      setSaveMessage("");
+
+      const payload = {
+        title: form.title.trim(),
+
+        authorName: form.authorName.trim(),
+
+        featuredImage:
+          form.featuredImage.trim() || undefined,
+
+        status,
+
+        allowLikes: form.allowLikes,
+
+        allowComments: form.allowComments,
+
+        allowSharing: form.allowSharing,
+
+        blocks: createBlocks(),
+      };
+
+      const response = (await apiFetch("/admin/news", {
+        method: "POST",
+
+        body: JSON.stringify(payload),
+      })) as ApiResponse;
+
+      if (!response) {
+        throw new Error("No response from server.");
+      }
+
+      if (response.success === false) {
+        throw new Error(
+          response.message ||
+            response.error ||
+            "Failed to save news."
+        );
+      }
+
+      setForm((previous) => ({
+        ...previous,
+        status,
+      }));
+
+      setSaveMessage(
+        status === "PUBLISHED"
+          ? "Post published successfully."
+          : "Draft saved successfully."
+      );
+
+      /**
+       * If backend returns the created news object,
+       * navigate to its edit page.
+       */
+      const createdNews =
+        response.data?.data ??
+        response.data ??
+        null;
+
+      const newsId = createdNews?.id;
+
+      if (newsId) {
+        setTimeout(() => {
+          router.push(`/admin/news/${newsId}`);
+        }, 700);
+      }
+    } catch (error) {
+      console.error("Save news error:", error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to save news post."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Save draft.
+   */
+  const handleSaveDraft = async () => {
+    await savePost("DRAFT");
+  };
+
+  /**
+   * Publish.
+   */
+  const handlePublish = async () => {
+    await savePost("PUBLISHED");
+  };
+
+  /**
+   * Set featured image from URL.
+   */
+  const setFeaturedImage = () => {
+    const url = window.prompt(
+      "Enter featured image URL:",
+      form.featuredImage
+    );
+
+    if (url === null) {
+      return;
+    }
+
+    const cleanUrl = url.trim();
+
+    updateForm("featuredImage", cleanUrl);
+
+    setFeaturedImageInput(cleanUrl);
+  };
+
+  /**
+   * Remove featured image.
+   */
+  const removeFeaturedImage = () => {
+    updateForm("featuredImage", "");
+    setFeaturedImageInput("");
+  };
+
+  /**
+   * Client-side article preview.
+   */
+  const openPreview = () => {
+    setShowPreview(true);
+  };
 
   return (
-    <div className="min-h-screen bg-[#f0f0f1]">
-      {/* HEADER */}
+    <div className="min-h-screen bg-[#f1f1f1] text-[#1d2327]">
+      {/* =====================================================
+          PAGE HEADER
+          ===================================================== */}
 
-      <header className="sticky top-0 z-50 border-b border-gray-300 bg-white">
-        <div className="flex h-14 items-center justify-between px-5">
-          <h1 className="text-base font-semibold text-gray-900">
-            Create News
-          </h1>
+      <div className="border-b border-[#dcdcde] bg-white px-5 py-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-normal">
+              Add Post
+            </h1>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm"
-            >
-              Save Draft
-            </button>
-
-            <button
-              type="button"
-              className="rounded-md bg-[#2271b1] px-4 py-2 text-sm font-semibold text-white"
-            >
-              Publish
-            </button>
+            <p className="mt-1 text-sm text-gray-500">
+              Create and publish a news article.
+            </p>
           </div>
+
+          <button
+            type="button"
+            className="rounded border border-[#c3c4c7] bg-white px-4 py-2 text-sm text-[#2c3338] shadow-sm hover:bg-[#f6f7f7]"
+          >
+            Screen Options ▾
+          </button>
         </div>
-      </header>
+      </div>
 
-      {/* PAGE */}
+      {/* =====================================================
+          MAIN ADMIN AREA
+          ===================================================== */}
 
-      <main className="mx-auto max-w-[1100px] px-5 py-8">
-        <div className="rounded-lg border border-gray-300 bg-white">
-          {/* TITLE */}
+      <div className="px-5 py-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+          {/* =================================================
+              MAIN COLUMN
+              ================================================= */}
 
-          <div className="px-8 pt-8">
+          <main className="min-w-0">
+            {/* Title */}
             <input
+              ref={titleInputRef}
               type="text"
-              value={title}
+              value={form.title}
               onChange={(event) =>
-                setTitle(
-                  event.target.value,
+                updateForm(
+                  "title",
+                  event.target.value
                 )
               }
               placeholder="Add title"
-              className="w-full border-0 bg-transparent px-0 text-4xl font-bold text-gray-950 outline-none placeholder:text-gray-400 focus:ring-0"
+              className="mb-2 h-[48px] w-full border border-[#c3c4c7] bg-white px-3 text-[24px] font-normal text-[#2c3338] outline-none placeholder:text-[#646970] focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
 
-            <div className="mt-4 border-b border-gray-200 pb-6">
-              <input
-                type="text"
-                value={authorName}
-                onChange={(event) =>
-                  setAuthorName(
-                    event.target.value,
-                  )
-                }
-                placeholder="Author name"
-                className="border-0 bg-transparent text-sm text-gray-600 outline-none focus:ring-0"
+            {/* Permalink */}
+            <div className="mb-4 flex flex-wrap items-center gap-1 px-2 text-[13px] text-[#50575e]">
+              <span>Permalink:</span>
+
+              <span className="text-[#2271b1]">
+                /news/
+                {previewSlug}
+              </span>
+
+              <button
+                type="button"
+                className="ml-2 rounded border border-[#c3c4c7] bg-[#f6f7f7] px-2 py-1 text-xs hover:bg-white"
+                onClick={() => {
+                  window.alert(
+                    "The final slug is generated by the backend from the news title."
+                  );
+                }}
+              >
+                Edit
+              </button>
+            </div>
+
+            {/* Add Media */}
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.alert(
+                    "Use the image button inside the editor to insert images at the cursor position."
+                  );
+                }}
+                className="rounded border border-[#2271b1] bg-white px-3 py-2 text-sm font-medium text-[#2271b1] hover:bg-[#f0f6fc]"
+              >
+                🖼 Add Media
+              </button>
+            </div>
+
+            {/* Editor */}
+            <div className="bg-white">
+              <NewsEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Start writing your news article..."
               />
             </div>
-          </div>
 
-          {/* EDITOR */}
+            {/* Editor status */}
+            <div className="mt-2 flex items-center justify-between text-xs text-[#646970]">
+              <span>
+                Words:{" "}
+                {content
+                  .replace(/<[^>]*>/g, " ")
+                  .trim()
+                  .split(/\s+/)
+                  .filter(Boolean).length}
+              </span>
 
-          <NewsEditor
-            onChange={setContent}
-          />
+              {saveMessage && (
+                <span className="text-green-600">
+                  {saveMessage}
+                </span>
+              )}
+            </div>
+
+            {/* =================================================
+                AUTHOR SETTINGS BELOW EDITOR
+                ================================================= */}
+
+            <div className="mt-5 border border-[#dcdcde] bg-white">
+              <div className="border-b border-[#dcdcde] px-4 py-3">
+                <h2 className="text-sm font-semibold">
+                  Author
+                </h2>
+              </div>
+
+              <div className="p-4">
+                <label className="mb-2 block text-sm font-medium">
+                  Author Name
+                </label>
+
+                <input
+                  type="text"
+                  value={form.authorName}
+                  onChange={(event) =>
+                    updateForm(
+                      "authorName",
+                      event.target.value
+                    )
+                  }
+                  placeholder="Enter author name"
+                  className="w-full max-w-md rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
+                />
+              </div>
+            </div>
+          </main>
+
+          {/* =================================================
+              RIGHT SIDEBAR
+              ================================================= */}
+
+          <aside className="space-y-4">
+            {/* =================================================
+                PUBLISH BOX
+                ================================================= */}
+
+            <section className="border border-[#c3c4c7] bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+                <h2 className="text-sm font-semibold">
+                  Publish
+                </h2>
+
+                <button
+                  type="button"
+                  className="text-gray-500"
+                  onClick={() =>
+                    setShowPublishSettings(
+                      (value) => !value
+                    )
+                  }
+                >
+                  {showPublishSettings
+                    ? "⌃"
+                    : "⌄"}
+                </button>
+              </div>
+
+              <div className="p-3">
+                <div className="mb-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handleSaveDraft}
+                    className="rounded border border-[#2271b1] bg-white px-3 py-2 text-sm text-[#2271b1] hover:bg-[#f0f6fc] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saving
+                      ? "Saving..."
+                      : "Save Draft"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={openPreview}
+                    className="rounded border border-[#c3c4c7] bg-white px-3 py-2 text-sm text-[#2c3338] hover:bg-[#f6f7f7] disabled:opacity-50"
+                  >
+                    Preview
+                  </button>
+                </div>
+
+                {/* Status */}
+                <div className="border-t border-[#eee] py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      <span className="mr-2">
+                        ●
+                      </span>
+                      Status:
+                      <strong className="ml-1">
+                        {form.status ===
+                        "PUBLISHED"
+                          ? "Published"
+                          : "Draft"}
+                      </strong>
+                    </span>
+
+                    <button
+                      type="button"
+                      className="text-[#2271b1]"
+                      onClick={() =>
+                        setShowPublishSettings(
+                          true
+                        )
+                      }
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+
+                {/* Visibility */}
+                <div className="border-t border-[#eee] py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      👁 Visibility:
+                      <strong className="ml-1">
+                        Public
+                      </strong>
+                    </span>
+
+                    <button
+                      type="button"
+                      className="text-[#2271b1]"
+                      onClick={() =>
+                        setShowVisibilitySettings(
+                          (value) => !value
+                        )
+                      }
+                    >
+                      Edit
+                    </button>
+                  </div>
+
+                  {showVisibilitySettings && (
+                    <div className="mt-2 rounded bg-[#f6f7f7] p-2 text-xs text-gray-600">
+                      News visibility is
+                      currently public.
+                    </div>
+                  )}
+                </div>
+
+                {/* Publish time */}
+                <div className="border-t border-[#eee] py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      📅 Publish:
+                      <strong className="ml-1">
+                        Immediately
+                      </strong>
+                    </span>
+
+                    <button
+                      type="button"
+                      className="text-[#2271b1]"
+                      onClick={() =>
+                        window.alert(
+                          "Scheduled publishing can be added to the News model later."
+                        )
+                      }
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+
+                {/* Publish settings */}
+                {showPublishSettings && (
+                  <div className="mt-3 border-t border-[#eee] pt-3">
+                    <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
+                      Status
+                    </label>
+
+                    <select
+                      value={form.status}
+                      onChange={(event) =>
+                        updateForm(
+                          "status",
+                          event.target
+                            .value as NewsStatus
+                        )
+                      }
+                      className="w-full rounded border border-[#c3c4c7] bg-white px-2 py-2 text-sm"
+                    >
+                      <option value="DRAFT">
+                        Draft
+                      </option>
+
+                      <option value="PUBLISHED">
+                        Published
+                      </option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Publish button */}
+                <div className="mt-4 flex justify-end border-t border-[#eee] pt-3">
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handlePublish}
+                    className="rounded bg-[#2271b1] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#135e96] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saving
+                      ? "Publishing..."
+                      : "Publish"}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================
+                FEATURED IMAGE
+                ================================================= */}
+
+            <section className="border border-[#c3c4c7] bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+                <h2 className="text-sm font-semibold">
+                  Featured Image
+                </h2>
+
+                <span className="text-gray-500">
+                  ⌃
+                </span>
+              </div>
+
+              <div className="p-3">
+                {form.featuredImage ? (
+                  <>
+                    <img
+                      src={form.featuredImage}
+                      alt="Featured"
+                      className="mb-3 aspect-video w-full rounded border border-[#dcdcde] object-cover"
+                      onError={(event) => {
+                        event.currentTarget.style.display =
+                          "none";
+                      }}
+                    />
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={setFeaturedImage}
+                        className="text-sm text-[#2271b1]"
+                      >
+                        Change
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={removeFeaturedImage}
+                        className="text-sm text-red-600"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={setFeaturedImage}
+                    className="w-full py-5 text-center text-sm text-[#2271b1] hover:bg-[#f6f7f7]"
+                  >
+                    Set featured image
+                  </button>
+                )}
+              </div>
+            </section>
+
+            {/* =================================================
+                CATEGORIES
+                ================================================= */}
+
+            <section className="border border-[#c3c4c7] bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+                <h2 className="text-sm font-semibold">
+                  Categories
+                </h2>
+
+                <span className="text-gray-500">
+                  ⌃
+                </span>
+              </div>
+
+              <div className="p-3">
+                <div className="mb-3 flex gap-4 border-b border-[#eee] pb-2 text-xs">
+                  <button
+                    type="button"
+                    className="font-medium text-[#2271b1]"
+                  >
+                    All Categories
+                  </button>
+
+                  <button
+                    type="button"
+                    className="text-[#2271b1]"
+                  >
+                    Most Used
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    Smartphones
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    Mobile Phones
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    Laptops
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    Gadgets
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    Technology
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      disabled
+                    />
+                    News
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  disabled
+                  className="mt-4 text-sm text-[#2271b1]"
+                >
+                  + Add New Category
+                </button>
+              </div>
+            </section>
+
+            {/* =================================================
+                ARTICLE SETTINGS
+                ================================================= */}
+
+            <section className="border border-[#c3c4c7] bg-white shadow-sm">
+              <div className="border-b border-[#dcdcde] px-3 py-3">
+                <h2 className="text-sm font-semibold">
+                  Article Settings
+                </h2>
+              </div>
+
+              <div className="space-y-3 p-3 text-sm">
+                <label className="flex items-center justify-between gap-3">
+                  <span>Allow Likes</span>
+
+                  <input
+                    type="checkbox"
+                    checked={form.allowLikes}
+                    onChange={(event) =>
+                      updateForm(
+                        "allowLikes",
+                        event.target.checked
+                      )
+                    }
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-3">
+                  <span>Allow Comments</span>
+
+                  <input
+                    type="checkbox"
+                    checked={form.allowComments}
+                    onChange={(event) =>
+                      updateForm(
+                        "allowComments",
+                        event.target.checked
+                      )
+                    }
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-3">
+                  <span>Allow Sharing</span>
+
+                  <input
+                    type="checkbox"
+                    checked={form.allowSharing}
+                    onChange={(event) =>
+                      updateForm(
+                        "allowSharing",
+                        event.target.checked
+                      )
+                    }
+                  />
+                </label>
+              </div>
+            </section>
+          </aside>
         </div>
-      </main>
+      </div>
+
+      {/* =====================================================
+          PREVIEW MODAL
+          ===================================================== */}
+
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-5">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
+            {/* Preview header */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Post Preview
+                </h2>
+
+                <p className="text-xs text-gray-500">
+                  Preview of the current article
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowPreview(false)
+                }
+                className="rounded px-3 py-2 text-xl text-gray-500 hover:bg-gray-100"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Preview content */}
+            <div className="overflow-y-auto p-6">
+              <article className="mx-auto max-w-3xl">
+                <h1 className="text-4xl font-bold text-gray-900">
+                  {form.title ||
+                    "Untitled News Post"}
+                </h1>
+
+                <div className="mt-3 text-sm text-gray-500">
+                  By {form.authorName ||
+                    "Unknown Author"}{" "}
+                  · Updated just now
+                </div>
+
+                {form.featuredImage && (
+                  <img
+                    src={form.featuredImage}
+                    alt={form.title}
+                    className="mt-6 w-full rounded-lg object-cover"
+                  />
+                )}
+
+                <div
+                  className="mt-8"
+                  dangerouslySetInnerHTML={{
+                    __html: content,
+                  }}
+                />
+              </article>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

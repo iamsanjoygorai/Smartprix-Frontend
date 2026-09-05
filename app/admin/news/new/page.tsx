@@ -51,6 +51,12 @@ export default function NewNewsPage() {
 
   const [content, setContent] = useState("");
 
+const [contentJSON, setContentJSON] = useState<
+  Record<string, unknown> | null
+>(null);
+
+const [contentText, setContentText] = useState("");
+
   const [saving, setSaving] = useState(false);
 
   const [saveMessage, setSaveMessage] = useState("");
@@ -165,6 +171,23 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     }));
   };
 
+
+  const getNodeText = (
+  node: Record<string, unknown>,
+): string => {
+  if (typeof node.text === "string") {
+    return node.text;
+  }
+
+  const children =
+    (node.content as Array<Record<string, unknown>> | undefined) ??
+    [];
+
+  return children
+    .map((child) => getNodeText(child))
+    .join("");
+};
+
   // =========================================================
   // CATEGORY TOGGLE
   // =========================================================
@@ -182,130 +205,224 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
   // =========================================================
 
   const createBlocks = () => {
-    return [
-      {
-        type: "rich-text",
-        position: 0,
-        content: {
-          html: content,
-        },
-      },
-    ];
-  };
+  if (!contentJSON) {
+    return [];
+  }
+
+  const documentContent =
+    (contentJSON.content as Array<Record<string, unknown>> | undefined) ??
+    [];
+
+  const blocks: Array<{
+    type: string;
+    position: number;
+    content: Record<string, unknown>;
+  }> = [];
+
+  documentContent.forEach((node) => {
+    const nodeType = node.type;
+
+    // Paragraph
+    if (nodeType === "paragraph") {
+      const text = getNodeText(node);
+
+      if (text.trim()) {
+        blocks.push({
+          type: "text",
+          position: blocks.length,
+          content: {
+            text,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // Heading
+    if (nodeType === "heading") {
+      const text = getNodeText(node);
+
+      if (text.trim()) {
+        const attrs =
+          (node.attrs as Record<string, unknown> | undefined) ?? {};
+
+        blocks.push({
+          type: "heading",
+          position: blocks.length,
+          content: {
+            text,
+            level: attrs.level ?? 1,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // Image
+    if (nodeType === "image") {
+      const attrs =
+        (node.attrs as Record<string, unknown> | undefined) ?? {};
+
+      if (attrs.src) {
+        blocks.push({
+          type: "image",
+          position: blocks.length,
+          content: {
+            src: attrs.src,
+            alt: attrs.alt ?? "",
+            title: attrs.title ?? "",
+          },
+        });
+      }
+
+      return;
+    }
+
+    // Video
+    if (nodeType === "video") {
+      const attrs =
+        (node.attrs as Record<string, unknown> | undefined) ?? {};
+
+      if (attrs.src) {
+        blocks.push({
+          type: "video",
+          position: blocks.length,
+          content: {
+            src: attrs.src,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // Audio
+    if (nodeType === "audio") {
+      const attrs =
+        (node.attrs as Record<string, unknown> | undefined) ?? {};
+
+      if (attrs.src) {
+        blocks.push({
+          type: "audio",
+          position: blocks.length,
+          content: {
+            src: attrs.src,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // Divider
+    if (nodeType === "horizontalRule") {
+      blocks.push({
+        type: "divider",
+        position: blocks.length,
+        content: {},
+      });
+
+      return;
+    }
+  });
+
+  return blocks;
+};
 
   // =========================================================
   // SAVE POST
   // =========================================================
 
   const savePost = async (status: NewsStatus) => {
-    if (!form.title.trim()) {
-      window.alert("Please enter a title.");
-      titleInputRef.current?.focus();
+  if (!form.title.trim()) {
+    window.alert("Please enter a title.");
+    titleInputRef.current?.focus();
+    return;
+  }
+
+  if (!form.authorName.trim()) {
+    window.alert("Please enter the author name.");
+    return;
+  }
+
+  if (!contentJSON) {
+    const shouldContinue = window.confirm(
+      "The article content is empty. Do you want to continue?"
+    );
+
+    if (!shouldContinue) {
       return;
     }
+  }
 
-    if (!form.authorName.trim()) {
-      window.alert("Please enter the author name.");
-      return;
+  try {
+    setSaving(true);
+    setSaveMessage("");
+
+    const payload = {
+      title: form.title.trim(),
+      authorName: form.authorName.trim(),
+      featuredImage:
+        form.featuredImage.trim() || undefined,
+      status,
+      allowLikes: form.allowLikes,
+      allowComments: form.allowComments,
+      allowSharing: form.allowSharing,
+      blocks: createBlocks(),
+      categoryIds: selectedCategoryIds,
+    };
+
+    console.log("Creating news post:", payload);
+
+    const response = (await apiFetch("/admin/news", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })) as ApiResponse;
+
+    console.log("Create news response:", response);
+
+    if (!response) {
+      throw new Error("No response received from server.");
     }
 
-    if (!content.trim()) {
-      const shouldContinue = window.confirm(
-        "The article content is empty. Do you want to continue?"
+    if (response.success === false) {
+      throw new Error(
+        response.message ||
+          response.error ||
+          "Failed to save news."
       );
-
-      if (!shouldContinue) {
-        return;
-      }
     }
 
-    try {
-      setSaving(true);
-      setSaveMessage("");
+    setForm((previous) => ({
+      ...previous,
+      status,
+    }));
 
-      const payload = {
-        title: form.title.trim(),
+    setSaveMessage(
+      status === "PUBLISHED"
+        ? "Post published successfully."
+        : "Draft saved successfully."
+    );
 
-        authorName: form.authorName.trim(),
+    // Go back to All Posts
+    setTimeout(() => {
+      router.push("/admin/news");
+    }, 700);
+  } catch (error) {
+    console.error("Save news error:", error);
 
-        featuredImage:
-          form.featuredImage.trim() || undefined,
+    window.alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to save news post."
+    );
+  } finally {
+    setSaving(false);
+  }
+};
 
-        status,
-
-        allowLikes: form.allowLikes,
-
-        allowComments: form.allowComments,
-
-        allowSharing: form.allowSharing,
-
-        blocks: createBlocks(),
-
-        categoryIds: selectedCategoryIds,
-      };
-
-      console.log("Creating news post:", payload);
-
-      const response = (await apiFetch("/admin/news", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      })) as ApiResponse;
-
-      console.log("Create news response:", response);
-
-      if (!response) {
-        throw new Error(
-          "No response received from server."
-        );
-      }
-
-      if (response.success === false) {
-        throw new Error(
-          response.message ||
-            response.error ||
-            "Failed to save news."
-        );
-      }
-
-      setForm((previous) => ({
-        ...previous,
-        status,
-      }));
-
-      setSaveMessage(
-        status === "PUBLISHED"
-          ? "Post published successfully."
-          : "Draft saved successfully."
-      );
-
-      // =====================================================
-      // GET CREATED NEWS ID
-      // =====================================================
-
-      const createdNews =
-        response.data?.data ??
-        response.data ??
-        null;
-
-      const newsId = createdNews?.id;
-
-      if (newsId) {
-        setTimeout(() => {
-          router.push(`/admin/news/${newsId}`);
-        }, 700);
-      }
-    } catch (error) {
-      console.error("Save news error:", error);
-
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to save news post."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // =========================================================
   // SAVE DRAFT
@@ -328,27 +445,12 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
   // =========================================================
 
   const setFeaturedImage = () => {
-    const url = window.prompt(
-      "Enter featured image URL:",
-      form.featuredImage
-    );
+  const cleanUrl = featuredImageInput.trim();
 
-    if (url === null) {
-      return;
-    }
+  updateForm("featuredImage", cleanUrl);
+};
 
-    const cleanUrl = url.trim();
 
-    updateForm("featuredImage", cleanUrl);
-
-    setFeaturedImageInput(cleanUrl);
-  };
-
-  const removeFeaturedImage = () => {
-    updateForm("featuredImage", "");
-
-    setFeaturedImageInput("");
-  };
 
   // =========================================================
   // PREVIEW
@@ -481,10 +583,11 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
             <div className="bg-white">
 
               <NewsEditor
-                value={content}
-                onChange={setContent}
-                placeholder="Start writing your news article..."
-              />
+  value={content}
+  onChange={setContent}
+  onChangeJSON={setContentJSON}
+  onChangeText={setContentText}
+/>
 
             </div>
 
@@ -762,66 +865,73 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
                 ================================================= */}
 
             <section className="border border-[#c3c4c7] bg-white shadow-sm">
+  <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+    <h2 className="text-sm font-semibold">
+      Featured Image
+    </h2>
 
-              <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+    <span className="text-gray-500">
+      ⌃
+    </span>
+  </div>
 
-                <h2 className="text-sm font-semibold">
-                  Featured Image
-                </h2>
+  <div className="p-3">
+    <label className="mb-2 block text-xs font-medium text-[#50575e]">
+      Image URL
+    </label>
 
-                <span className="text-gray-500">
-                  ⌃
-                </span>
+    <input
+      type="url"
+      value={featuredImageInput}
+      onChange={(event) => {
+        const value = event.target.value;
 
-              </div>
+        setFeaturedImageInput(value);
+        updateForm("featuredImage", value);
+      }}
+      placeholder="https://example.com/image.jpg"
+      className="w-full rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
+    />
 
-              <div className="p-3">
+    <p className="mt-2 text-xs text-gray-500">
+      Enter a public image URL for the article's featured image.
+    </p>
 
-                {form.featuredImage ? (
-                  <>
-                    <img
-                      src={form.featuredImage}
-                      alt="Featured"
-                      className="mb-3 aspect-video w-full rounded border border-[#dcdcde] object-cover"
-                      onError={(event) => {
-                        event.currentTarget.style.display =
-                          "none";
-                      }}
-                    />
+    {form.featuredImage && (
+      <div className="mt-3">
+        <img
+          src={form.featuredImage}
+          alt="Featured"
+          className="aspect-video w-full rounded border border-[#dcdcde] object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
 
-                    <div className="flex gap-2">
+        <div className="mt-2 flex justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              setFeaturedImageInput("");
+              updateForm("featuredImage", "");
+            }}
+            className="text-sm text-red-600 hover:underline"
+          >
+            Remove image
+          </button>
 
-                      <button
-                        type="button"
-                        onClick={setFeaturedImage}
-                        className="text-sm text-[#2271b1]"
-                      >
-                        Change
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={removeFeaturedImage}
-                        className="text-sm text-red-600"
-                      >
-                        Remove
-                      </button>
-
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={setFeaturedImage}
-                    className="w-full py-5 text-center text-sm text-[#2271b1] hover:bg-[#f6f7f7]"
-                  >
-                    Set featured image
-                  </button>
-                )}
-
-              </div>
-
-            </section>
+          <button
+            type="button"
+            onClick={setFeaturedImage}
+            className="text-sm text-[#2271b1] hover:underline"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+</section>
 
             {/* =================================================
                 CATEGORIES

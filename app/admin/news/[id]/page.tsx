@@ -11,6 +11,9 @@ type NewsBlock = {
   position: number;
   content: {
     html?: string;
+    src?: string;
+    alt?: string;
+    title?: string;
   };
 };
 
@@ -93,11 +96,61 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
         setAllowComments(news.allowComments ?? true);
         setAllowSharing(news.allowSharing ?? true);
 
-        const htmlBlock = news.blocks?.find(
-          (block) => block.type === "rich-text"
-        );
+        const sortedBlocks = [...(news.blocks ?? [])].sort(
+  (a, b) => a.position - b.position,
+);
 
-        setContent(htmlBlock?.content?.html ?? "");
+const combinedHtml = sortedBlocks
+  .map((block) => {
+    if (block.type === "rich-text") {
+  const json = block.content?.json;
+
+  if (!json) {
+    return "";
+  }
+
+  return JSON.stringify(json);
+}
+
+    if (block.type === "image") {
+      const src = block.content?.src;
+
+      if (!src) {
+        return "";
+      }
+
+      return `<img src="${src}" alt="${block.content?.alt ?? ""}" />`;
+    }
+
+    if (block.type === "video") {
+      const src = block.content?.src;
+
+      if (!src) {
+        return "";
+      }
+
+      return `<video src="${src}" controls></video>`;
+    }
+
+    if (block.type === "audio") {
+      const src = block.content?.src;
+
+      if (!src) {
+        return "";
+      }
+
+      return `<audio src="${src}" controls preload="metadata"></audio>`;
+    }
+
+    if (block.type === "table") {
+      return block.content?.html ?? "";
+    }
+
+    return "";
+  })
+  .join("");
+
+setContent(combinedHtml);
 
         setSelectedCategoryIds(
           news.categories?.map((item) => item.category.id) ?? []
@@ -163,6 +216,135 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     );
   };
 
+  const createBlocks = () => {
+  if (!content.trim()) {
+    return [];
+  }
+
+  const parser = new DOMParser();
+
+  const document = parser.parseFromString(
+    content,
+    "text/html",
+  );
+
+  const blocks: Array<{
+    type: string;
+    position: number;
+    content: Record<string, unknown>;
+  }> = [];
+
+  Array.from(document.body.children).forEach((element) => {
+    const tagName = element.tagName.toLowerCase();
+
+    // TEXT / RICH TEXT
+    if (
+      tagName === "p" ||
+      tagName === "h1" ||
+      tagName === "h2" ||
+      tagName === "h3" ||
+      tagName === "h4" ||
+      tagName === "h5" ||
+      tagName === "h6" ||
+      tagName === "blockquote" ||
+      tagName === "ul" ||
+      tagName === "ol" ||
+      tagName === "pre"
+    ) {
+      if (element.textContent?.trim()) {
+        blocks.push({
+          type: "rich-text",
+          position: blocks.length,
+          content: {
+            html: element.outerHTML,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // IMAGE
+    if (tagName === "img") {
+      const image = element as HTMLImageElement;
+
+      if (image.src) {
+        blocks.push({
+          type: "image",
+          position: blocks.length,
+          content: {
+            src: image.src,
+            alt: image.alt || "",
+            title: image.title || "",
+          },
+        });
+      }
+
+      return;
+    }
+
+    // VIDEO
+    if (tagName === "video") {
+      const video = element as HTMLVideoElement;
+
+      if (video.src) {
+        blocks.push({
+          type: "video",
+          position: blocks.length,
+          content: {
+            src: video.src,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // AUDIO
+    if (tagName === "audio") {
+      const audio = element as HTMLAudioElement;
+
+      if (audio.src) {
+        blocks.push({
+          type: "audio",
+          position: blocks.length,
+          content: {
+            src: audio.src,
+          },
+        });
+      }
+
+      return;
+    }
+
+    // TABLE
+    if (tagName === "table") {
+      blocks.push({
+        type: "table",
+        position: blocks.length,
+        content: {
+          html: element.outerHTML,
+        },
+      });
+
+      return;
+    }
+
+    // OTHER CONTENT
+    if (element.innerHTML.trim()) {
+      blocks.push({
+        type: "rich-text",
+        position: blocks.length,
+        content: {
+          html: element.outerHTML,
+        },
+      });
+    }
+  });
+
+  return blocks;
+};
+
   const savePost = async (
     newStatus: "DRAFT" | "PUBLISHED" = status
   ) => {
@@ -190,15 +372,7 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
           allowComments,
           allowSharing,
           categoryIds: selectedCategoryIds,
-          blocks: [
-            {
-              type: "rich-text",
-              position: 0,
-              content: {
-                html: content,
-              },
-            },
-          ],
+          blocks: createBlocks(),
         }),
       });
 

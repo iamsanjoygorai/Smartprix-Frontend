@@ -1,6 +1,12 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+import { apiFetch } from "@/lib/api/client";
+
 import PopularMobiles from "@/components/home/PopularMobiles";
 import TrendingNews from "@/components/home/TrendingNews";
-import Link from "next/link";
 
 const trends = [
   { title: "Best Smartphones Under ₹35,000 in India (August 2026)", image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=1200&q=85", className: "md:row-span-2", tint: "bg-cyan-700/55", large: true, tag: "Trending" },
@@ -170,19 +176,188 @@ const categories = [
   ["News", "📰", "/news"], ["Deals", "🏷️", "/products"], ["Grocery", "🛍️", "/products"], ["Flights", "✈️", "/flights"], ["Mobiles", "📱", "/products?category=mobile"], ["Laptops", "💻", "/products?category=laptop"], ["TVs", "📺", "/products?category=tv"], ["Tablets", "🖥️", "/products?category=tablet"], ["Bikes", "🏍️", "/auto"], ["Cars", "🚗", "/auto"], ["Cameras", "📷", "/electronics/camera"], ["Earphones", "🎧", "/accessories"], ["Smartwatch", "⌚", "/products?category=smartwatch"], ["ACs", "❄️", "/appliances"],
 ] as const;
 
+type NewsCategory = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type NewsBlock = {
+  id: string;
+  type: string;
+  position: number;
+  content: {
+    html?: string;
+  };
+};
+
+type NewsPost = {
+  id: string;
+  title: string;
+  slug: string;
+  authorName: string;
+  featuredImage?: string | null;
+  status: "DRAFT" | "PUBLISHED";
+  publishedAt?: string | null;
+  createdAt: string;
+  categories?: {
+    category: NewsCategory;
+  }[];
+  blocks?: NewsBlock[];
+};
+
+type NewsResponse = {
+  success: boolean;
+  data: NewsPost[];
+};
+
 export default function HomePage() {
+  const [news, setNews] = useState<NewsPost[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadNews = async () => {
+      try {
+        const response =
+          await apiFetch<NewsResponse>("/news");
+
+        if (
+          response.success &&
+          Array.isArray(response.data)
+        ) {
+          const publishedNews = response.data
+  .filter(
+    (post) => post.status === "PUBLISHED",
+  )
+  .sort((a, b) => {
+    const dateA = new Date(
+      a.publishedAt ?? a.createdAt,
+    ).getTime();
+
+    const dateB = new Date(
+      b.publishedAt ?? b.createdAt,
+    ).getTime();
+
+    return dateB - dateA;
+  });
+
+setNews(publishedNews);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load homepage news:",
+          error,
+        );
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+
+    loadNews();
+  }, []);
+
+  const homepageNews = news.slice(0, 7);
+const latestNews = news.slice(0, 5);
   return (
     <main className="bg-[#f3f5f8] pb-10">
       <div className="mx-auto max-w-7xl px-4 pt-4">
         <section className="grid grid-cols-1 gap-1 overflow-hidden rounded-md md:h-[480px] md:grid-cols-3 md:grid-rows-3" aria-label="Trending news">
-          {trends.map((story) => (
-            <Link key={story.title} href="/news" className={`group relative flex min-h-[170px] items-end overflow-hidden rounded-[3px] p-3 text-white md:min-h-0 ${story.className ?? ""}`}>
-              <div className="absolute inset-0 bg-cover bg-center transition duration-300 group-hover:scale-105" style={{ backgroundImage: `url(${story.image})` }} />
-              <div className={`absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent ${story.tint}`} />
-              {story.tag && <span className="absolute left-0 top-0 bg-[#087be7] px-3 py-1.5 text-xs font-bold">{story.tag}</span>}
-              <h1 className={`relative font-extrabold leading-[1.45] drop-shadow-sm ${story.large ? "text-[22px] sm:text-[28px]" : "text-sm sm:text-[15px]"}`}>{story.title}</h1>
-            </Link>
-          ))}
+          {newsLoading ? (
+  <div className="col-span-full flex items-center justify-center bg-white">
+    <p className="text-sm text-slate-500">
+      Loading trending news...
+    </p>
+  </div>
+) : homepageNews.length > 0 ? (
+  homepageNews.map((post, index) => {
+    const large = index === 0 || index === 6;
+
+    const position =
+      index === 0
+        ? "md:row-span-2"
+        : index === 6
+          ? "md:col-start-3 md:row-start-2 md:row-span-2"
+          : "";
+
+    return (
+      <Link
+        key={post.id}
+        href={`/news/${post.slug}`}
+        className={`group relative flex min-h-[170px] items-end overflow-hidden rounded-[3px] p-3 text-white md:min-h-0 ${position}`}
+      >
+        <img
+          src={
+            post.featuredImage ??
+            "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=85"
+          }
+          alt={post.title}
+          className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+        {post.categories?.[0] && (
+          <span className="absolute left-0 top-0 bg-[#087be7] px-3 py-1.5 text-xs font-bold">
+            {post.categories[0].category.name}
+          </span>
+        )}
+
+        <div className="relative">
+          <h1
+            className={`font-extrabold leading-[1.45] drop-shadow-sm ${
+              large
+                ? "text-[22px] sm:text-[28px]"
+                : "text-sm sm:text-[15px]"
+            }`}
+          >
+            {post.title}
+          </h1>
+
+          <p className="mt-2 text-[11px] text-white/75">
+            {post.authorName}
+          </p>
+        </div>
+      </Link>
+    );
+  })
+) : (
+  trends.map((story) => (
+    <Link
+      key={story.title}
+      href="/news"
+      className={`group relative flex min-h-[170px] items-end overflow-hidden rounded-[3px] p-3 text-white md:min-h-0 ${
+        story.className ?? ""
+      }`}
+    >
+      <div
+        className="absolute inset-0 bg-cover bg-center transition duration-300 group-hover:scale-105"
+        style={{
+          backgroundImage: `url(${story.image})`,
+        }}
+      />
+
+      <div
+        className={`absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent ${story.tint}`}
+      />
+
+      {story.tag && (
+        <span className="absolute left-0 top-0 bg-[#087be7] px-3 py-1.5 text-xs font-bold">
+          {story.tag}
+        </span>
+      )}
+
+      <h1
+        className={`relative font-extrabold leading-[1.45] drop-shadow-sm ${
+          story.large
+            ? "text-[22px] sm:text-[28px]"
+            : "text-sm sm:text-[15px]"
+        }`}
+      >
+        {story.title}
+      </h1>
+    </Link>
+  ))
+)}
         </section>
 
         <section className="mt-4 flex gap-2 overflow-x-auto rounded-md border border-[#d9d7ee] bg-gradient-to-r from-cyan-50 to-violet-200 px-3 py-3" aria-label="Browse categories">
@@ -196,7 +371,55 @@ export default function HomePage() {
         <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_360px]">
           <div className="space-y-4">
             <aside className="flex min-h-[90px] items-center overflow-hidden rounded-md bg-gradient-to-r from-[#f3f3f3] from-[40%] to-[#057d77] to-[40%] px-5"><div className="w-[42%] text-center"><p className="text-lg font-semibold text-slate-800">Searching For AC?</p><p className="mt-1 text-xs text-slate-500">Find the perfect cooling match</p></div><div className="flex flex-1 items-center justify-around gap-4 pl-5 text-white"><p className="text-center text-lg font-bold">Compare Before You Buy</p><Link href="/products?category=ac" className="shrink-0 rounded bg-[#00534f] px-4 py-2 text-sm font-bold hover:bg-[#003f3c]">Compare Now</Link></div></aside>
-            <section className="rounded-md border border-slate-200 bg-white p-4"><div className="flex items-center justify-between border-b border-slate-100 pb-3"><h2 className="text-lg font-semibold">Latest News</h2><Link href="/news" className="text-sm font-medium text-blue-600">View All&nbsp; →</Link></div><article className="flex gap-3 pt-3"><img className="h-16 w-28 rounded object-cover" src="https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=300&q=80" alt="Phone camera lenses" /><div><Link href="/news" className="text-sm font-bold leading-6 text-slate-800 hover:text-blue-600">OPPO Find X10 Series India Launch Imminent as Both Models Get BIS Certified</Link><p className="mt-1 line-clamp-1 text-xs text-slate-500">OPPO’s Find X10 series is getting closer to launch with fresh certification details emerging.</p></div></article></section>
+            <section className="rounded-md border border-slate-200 bg-white p-4"><div className="flex items-center justify-between border-b border-slate-100 pb-3"><h2 className="text-lg font-semibold">Latest News</h2><Link href="/news" className="text-sm font-medium text-blue-600">View All&nbsp; →</Link></div>
+            {latestNews.length > 0 ? (
+  <div className="divide-y divide-slate-100">
+    {latestNews.map((post) => (
+      <article
+        key={post.id}
+        className="flex gap-3 py-3"
+      >
+        <Link
+          href={`/news/${post.slug}`}
+          className="shrink-0"
+        >
+          <img
+            className="h-16 w-28 rounded object-cover"
+            src={
+              post.featuredImage ??
+              "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=300&q=80"
+            }
+            alt={post.title}
+          />
+        </Link>
+
+        <div className="min-w-0">
+          {post.categories?.[0] && (
+            <span className="text-[11px] font-semibold text-[#087be7]">
+              {post.categories[0].category.name}
+            </span>
+          )}
+
+          <Link
+            href={`/news/${post.slug}`}
+            className="mt-1 block text-sm font-bold leading-6 text-slate-800 hover:text-blue-600"
+          >
+            {post.title}
+          </Link>
+
+          <p className="mt-1 line-clamp-1 text-xs text-slate-500">
+            {post.authorName}
+          </p>
+        </div>
+      </article>
+    ))}
+  </div>
+) : (
+  <p className="py-6 text-sm text-slate-500">
+    No published news available.
+  </p>
+)}
+              </section>
           </div>
           <aside className="min-h-[220px] rounded-md border border-slate-200 bg-white p-2"><div className="flex h-[172px] flex-col justify-between bg-gradient-to-br from-[#1b2d60] via-[#4f5d99] to-[#9d9fbd] p-6 text-right text-xs text-white"><b className="text-left text-4xl tracking-widest text-white/65">FOLD</b><span>The all-new Galaxy Z Fold8<br />Starting at ₹1,39,999</span></div><p className="pt-2 text-sm font-bold text-slate-900">₹7000 instant bank discount</p></aside>
         </section>
@@ -204,7 +427,20 @@ export default function HomePage() {
           <PopularMobiles
   products={products}
 />
-          <TrendingNews items={trends} />
+          <TrendingNews
+  items={
+    homepageNews.length > 0
+      ? homepageNews.map((post) => ({
+          id: post.id,
+          slug: post.slug,
+          title: post.title,
+          imageUrl:
+            post.featuredImage ??
+            "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=85",
+        }))
+      : []
+  }
+/>
       </div>
     </main>
   );

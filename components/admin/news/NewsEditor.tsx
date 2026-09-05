@@ -24,10 +24,14 @@ import {
 } from "@tiptap/extension-table";
 
 import styles from "./NewsEditor.module.css";
+import { Video } from "./extensions/Video";
+import { Audio } from "./extensions/Audio";
 
 type NewsEditorProps = {
   value?: string;
-  onChange?: (html: string) => void;
+  onChange?: (content: string) => void;
+  onChangeJSON?: (json: Record<string, unknown>) => void;
+  onChangeText?: (text: string) => void;
   placeholder?: string;
   disabled?: boolean;
 };
@@ -38,11 +42,14 @@ const API_BASE_URL =
 export default function NewsEditor({
   value = "",
   onChange,
+  onChangeJSON,
+  onChangeText,
   placeholder = "Start writing your news article...",
   disabled = false,
 }: NewsEditorProps) {
   const editorRef = useRef<Editor | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
    * Upload images to backend.
@@ -73,24 +80,22 @@ export default function NewsEditor({
       for (const file of imageFiles) {
         const formData = new FormData();
 
-        formData.append("images", file);
+        formData.append("file", file);
 
         const response = await fetch(
-          `${API_BASE_URL}/api/admin/products/upload-images`,
-          {
-            method: "POST",
-
-            headers: {
-              ...(token
-                ? {
-                    Authorization: `Bearer ${token}`,
-                  }
-                : {}),
-            },
-
-            body: formData,
+  `${API_BASE_URL}/admin/media/upload`,
+  {
+    method: "POST",
+    headers: {
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
           }
-        );
+        : {}),
+    },
+    body: formData,
+  }
+);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -106,29 +111,28 @@ export default function NewsEditor({
         /**
          * Support different backend response structures.
          */
-        const uploadedUrl =
-          result?.data?.[0]?.url ??
-          result?.data?.data?.[0]?.url ??
-          result?.data?.[0]?.path ??
-          result?.data?.data?.[0]?.path ??
-          result?.url ??
-          result?.data?.url;
+        const uploadedUrl = result?.data?.url;
 
-        if (!uploadedUrl) {
-          throw new Error(
-            "Image uploaded successfully, but the server did not return an image URL."
-          );
-        }
+if (!uploadedUrl) {
+  throw new Error(
+    "Image uploaded successfully, but the server did not return an image URL."
+  );
+}
 
-        editor
-          .chain()
-          .focus()
-          .setImage({
-            src: uploadedUrl,
-            alt: file.name,
-            title: file.name,
-          })
-          .run();
+const fullImageUrl = uploadedUrl.startsWith("http")
+  ? uploadedUrl
+  : `http://localhost:5000${uploadedUrl}`;
+
+console.log("IMAGE URL:", fullImageUrl);
+
+editor
+  .chain()
+  .focus()
+  .setImage({
+    src: fullImageUrl,
+    alt: file.name,
+  })
+  .run();
       }
     } catch (error) {
       console.error("News image upload error:", error);
@@ -140,6 +144,102 @@ export default function NewsEditor({
       );
     }
   }, []);
+
+  const uploadMedia = useCallback(async (file: File) => {
+  const editor = editorRef.current;
+
+  if (!editor) {
+    return;
+  }
+
+  try {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("smartprix_token")
+        : null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/media/upload`,
+      {
+        method: "POST",
+        headers: {
+          ...(token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : {}),
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      throw new Error(
+        errorText ||
+          `Media upload failed with status ${response.status}`
+      );
+    }
+
+    const result = await response.json();
+
+    const uploadedUrl = result?.data?.url;
+
+    if (!uploadedUrl) {
+      throw new Error(
+        "Media uploaded successfully, but the server did not return a URL."
+      );
+    }
+
+    const fullMediaUrl = uploadedUrl.startsWith("http")
+      ? uploadedUrl
+      : `http://localhost:5000${uploadedUrl}`;
+
+    const mediaType = result?.data?.type;
+
+    console.log("MEDIA URL:", fullMediaUrl);
+    console.log("MEDIA TYPE:", mediaType);
+
+    if (mediaType === "video") {
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "video",
+          attrs: {
+            src: fullMediaUrl,
+          },
+        })
+        .run();
+    }
+
+    if (mediaType === "audio") {
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "audio",
+          attrs: {
+            src: fullMediaUrl,
+          },
+        })
+        .run();
+    }
+  } catch (error) {
+    console.error("News media upload error:", error);
+
+    window.alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to upload media."
+    );
+  }
+}, []);
+
 
   /**
    * TipTap editor.
@@ -168,13 +268,12 @@ export default function NewsEditor({
       }),
 
       Image.configure({
-        inline: false,
-        allowBase64: false,
-
-        HTMLAttributes: {
-          class: styles.articleImage,
-        },
-      }),
+  inline: false,
+  allowBase64: false,
+  HTMLAttributes: {
+    class: styles.articleImage,
+  },
+}),
 
       Placeholder.configure({
         placeholder,
@@ -195,6 +294,8 @@ export default function NewsEditor({
       TableRow,
       TableHeader,
       TableCell,
+      Video,
+      Audio,
     ],
 
     content: value,
@@ -206,8 +307,14 @@ export default function NewsEditor({
     },
 
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML());
-    },
+  onChange?.(editor.getHTML());
+
+  onChangeJSON?.(
+    editor.getJSON() as Record<string, unknown>
+  );
+
+  onChangeText?.(editor.getText());
+},
 
     editorProps: {
       attributes: {
@@ -318,6 +425,14 @@ export default function NewsEditor({
 
     imageInputRef.current?.click();
   };
+
+  const openMediaPicker = () => {
+  if (disabled) {
+    return;
+  }
+
+  mediaInputRef.current?.click();
+};
 
   /**
    * Handle image selection.
@@ -519,6 +634,22 @@ export default function NewsEditor({
         hidden
         onChange={handleImageFiles}
       />
+
+      <input
+  ref={mediaInputRef}
+  type="file"
+  accept="video/*,audio/*"
+  hidden
+  onChange={(event) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      uploadMedia(file);
+    }
+
+    event.target.value = "";
+  }}
+/>
 
       {/* Toolbar */}
       <div className={styles.toolbar}>
@@ -972,6 +1103,18 @@ export default function NewsEditor({
         >
           🖼
         </button>
+
+  {/* Upload Upload Video or Audio */}
+        <button
+  type="button"
+  className={styles.toolbarButton}
+  title="Upload Video or Audio"
+  disabled={disabled}
+  onMouseDown={preventSelectionLoss}
+  onClick={openMediaPicker}
+>
+  🎥🎵
+</button>
 
         {/* Image URL */}
         <button

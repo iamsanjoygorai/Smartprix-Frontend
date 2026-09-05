@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +19,12 @@ type NewsForm = {
   allowSharing: boolean;
 };
 
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 type ApiResponse = {
   success?: boolean;
   message?: string;
@@ -27,6 +34,10 @@ type ApiResponse = {
 
 export default function NewNewsPage() {
   const router = useRouter();
+
+  // =========================================================
+  // FORM STATE
+  // =========================================================
 
   const [form, setForm] = useState<NewsForm>({
     title: "",
@@ -55,20 +66,80 @@ export default function NewNewsPage() {
 
   const [showPreview, setShowPreview] = useState(false);
 
-  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  // =========================================================
+  // CATEGORY STATE
+  // =========================================================
 
-  /**
-   * Auto focus title.
-   */
+  const [categories, setCategories] = useState<Category[]>([]);
+const [selectedCategoryIds, setSelectedCategoryIds] =
+  useState<string[]>([]);
+const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // =========================================================
+  // REFS
+  // =========================================================
+
+  const titleInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  // =========================================================
+  // LOAD CATEGORIES
+  // =========================================================
+
+  useEffect(() => {
+  const loadCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+
+      const response = await apiFetch<{
+        success: boolean;
+        data: Category[];
+      }>("/admin/news/categories");
+
+      if (!response?.success) {
+        throw new Error(
+          "Failed to load news categories.",
+        );
+      }
+
+      setCategories(
+        Array.isArray(response.data)
+          ? response.data
+          : [],
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load categories:",
+        error,
+      );
+
+      setCategories([]);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to load categories.",
+      );
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  loadCategories();
+}, []);
+
+  // =========================================================
+  // AUTO FOCUS TITLE
+  // =========================================================
+
   useEffect(() => {
     titleInputRef.current?.focus();
   }, []);
 
-  /**
-   * Generate a slug-like permalink for display.
-   *
-   * The backend remains responsible for the actual slug.
-   */
+  // =========================================================
+  // SLUG PREVIEW
+  // =========================================================
+
   const previewSlug = useMemo(() => {
     const slug = form.title
       .trim()
@@ -80,9 +151,10 @@ export default function NewNewsPage() {
     return slug || "your-news-title";
   }, [form.title]);
 
-  /**
-   * Update a single form field.
-   */
+  // =========================================================
+  // UPDATE FORM FIELD
+  // =========================================================
+
   const updateForm = <K extends keyof NewsForm>(
     field: K,
     value: NewsForm[K]
@@ -93,11 +165,22 @@ export default function NewNewsPage() {
     }));
   };
 
-  /**
-   * Create NewsBlock payload from the rich editor.
-   *
-   * We store the complete article HTML as one rich-text block.
-   */
+  // =========================================================
+  // CATEGORY TOGGLE
+  // =========================================================
+
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategoryIds((current) =>
+      current.includes(categoryId)
+        ? current.filter((id) => id !== categoryId)
+        : [...current, categoryId]
+    );
+  };
+
+  // =========================================================
+  // CREATE NEWS BLOCKS
+  // =========================================================
+
   const createBlocks = () => {
     return [
       {
@@ -110,9 +193,10 @@ export default function NewNewsPage() {
     ];
   };
 
-  /**
-   * Save article.
-   */
+  // =========================================================
+  // SAVE POST
+  // =========================================================
+
   const savePost = async (status: NewsStatus) => {
     if (!form.title.trim()) {
       window.alert("Please enter a title.");
@@ -156,16 +240,23 @@ export default function NewNewsPage() {
         allowSharing: form.allowSharing,
 
         blocks: createBlocks(),
+
+        categoryIds: selectedCategoryIds,
       };
+
+      console.log("Creating news post:", payload);
 
       const response = (await apiFetch("/admin/news", {
         method: "POST",
-
         body: JSON.stringify(payload),
       })) as ApiResponse;
 
+      console.log("Create news response:", response);
+
       if (!response) {
-        throw new Error("No response from server.");
+        throw new Error(
+          "No response received from server."
+        );
       }
 
       if (response.success === false) {
@@ -187,10 +278,10 @@ export default function NewNewsPage() {
           : "Draft saved successfully."
       );
 
-      /**
-       * If backend returns the created news object,
-       * navigate to its edit page.
-       */
+      // =====================================================
+      // GET CREATED NEWS ID
+      // =====================================================
+
       const createdNews =
         response.data?.data ??
         response.data ??
@@ -216,23 +307,26 @@ export default function NewNewsPage() {
     }
   };
 
-  /**
-   * Save draft.
-   */
+  // =========================================================
+  // SAVE DRAFT
+  // =========================================================
+
   const handleSaveDraft = async () => {
     await savePost("DRAFT");
   };
 
-  /**
-   * Publish.
-   */
+  // =========================================================
+  // PUBLISH
+  // =========================================================
+
   const handlePublish = async () => {
     await savePost("PUBLISHED");
   };
 
-  /**
-   * Set featured image from URL.
-   */
+  // =========================================================
+  // FEATURED IMAGE
+  // =========================================================
+
   const setFeaturedImage = () => {
     const url = window.prompt(
       "Enter featured image URL:",
@@ -250,29 +344,44 @@ export default function NewNewsPage() {
     setFeaturedImageInput(cleanUrl);
   };
 
-  /**
-   * Remove featured image.
-   */
   const removeFeaturedImage = () => {
     updateForm("featuredImage", "");
+
     setFeaturedImageInput("");
   };
 
-  /**
-   * Client-side article preview.
-   */
+  // =========================================================
+  // PREVIEW
+  // =========================================================
+
   const openPreview = () => {
     setShowPreview(true);
   };
 
+  // =========================================================
+  // WORD COUNT
+  // =========================================================
+
+  const wordCount = content
+    .replace(/<[^>]*>/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  // =========================================================
+  // RENDER
+  // =========================================================
+
   return (
     <div className="min-h-screen bg-[#f1f1f1] text-[#1d2327]">
+
       {/* =====================================================
           PAGE HEADER
           ===================================================== */}
 
       <div className="border-b border-[#dcdcde] bg-white px-5 py-4">
         <div className="flex items-center justify-between gap-4">
+
           <div>
             <h1 className="text-2xl font-normal">
               Add Post
@@ -289,6 +398,7 @@ export default function NewNewsPage() {
           >
             Screen Options ▾
           </button>
+
         </div>
       </div>
 
@@ -297,13 +407,17 @@ export default function NewNewsPage() {
           ===================================================== */}
 
       <div className="px-5 py-5">
+
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+
           {/* =================================================
               MAIN COLUMN
               ================================================= */}
 
           <main className="min-w-0">
-            {/* Title */}
+
+            {/* TITLE */}
+
             <input
               ref={titleInputRef}
               type="text"
@@ -318,13 +432,16 @@ export default function NewNewsPage() {
               className="mb-2 h-[48px] w-full border border-[#c3c4c7] bg-white px-3 text-[24px] font-normal text-[#2c3338] outline-none placeholder:text-[#646970] focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
 
-            {/* Permalink */}
+            {/* PERMALINK */}
+
             <div className="mb-4 flex flex-wrap items-center gap-1 px-2 text-[13px] text-[#50575e]">
-              <span>Permalink:</span>
+
+              <span>
+                Permalink:
+              </span>
 
               <span className="text-[#2271b1]">
-                /news/
-                {previewSlug}
+                /news/{previewSlug}
               </span>
 
               <button
@@ -338,10 +455,13 @@ export default function NewNewsPage() {
               >
                 Edit
               </button>
+
             </div>
 
-            {/* Add Media */}
+            {/* ADD MEDIA */}
+
             <div className="mb-2">
+
               <button
                 type="button"
                 onClick={() => {
@@ -353,26 +473,27 @@ export default function NewNewsPage() {
               >
                 🖼 Add Media
               </button>
+
             </div>
 
-            {/* Editor */}
+            {/* EDITOR */}
+
             <div className="bg-white">
+
               <NewsEditor
                 value={content}
                 onChange={setContent}
                 placeholder="Start writing your news article..."
               />
+
             </div>
 
-            {/* Editor status */}
+            {/* EDITOR STATUS */}
+
             <div className="mt-2 flex items-center justify-between text-xs text-[#646970]">
+
               <span>
-                Words:{" "}
-                {content
-                  .replace(/<[^>]*>/g, " ")
-                  .trim()
-                  .split(/\s+/)
-                  .filter(Boolean).length}
+                Words: {wordCount}
               </span>
 
               {saveMessage && (
@@ -380,20 +501,25 @@ export default function NewNewsPage() {
                   {saveMessage}
                 </span>
               )}
+
             </div>
 
             {/* =================================================
-                AUTHOR SETTINGS BELOW EDITOR
+                AUTHOR
                 ================================================= */}
 
             <div className="mt-5 border border-[#dcdcde] bg-white">
+
               <div className="border-b border-[#dcdcde] px-4 py-3">
+
                 <h2 className="text-sm font-semibold">
                   Author
                 </h2>
+
               </div>
 
               <div className="p-4">
+
                 <label className="mb-2 block text-sm font-medium">
                   Author Name
                 </label>
@@ -410,8 +536,11 @@ export default function NewNewsPage() {
                   placeholder="Enter author name"
                   className="w-full max-w-md rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
+
               </div>
+
             </div>
+
           </main>
 
           {/* =================================================
@@ -419,12 +548,15 @@ export default function NewNewsPage() {
               ================================================= */}
 
           <aside className="space-y-4">
+
             {/* =================================================
                 PUBLISH BOX
                 ================================================= */}
 
             <section className="border border-[#c3c4c7] bg-white shadow-sm">
+
               <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+
                 <h2 className="text-sm font-semibold">
                   Publish
                 </h2>
@@ -442,10 +574,13 @@ export default function NewNewsPage() {
                     ? "⌃"
                     : "⌄"}
                 </button>
+
               </div>
 
               <div className="p-3">
+
                 <div className="mb-3 flex gap-2">
+
                   <button
                     type="button"
                     disabled={saving}
@@ -465,16 +600,22 @@ export default function NewNewsPage() {
                   >
                     Preview
                   </button>
+
                 </div>
 
-                {/* Status */}
+                {/* STATUS */}
+
                 <div className="border-t border-[#eee] py-2 text-sm">
+
                   <div className="flex items-center justify-between">
+
                     <span>
                       <span className="mr-2">
                         ●
                       </span>
+
                       Status:
+
                       <strong className="ml-1">
                         {form.status ===
                         "PUBLISHED"
@@ -494,12 +635,17 @@ export default function NewNewsPage() {
                     >
                       Edit
                     </button>
+
                   </div>
+
                 </div>
 
-                {/* Visibility */}
+                {/* VISIBILITY */}
+
                 <div className="border-t border-[#eee] py-2 text-sm">
+
                   <div className="flex items-center justify-between">
+
                     <span>
                       👁 Visibility:
                       <strong className="ml-1">
@@ -518,19 +664,23 @@ export default function NewNewsPage() {
                     >
                       Edit
                     </button>
+
                   </div>
 
                   {showVisibilitySettings && (
                     <div className="mt-2 rounded bg-[#f6f7f7] p-2 text-xs text-gray-600">
-                      News visibility is
-                      currently public.
+                      News visibility is currently public.
                     </div>
                   )}
+
                 </div>
 
-                {/* Publish time */}
+                {/* PUBLISH TIME */}
+
                 <div className="border-t border-[#eee] py-2 text-sm">
+
                   <div className="flex items-center justify-between">
+
                     <span>
                       📅 Publish:
                       <strong className="ml-1">
@@ -549,12 +699,16 @@ export default function NewNewsPage() {
                     >
                       Edit
                     </button>
+
                   </div>
+
                 </div>
 
-                {/* Publish settings */}
+                {/* PUBLISH SETTINGS */}
+
                 {showPublishSettings && (
                   <div className="mt-3 border-t border-[#eee] pt-3">
+
                     <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
                       Status
                     </label>
@@ -578,11 +732,14 @@ export default function NewNewsPage() {
                         Published
                       </option>
                     </select>
+
                   </div>
                 )}
 
-                {/* Publish button */}
+                {/* PUBLISH BUTTON */}
+
                 <div className="mt-4 flex justify-end border-t border-[#eee] pt-3">
+
                   <button
                     type="button"
                     disabled={saving}
@@ -593,8 +750,11 @@ export default function NewNewsPage() {
                       ? "Publishing..."
                       : "Publish"}
                   </button>
+
                 </div>
+
               </div>
+
             </section>
 
             {/* =================================================
@@ -602,7 +762,9 @@ export default function NewNewsPage() {
                 ================================================= */}
 
             <section className="border border-[#c3c4c7] bg-white shadow-sm">
+
               <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+
                 <h2 className="text-sm font-semibold">
                   Featured Image
                 </h2>
@@ -610,9 +772,11 @@ export default function NewNewsPage() {
                 <span className="text-gray-500">
                   ⌃
                 </span>
+
               </div>
 
               <div className="p-3">
+
                 {form.featuredImage ? (
                   <>
                     <img
@@ -626,6 +790,7 @@ export default function NewNewsPage() {
                     />
 
                     <div className="flex gap-2">
+
                       <button
                         type="button"
                         onClick={setFeaturedImage}
@@ -641,6 +806,7 @@ export default function NewNewsPage() {
                       >
                         Remove
                       </button>
+
                     </div>
                   </>
                 ) : (
@@ -652,7 +818,9 @@ export default function NewNewsPage() {
                     Set featured image
                   </button>
                 )}
+
               </div>
+
             </section>
 
             {/* =================================================
@@ -660,7 +828,9 @@ export default function NewNewsPage() {
                 ================================================= */}
 
             <section className="border border-[#c3c4c7] bg-white shadow-sm">
+
               <div className="flex items-center justify-between border-b border-[#dcdcde] px-3 py-3">
+
                 <h2 className="text-sm font-semibold">
                   Categories
                 </h2>
@@ -668,10 +838,13 @@ export default function NewNewsPage() {
                 <span className="text-gray-500">
                   ⌃
                 </span>
+
               </div>
 
               <div className="p-3">
+
                 <div className="mb-3 flex gap-4 border-b border-[#eee] pb-2 text-xs">
+
                   <button
                     type="button"
                     className="font-medium text-[#2271b1]"
@@ -685,66 +858,74 @@ export default function NewNewsPage() {
                   >
                     Most Used
                   </button>
+
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    Smartphones
-                  </label>
+                {categoriesLoading ? (
+  <p className="text-sm text-gray-500">
+    Loading categories...
+  </p>
+) : categories.length === 0 ? (
+  <p className="text-sm text-gray-500">
+    No categories available.
+  </p>
+) : (
+                  <div className="space-y-2 text-sm">
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    Mobile Phones
-                  </label>
+                    {categories.map((category) => (
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    Laptops
-                  </label>
+                      <label
+                        key={category.id}
+                        className="flex cursor-pointer items-center gap-2"
+                      >
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    Gadgets
-                  </label>
+                        <input
+                          type="checkbox"
+                          checked={selectedCategoryIds.includes(
+                            category.id
+                          )}
+                          onChange={() =>
+                            toggleCategory(
+                              category.id
+                            )
+                          }
+                        />
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    Technology
-                  </label>
+                        <span>
+                          {category.name}
+                        </span>
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      disabled
-                    />
-                    News
-                  </label>
-                </div>
+                      </label>
+
+                    ))}
+
+                  </div>
+                )}
+
+                {selectedCategoryIds.length > 0 && (
+                  <p className="mt-3 text-xs text-gray-500">
+                    {selectedCategoryIds.length}{" "}
+                    {selectedCategoryIds.length === 1
+                      ? "category"
+                      : "categories"}{" "}
+                    selected
+                  </p>
+                )}
 
                 <button
                   type="button"
-                  disabled
-                  className="mt-4 text-sm text-[#2271b1]"
+                  onClick={() =>
+                    router.push(
+                      "/admin/news/categories"
+                    )
+                  }
+                  className="mt-4 text-sm text-[#2271b1] hover:underline"
                 >
                   + Add New Category
                 </button>
+
               </div>
+
             </section>
 
             {/* =================================================
@@ -752,15 +933,22 @@ export default function NewNewsPage() {
                 ================================================= */}
 
             <section className="border border-[#c3c4c7] bg-white shadow-sm">
+
               <div className="border-b border-[#dcdcde] px-3 py-3">
+
                 <h2 className="text-sm font-semibold">
                   Article Settings
                 </h2>
+
               </div>
 
               <div className="space-y-3 p-3 text-sm">
+
                 <label className="flex items-center justify-between gap-3">
-                  <span>Allow Likes</span>
+
+                  <span>
+                    Allow Likes
+                  </span>
 
                   <input
                     type="checkbox"
@@ -772,10 +960,14 @@ export default function NewNewsPage() {
                       )
                     }
                   />
+
                 </label>
 
                 <label className="flex items-center justify-between gap-3">
-                  <span>Allow Comments</span>
+
+                  <span>
+                    Allow Comments
+                  </span>
 
                   <input
                     type="checkbox"
@@ -787,10 +979,14 @@ export default function NewNewsPage() {
                       )
                     }
                   />
+
                 </label>
 
                 <label className="flex items-center justify-between gap-3">
-                  <span>Allow Sharing</span>
+
+                  <span>
+                    Allow Sharing
+                  </span>
 
                   <input
                     type="checkbox"
@@ -802,11 +998,17 @@ export default function NewNewsPage() {
                       )
                     }
                   />
+
                 </label>
+
               </div>
+
             </section>
+
           </aside>
+
         </div>
+
       </div>
 
       {/* =====================================================
@@ -814,11 +1016,17 @@ export default function NewNewsPage() {
           ===================================================== */}
 
       {showPreview && (
+
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-5">
+
           <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
-            {/* Preview header */}
+
+            {/* PREVIEW HEADER */}
+
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+
               <div>
+
                 <h2 className="text-lg font-semibold">
                   Post Preview
                 </h2>
@@ -826,6 +1034,7 @@ export default function NewNewsPage() {
                 <p className="text-xs text-gray-500">
                   Preview of the current article
                 </p>
+
               </div>
 
               <button
@@ -837,29 +1046,68 @@ export default function NewNewsPage() {
               >
                 ×
               </button>
+
             </div>
 
-            {/* Preview content */}
+            {/* PREVIEW CONTENT */}
+
             <div className="overflow-y-auto p-6">
+
               <article className="mx-auto max-w-3xl">
+
                 <h1 className="text-4xl font-bold text-gray-900">
                   {form.title ||
                     "Untitled News Post"}
                 </h1>
 
                 <div className="mt-3 text-sm text-gray-500">
-                  By {form.authorName ||
+                  By{" "}
+                  {form.authorName ||
                     "Unknown Author"}{" "}
                   · Updated just now
                 </div>
 
+                {/* PREVIEW IMAGE */}
+
                 {form.featuredImage && (
                   <img
                     src={form.featuredImage}
-                    alt={form.title}
+                    alt={
+                      form.title ||
+                      "Featured image"
+                    }
                     className="mt-6 w-full rounded-lg object-cover"
                   />
                 )}
+
+                {/* PREVIEW CATEGORIES */}
+
+                {selectedCategoryIds.length > 0 && (
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+
+                    {categories
+                      .filter((category) =>
+                        selectedCategoryIds.includes(
+                          category.id
+                        )
+                      )
+                      .map((category) => (
+
+                        <span
+                          key={category.id}
+                          className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                        >
+                          {category.name}
+                        </span>
+
+                      ))}
+
+                  </div>
+
+                )}
+
+                {/* ARTICLE CONTENT */}
 
                 <div
                   className="mt-8"
@@ -867,11 +1115,17 @@ export default function NewNewsPage() {
                     __html: content,
                   }}
                 />
+
               </article>
+
             </div>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   );
 }

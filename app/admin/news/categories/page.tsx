@@ -9,8 +9,14 @@ type Category = {
   name: string;
   slug: string;
   description?: string | null;
+  parentId?: string | null;
+  parent?: {
+    id: string;
+    name: string;
+  } | null;
   _count?: {
     posts: number;
+    children?: number;
   };
 };
 
@@ -172,6 +178,15 @@ export default function NewsCategoriesPage() {
       setDeletingId(null);
     }
   };
+
+  const parentCategories = categories.filter(
+  (category) => !category.parentId
+);
+
+const getChildCategories = (parentId: string) =>
+  categories.filter(
+    (category) => category.parentId === parentId
+  );
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
@@ -341,73 +356,172 @@ export default function NewsCategoriesPage() {
           ) : (
             /* List */
             <div className="divide-y divide-gray-100">
-              {categories.map((category) => {
-                const postCount =
-                  category._count?.posts ?? 0;
+  {parentCategories.map((parentCategory) => {
+    const postCount =
+      parentCategory._count?.posts ?? 0;
 
-                return (
-                  <div
-                    key={category.id}
-                    className="flex items-center justify-between px-6 py-5 transition hover:bg-gray-50"
-                  >
-                    {/* Information */}
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="font-semibold text-gray-900">
-                          {category.name}
-                        </h3>
+    const children = getChildCategories(
+      parentCategory.id
+    );
 
-                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
-                          {category.slug}
-                        </span>
-                      </div>
+    return (
+      <div key={parentCategory.id}>
+        {/* Parent Category */}
+        <div className="flex items-center justify-between bg-gray-50 px-6 py-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="font-semibold text-gray-900">
+                📁 {parentCategory.name}
+              </h3>
 
-                      {category.description && (
-                        <p className="mt-1 text-sm text-gray-500">
-                          {category.description}
-                        </p>
-                      )}
-
-                      <p className="mt-2 text-xs text-gray-400">
-                        {postCount}{" "}
-                        {postCount === 1 ? "post" : "posts"}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="ml-4 flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(category)}
-                        disabled={deletingId === category.id}
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDelete(
-                            category.id,
-                            category.name,
-                            postCount,
-                          )
-                        }
-                        disabled={
-                          deletingId === category.id
-                        }
-                        className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {deletingId === category.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs text-gray-500">
+                {parentCategory.slug}
+              </span>
             </div>
+
+            {parentCategory.description && (
+              <p className="mt-1 text-sm text-gray-500">
+                {parentCategory.description}
+              </p>
+            )}
+
+            <p className="mt-2 text-xs text-gray-400">
+              {postCount}{" "}
+              {postCount === 1 ? "post" : "posts"}
+              {children.length > 0 && (
+                <>
+                  {" "}
+                  · {children.length}{" "}
+                  {children.length === 1
+                    ? "child"
+                    : "children"}
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* Parent Actions */}
+          <div className="ml-4 flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                handleEdit(parentCategory)
+              }
+              disabled={
+                deletingId === parentCategory.id
+              }
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                handleDelete(
+                  parentCategory.id,
+                  parentCategory.name,
+                  postCount
+                )
+              }
+              disabled={
+                deletingId === parentCategory.id
+              }
+              className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {deletingId === parentCategory.id
+                ? "Deleting..."
+                : "Delete"}
+            </button>
+          </div>
+        </div>
+
+        {/* Child Categories */}
+        {children.length > 0 && (
+          <div className="bg-white">
+            {children.map((childCategory) => {
+              const childPostCount =
+                childCategory._count?.posts ?? 0;
+
+              return (
+                <div
+                  key={childCategory.id}
+                  className="flex items-center justify-between border-t border-gray-100 px-6 py-4 pl-14 transition hover:bg-gray-50"
+                >
+                  {/* Child Information */}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="font-medium text-gray-800">
+                        <span className="mr-2 text-gray-400">
+                          └─
+                        </span>
+                        {childCategory.name}
+                      </h3>
+
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+                        {childCategory.slug}
+                      </span>
+                    </div>
+
+                    {childCategory.description && (
+                      <p className="mt-1 text-sm text-gray-500">
+                        {childCategory.description}
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-xs text-gray-400">
+                      {childPostCount}{" "}
+                      {childPostCount === 1
+                        ? "post"
+                        : "posts"}
+                    </p>
+                  </div>
+
+                  {/* Child Actions */}
+                  <div className="ml-4 flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleEdit(childCategory)
+                      }
+                      disabled={
+                        deletingId ===
+                        childCategory.id
+                      }
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDelete(
+                          childCategory.id,
+                          childCategory.name,
+                          childPostCount
+                        )
+                      }
+                      disabled={
+                        deletingId ===
+                        childCategory.id
+                      }
+                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingId === childCategory.id
+                        ? "Deleting..."
+                        : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  })}
+</div>
           )}
         </div>
       </div>

@@ -31,6 +31,10 @@ type Category = {
   id: string;
   name: string;
   slug: string;
+  parentId?: string | null;
+  _count?: {
+    posts: number;
+  };
 };
 
 type ApiResponse = {
@@ -42,6 +46,8 @@ type ApiResponse = {
 
 export default function NewNewsPage() {
   const router = useRouter();
+// const [isDirty, setIsDirty] = useState(false);
+
 
   // =========================================================
   // FORM STATE
@@ -56,6 +62,7 @@ export default function NewNewsPage() {
     allowComments: true,
     allowSharing: true,
   });
+
 
   const [content, setContent] = useState("");
 
@@ -85,9 +92,12 @@ const [contentText, setContentText] = useState("");
   // =========================================================
 
   const [categories, setCategories] = useState<Category[]>([]);
-const [selectedCategoryIds, setSelectedCategoryIds] =
-  useState<string[]>([]);
+const [selectedCategoryIds, setSelectedCategoryIds] =useState<string[]>([]);
 const [categoriesLoading, setCategoriesLoading] = useState(true);
+const [newCategoryName, setNewCategoryName] = useState("");
+const [creatingCategory, setCreatingCategory] = useState(false);
+const [newCategoryParentId, setNewCategoryParentId] = useState<string>("");
+const [categoryTab, setCategoryTab] = useState<"all" | "most-used">("all");
 
   // =========================================================
   // REFS
@@ -150,6 +160,27 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     titleInputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (!isDirty) return;
+
+    event.preventDefault();
+    event.returnValue = "";
+  };
+
+  window.addEventListener(
+    "beforeunload",
+    handleBeforeUnload
+  );
+
+  return () => {
+    window.removeEventListener(
+      "beforeunload",
+      handleBeforeUnload
+    );
+  };
+}, [isDirty]);
+
   // =========================================================
   // SLUG PREVIEW
   // =========================================================
@@ -207,6 +238,75 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
         : [...current, categoryId]
     );
   };
+
+
+  // =========================================================
+// CREATE NEW CATEGORY
+// =========================================================
+
+const createNewCategory = async () => {
+  const name = newCategoryName.trim();
+
+  if (!name) {
+    window.alert("Please enter a category name.");
+    return;
+  }
+
+  try {
+    setCreatingCategory(true);
+
+    const response = await apiFetch<{
+      success: boolean;
+      message?: string;
+      data?: Category;
+    }>("/admin/news/categories", {
+      method: "POST",
+      body: JSON.stringify({
+  name,
+  parentId: newCategoryParentId || null,
+}),
+    });
+
+    if (!response?.success || !response.data) {
+      throw new Error(
+        response?.message || "Failed to create category."
+      );
+    }
+
+    const newCategory = response.data;
+
+    // Add the new category to the current list
+    setCategories((current) => [
+      ...current,
+      newCategory,
+    ]);
+
+    // Automatically select the newly created category
+    setSelectedCategoryIds((current) => [
+      ...current,
+      newCategory.id,
+    ]);
+
+    // Clear input
+    setNewCategoryName("");
+    setNewCategoryParentId("");
+
+  } catch (error) {
+    console.error(
+      "Failed to create category:",
+      error
+    );
+
+    window.alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to create category."
+    );
+  } finally {
+    setCreatingCategory(false);
+  }
+};
+
 
   // =========================================================
   // CREATE NEWS BLOCKS
@@ -364,6 +464,42 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     .split(/\s+/)
     .filter(Boolean).length;
 
+
+    // =========================================================
+// CATEGORY HIERARCHY
+// =========================================================
+
+const parentCategories = categories.filter(
+  (category) => !category.parentId
+);
+
+const getChildCategories = (parentId: string) =>
+  categories.filter(
+    (category) => category.parentId === parentId
+  );
+
+
+  const displayCategories =
+  categoryTab === "most-used"
+    ? [...categories].sort(
+        (a, b) =>
+          (b._count?.posts ?? 0) -
+          (a._count?.posts ?? 0)
+      )
+    : categories;
+
+const displayParentCategories =
+  displayCategories.filter(
+    (category) => !category.parentId
+  );
+
+const getDisplayChildCategories = (parentId: string) =>
+  displayCategories.filter(
+    (category) => category.parentId === parentId
+  );
+
+  
+
   // =========================================================
   // RENDER
   // =========================================================
@@ -418,12 +554,14 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
               ref={titleInputRef}
               type="text"
               value={form.title}
-              onChange={(event) =>
-                updateForm(
-                  "title",
-                  event.target.value
-                )
-              }
+              onChange={(event) => {
+  setIsDirty(true);
+
+  updateForm(
+    "title",
+    event.target.value
+  );
+}}
               placeholder="Add title"
               className="mb-2 h-[48px] w-full border border-[#c3c4c7] bg-white px-3 text-[24px] font-normal text-[#2c3338] outline-none placeholder:text-[#646970] focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
@@ -524,12 +662,14 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
                 <input
                   type="text"
                   value={form.authorName}
-                  onChange={(event) =>
-                    updateForm(
-                      "authorName",
-                      event.target.value
-                    )
-                  }
+                  onChange={(event) => {
+  setIsDirty(true);
+
+  updateForm(
+    "authorName",
+    event.target.value
+  );
+}}
                   placeholder="Enter author name"
                   className="w-full max-w-md rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
@@ -778,11 +918,12 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
       type="url"
       value={featuredImageInput}
       onChange={(event) => {
-        const value = event.target.value;
+  const value = event.target.value;
 
-        setFeaturedImageInput(value);
-        updateForm("featuredImage", value);
-      }}
+  setIsDirty(true);
+  setFeaturedImageInput(value);
+  updateForm("featuredImage", value);
+}}
       placeholder="https://example.com/image.jpg"
       className="w-full rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
     />
@@ -847,23 +988,31 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
 
               <div className="p-3">
 
-                <div className="mb-3 flex gap-4 border-b border-[#eee] pb-2 text-xs">
+               <div className="mb-3 flex gap-4 border-b border-[#eee] pb-2 text-xs">
+  <button
+    type="button"
+    onClick={() => setCategoryTab("all")}
+    className={
+      categoryTab === "all"
+        ? "font-medium text-[#2271b1]"
+        : "text-[#646970] hover:text-[#2271b1]"
+    }
+  >
+    All Categories
+  </button>
 
-                  <button
-                    type="button"
-                    className="font-medium text-[#2271b1]"
-                  >
-                    All Categories
-                  </button>
-
-                  <button
-                    type="button"
-                    className="text-[#2271b1]"
-                  >
-                    Most Used
-                  </button>
-
-                </div>
+  <button
+    type="button"
+    onClick={() => setCategoryTab("most-used")}
+    className={
+      categoryTab === "most-used"
+        ? "font-medium text-[#2271b1]"
+        : "text-[#646970] hover:text-[#2271b1]"
+    }
+  >
+    Most Used
+  </button>
+</div>
 
                 {categoriesLoading ? (
   <p className="text-sm text-gray-500">
@@ -874,36 +1023,70 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
     No categories available.
   </p>
 ) : (
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-0.5 text-sm">
+  {displayParentCategories.map((parentCategory) => {
+    const children = getDisplayChildCategories(
+      parentCategory.id
+    );
 
-                    {categories.map((category) => (
+    return (
+      <div key={parentCategory.id}>
+        {/* Parent */}
+        <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 font-medium text-[#2c3338] hover:bg-[#f6f7f7]">
+          <input
+            type="checkbox"
+            checked={selectedCategoryIds.includes(
+              parentCategory.id
+            )}
+            onChange={() =>
+              toggleCategory(parentCategory.id)
+            }
+          />
 
-                      <label
-                        key={category.id}
-                        className="flex cursor-pointer items-center gap-2"
-                      >
+          <span>{parentCategory.name}</span>
 
-                        <input
-                          type="checkbox"
-                          checked={selectedCategoryIds.includes(
-                            category.id
-                          )}
-                          onChange={() =>
-                            toggleCategory(
-                              category.id
-                            )
-                          }
-                        />
+          {categoryTab === "most-used" && (
+            <span className="ml-auto text-xs text-[#8c8f94]">
+              {parentCategory._count?.posts ?? 0}
+            </span>
+          )}
+        </label>
 
-                        <span>
-                          {category.name}
-                        </span>
+        {/* Children */}
+        {children.length > 0 && (
+          <div className="ml-5 border-l border-[#dcdcde] pl-2">
+            {children.map((childCategory) => (
+              <label
+                key={childCategory.id}
+                className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-0.5 text-[#50575e] hover:bg-[#f6f7f7]"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCategoryIds.includes(
+                    childCategory.id
+                  )}
+                  onChange={() =>
+                    toggleCategory(
+                      childCategory.id
+                    )
+                  }
+                />
 
-                      </label>
+                <span>{childCategory.name}</span>
 
-                    ))}
-
-                  </div>
+                {categoryTab === "most-used" && (
+                  <span className="ml-auto text-xs text-[#8c8f94]">
+                    {childCategory._count?.posts ?? 0}
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  })}
+</div>
                 )}
 
                 {selectedCategoryIds.length > 0 && (
@@ -916,17 +1099,72 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
                   </p>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      "/admin/news/categories"
-                    )
-                  }
-                  className="mt-4 text-sm text-[#2271b1] hover:underline"
-                >
-                  + Add New Category
-                </button>
+                {/* CREATE NEW CATEGORY */}
+<div className="mt-4 border-t border-[#eee] pt-4">
+  <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
+    Create New Category
+  </label>
+
+  <label className="mb-2 block text-xs font-semibold uppercase text-gray-500">
+  Parent Category
+</label>
+
+<select
+  value={newCategoryParentId}
+  onChange={(event) =>
+    setNewCategoryParentId(event.target.value)
+  }
+  disabled={creatingCategory}
+  className="mb-3 w-full rounded border border-[#c3c4c7] bg-white px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1] disabled:bg-gray-100"
+>
+  <option value="">None — Top Level Category</option>
+
+  {categories.map((category) => (
+    <option key={category.id} value={category.id}>
+      {category.name}
+    </option>
+  ))}
+</select>
+
+  <div className="flex gap-2">
+    <input
+      type="text"
+      value={newCategoryName}
+      onChange={(event) =>
+        setNewCategoryName(event.target.value)
+      }
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          createNewCategory();
+        }
+      }}
+      placeholder="Category name"
+      disabled={creatingCategory}
+      className="min-w-0 flex-1 rounded border border-[#c3c4c7] px-3 py-2 text-sm outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1] disabled:bg-gray-100"
+    />
+
+    <button
+      type="button"
+      onClick={createNewCategory}
+      disabled={
+        creatingCategory ||
+        !newCategoryName.trim()
+      }
+      className="shrink-0 rounded bg-[#2271b1] px-3 py-2 text-sm font-medium text-white hover:bg-[#135e96] disabled:cursor-not-allowed disabled:opacity-50"
+    >
+
+      
+      {creatingCategory
+        ? "Creating..."
+        : "Create"}
+    </button>
+  </div>
+
+  <p className="mt-2 text-xs text-gray-500">
+    The new category will be automatically selected.
+  </p>
+</div>
 
               </div>
 

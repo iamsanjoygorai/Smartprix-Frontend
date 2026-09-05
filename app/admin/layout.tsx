@@ -78,26 +78,7 @@ export default function AdminLayout({
         </aside>
 
         {/* Main area */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="border-b bg-white px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Admin Panel
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Manage your Smartprix website
-                </p>
-              </div>
-
-              <Link
-                href="/"
-                className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                View Website
-              </Link>
-            </div>
-          </header>
+        <div className="min-w-0 flex-1">
 
           <main className="flex-1 p-6">{children}</main>
         </div>

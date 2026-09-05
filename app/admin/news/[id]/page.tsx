@@ -4,6 +4,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
+import dynamic from "next/dynamic";
+
+const NewsEditor = dynamic(
+  () => import("@/components/admin/news/NewsEditor"),
+  {
+    ssr: false,
+  }
+);
 
 type NewsBlock = {
   id?: string;
@@ -11,9 +19,11 @@ type NewsBlock = {
   position: number;
   content: {
     html?: string;
+    text?: string;
     src?: string;
     alt?: string;
     title?: string;
+    [key: string]: unknown;
   };
 };
 
@@ -96,48 +106,33 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
         setAllowComments(news.allowComments ?? true);
         setAllowSharing(news.allowSharing ?? true);
 
-        const sortedBlocks = [...(news.blocks ?? [])].sort(
+const sortedBlocks = [...(news.blocks ?? [])].sort(
   (a, b) => a.position - b.position,
 );
 
 const combinedHtml = sortedBlocks
   .map((block) => {
     if (block.type === "rich-text") {
-  const json = block.content?.json;
-
-  if (!json) {
-    return "";
-  }
-
-  return JSON.stringify(json);
-}
+      return block.content?.html ?? "";
+    }
 
     if (block.type === "image") {
       const src = block.content?.src;
-
-      if (!src) {
-        return "";
-      }
+      if (!src) return "";
 
       return `<img src="${src}" alt="${block.content?.alt ?? ""}" />`;
     }
 
     if (block.type === "video") {
       const src = block.content?.src;
-
-      if (!src) {
-        return "";
-      }
+      if (!src) return "";
 
       return `<video src="${src}" controls></video>`;
     }
 
     if (block.type === "audio") {
       const src = block.content?.src;
-
-      if (!src) {
-        return "";
-      }
+      if (!src) return "";
 
       return `<audio src="${src}" controls preload="metadata"></audio>`;
     }
@@ -149,6 +144,10 @@ const combinedHtml = sortedBlocks
     return "";
   })
   .join("");
+
+setContent(combinedHtml);
+
+ 
 
 setContent(combinedHtml);
 
@@ -221,128 +220,15 @@ setContent(combinedHtml);
     return [];
   }
 
-  const parser = new DOMParser();
-
-  const document = parser.parseFromString(
-    content,
-    "text/html",
-  );
-
-  const blocks: Array<{
-    type: string;
-    position: number;
-    content: Record<string, unknown>;
-  }> = [];
-
-  Array.from(document.body.children).forEach((element) => {
-    const tagName = element.tagName.toLowerCase();
-
-    // TEXT / RICH TEXT
-    if (
-      tagName === "p" ||
-      tagName === "h1" ||
-      tagName === "h2" ||
-      tagName === "h3" ||
-      tagName === "h4" ||
-      tagName === "h5" ||
-      tagName === "h6" ||
-      tagName === "blockquote" ||
-      tagName === "ul" ||
-      tagName === "ol" ||
-      tagName === "pre"
-    ) {
-      if (element.textContent?.trim()) {
-        blocks.push({
-          type: "rich-text",
-          position: blocks.length,
-          content: {
-            html: element.outerHTML,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // IMAGE
-    if (tagName === "img") {
-      const image = element as HTMLImageElement;
-
-      if (image.src) {
-        blocks.push({
-          type: "image",
-          position: blocks.length,
-          content: {
-            src: image.src,
-            alt: image.alt || "",
-            title: image.title || "",
-          },
-        });
-      }
-
-      return;
-    }
-
-    // VIDEO
-    if (tagName === "video") {
-      const video = element as HTMLVideoElement;
-
-      if (video.src) {
-        blocks.push({
-          type: "video",
-          position: blocks.length,
-          content: {
-            src: video.src,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // AUDIO
-    if (tagName === "audio") {
-      const audio = element as HTMLAudioElement;
-
-      if (audio.src) {
-        blocks.push({
-          type: "audio",
-          position: blocks.length,
-          content: {
-            src: audio.src,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // TABLE
-    if (tagName === "table") {
-      blocks.push({
-        type: "table",
-        position: blocks.length,
-        content: {
-          html: element.outerHTML,
-        },
-      });
-
-      return;
-    }
-
-    // OTHER CONTENT
-    if (element.innerHTML.trim()) {
-      blocks.push({
-        type: "rich-text",
-        position: blocks.length,
-        content: {
-          html: element.outerHTML,
-        },
-      });
-    }
-  });
-
-  return blocks;
+  return [
+    {
+      type: "rich-text",
+      position: 0,
+      content: {
+        html: content,
+      },
+    },
+  ];
 };
 
   const savePost = async (
@@ -544,19 +430,18 @@ setContent(combinedHtml);
             </div>
 
             {/* Content */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Content
-              </label>
+            <div className="rounded-xl border border-gray-200 bg-white">
+  <label className="block px-6 pt-6 pb-2 text-sm font-semibold text-gray-700">
+    Content
+  </label>
 
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your news content..."
-                rows={18}
-                className="w-full resize-y rounded-lg border border-gray-300 px-4 py-3 text-sm leading-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+  <NewsEditor
+    value={content}
+    onChange={setContent}
+    onChangeText={(text) => console.log("Editor text:", text)}
+    onChangeJSON={(json) => console.log("Editor JSON:", json)}
+  />
+</div>
 
             {/* Categories */}
             <div className="rounded-xl border border-gray-200 bg-white p-6">

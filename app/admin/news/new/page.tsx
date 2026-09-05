@@ -4,8 +4,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import NewsEditor from "@/components/admin/news/NewsEditor";
 import { apiFetch } from "@/lib/api/client";
+
+import dynamic from "next/dynamic";
+
+const NewsEditor = dynamic(
+  () => import("@/components/admin/news/NewsEditor"),
+  {
+    ssr: false,
+  }
+);
 
 type NewsStatus = "DRAFT" | "PUBLISHED";
 
@@ -205,130 +213,16 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
   // =========================================================
 
   const createBlocks = () => {
-  if (!contentJSON) {
-    return [];
-  }
-
-  const documentContent =
-    (contentJSON.content as Array<Record<string, unknown>> | undefined) ??
-    [];
-
-  const blocks: Array<{
-    type: string;
-    position: number;
-    content: Record<string, unknown>;
-  }> = [];
-
-  documentContent.forEach((node) => {
-    const nodeType = node.type;
-
-    // Paragraph
-    if (nodeType === "paragraph") {
-      const text = getNodeText(node);
-
-      if (text.trim()) {
-        blocks.push({
-          type: "text",
-          position: blocks.length,
-          content: {
-            text,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // Heading
-    if (nodeType === "heading") {
-      const text = getNodeText(node);
-
-      if (text.trim()) {
-        const attrs =
-          (node.attrs as Record<string, unknown> | undefined) ?? {};
-
-        blocks.push({
-          type: "heading",
-          position: blocks.length,
-          content: {
-            text,
-            level: attrs.level ?? 1,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // Image
-    if (nodeType === "image") {
-      const attrs =
-        (node.attrs as Record<string, unknown> | undefined) ?? {};
-
-      if (attrs.src) {
-        blocks.push({
-          type: "image",
-          position: blocks.length,
-          content: {
-            src: attrs.src,
-            alt: attrs.alt ?? "",
-            title: attrs.title ?? "",
-          },
-        });
-      }
-
-      return;
-    }
-
-    // Video
-    if (nodeType === "video") {
-      const attrs =
-        (node.attrs as Record<string, unknown> | undefined) ?? {};
-
-      if (attrs.src) {
-        blocks.push({
-          type: "video",
-          position: blocks.length,
-          content: {
-            src: attrs.src,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // Audio
-    if (nodeType === "audio") {
-      const attrs =
-        (node.attrs as Record<string, unknown> | undefined) ?? {};
-
-      if (attrs.src) {
-        blocks.push({
-          type: "audio",
-          position: blocks.length,
-          content: {
-            src: attrs.src,
-          },
-        });
-      }
-
-      return;
-    }
-
-    // Divider
-    if (nodeType === "horizontalRule") {
-      blocks.push({
-        type: "divider",
-        position: blocks.length,
-        content: {},
-      });
-
-      return;
-    }
-  });
-
-  return blocks;
+  return [
+    {
+      type: "rich-text",
+      position: 0,
+      content: {
+        html: content,
+        text: contentText,
+      },
+    },
+  ];
 };
 
   // =========================================================

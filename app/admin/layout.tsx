@@ -3,7 +3,6 @@
 import Link from "next/link";
 
 import { useEffect, useRef, useState } from "react";
-
 import { usePathname, useRouter } from "next/navigation";
 
 interface AdminUser {
@@ -22,45 +21,102 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [adminUser, setAdminUser] =
-    useState<AdminUser | null>(null);
-
   const [profileOpen, setProfileOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
 
+  const [adminUser, setAdminUser] =
+  useState<AdminUser | null>(null);
+
+const [loadingUser, setLoadingUser] =
+  useState(true);
+
   useEffect(() => {
+  const loadCurrentUser = async () => {
     const storedUser =
       localStorage.getItem("smartprix_user");
 
-    if (!storedUser) {
+    const token =
+      localStorage.getItem("smartprix_token");
+
+    if (!storedUser || !token) {
       router.replace("/login");
       return;
     }
 
     try {
-      const user = JSON.parse(
+      // Show cached user immediately
+      const cachedUser = JSON.parse(
         storedUser,
       ) as AdminUser;
 
       const isAdminUser =
-        user.role === "ADMIN" ||
-        user.role === "SUPER_ADMIN" ||
-        user.role === "EDITOR";
+        cachedUser.role === "ADMIN" ||
+        cachedUser.role === "SUPER_ADMIN" ||
+        cachedUser.role === "EDITOR";
 
       if (!isAdminUser) {
         router.replace("/");
         return;
       }
 
-      setAdminUser(user);
-    } catch {
-      localStorage.removeItem("smartprix_user");
-      localStorage.removeItem("smartprix_token");
 
-      router.replace("/login");
-    }
-  }, [router]);
+      // Fetch latest user + permissions
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/me`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+          localStorage.removeItem(
+            "smartprix_token",
+          );
+          localStorage.removeItem(
+            "smartprix_user",
+          );
+
+          router.replace("/login");
+          return;
+        }
+
+        throw new Error(
+          "Failed to refresh user",
+        );
+      }
+
+      const result = await response.json();
+
+      const latestUser =
+  result.data as AdminUser;
+
+localStorage.setItem(
+  "smartprix_user",
+  JSON.stringify(latestUser),
+);
+
+setAdminUser(latestUser);
+setLoadingUser(false);
+    } catch (error) {
+  console.error(
+    "Failed to refresh admin user:",
+    error,
+  );
+  setLoadingUser(false);
+}
+  };
+
+  loadCurrentUser();
+}, [router]);
 
   useEffect(() => {
     const handleClickOutside = (
@@ -114,15 +170,15 @@ export default function AdminLayout({
     return adminUser.permissions?.includes(permission);
   };
 
-  if (!adminUser) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">
-          Loading admin...
-        </p>
-      </div>
-    );
-  }
+  if (loadingUser || !adminUser) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <p className="text-sm text-gray-500">
+        Loading admin...
+      </p>
+    </div>
+  );
+}
 
   const initials = adminUser.name
     ? adminUser.name

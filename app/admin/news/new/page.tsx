@@ -62,11 +62,8 @@ allowSharing: true,
 });
 
 const [content, setContent] = useState("");
-const [contentJSON, setContentJSON] = useState<
-Record<string, unknown> | null
-
-> (null);
-> const [contentText, setContentText] = useState("");
+const [contentJSON, setContentJSON] = useState<Record<string, unknown> | null>(null);
+ const [contentText, setContentText] = useState("");
 
 const [saving, setSaving] = useState(false);
 const [saveMessage, setSaveMessage] = useState("");
@@ -124,7 +121,6 @@ const loadCategories = async () => {
 try {
 setCategoriesLoading(true);
 
-```
     const response = await apiFetch<{
       success: boolean;
       data: Category[];
@@ -160,7 +156,6 @@ setCategoriesLoading(true);
 };
 
 loadCategories();
-```
 
 }, []);
 
@@ -184,9 +179,7 @@ const slug = form.title
 .replace(/\s+/g, "-")
 .replace(/-+/g, "-");
 
-```
 return slug || "your-news-title";
-```
 
 }, [form.title]);
 
@@ -215,7 +208,6 @@ if (typeof node.text === "string") {
 return node.text;
 }
 
-```
 const children =
   (node.content as
     | Array<Record<string, unknown>>
@@ -224,7 +216,6 @@ const children =
 return children
   .map((child) => getNodeText(child))
   .join("");
-```
 
 };
 
@@ -247,7 +238,6 @@ current.includes(categoryId)
 const createNewCategory = async () => {
 const name = newCategoryName.trim();
 
-```
 if (!name) {
   window.alert("Please enter a category name.");
   return;
@@ -303,7 +293,6 @@ try {
 } finally {
   setCreatingCategory(false);
 }
-```
 
 };
 
@@ -335,7 +324,6 @@ titleInputRef.current?.focus();
 return;
 }
 
-```
 if (!form.authorName.trim()) {
   window.alert("Please enter the author name.");
   return;
@@ -416,7 +404,6 @@ try {
 } finally {
   setSaving(false);
 }
-```
 
 };
 
@@ -443,9 +430,7 @@ await savePost("PUBLISHED");
 const setFeaturedImage = () => {
 const cleanUrl = featuredImageInput.trim();
 
-```
 updateForm("featuredImage", cleanUrl);
-```
 
 };
 
@@ -510,7 +495,6 @@ return ( <AdminPermissionGuard permission="news.create"> <div className="min-h-s
 PAGE HEADER
 ===================================================== */}
 
-```
     <div className="border-b border-[#dcdcde] bg-white px-5 py-4">
       <div className="flex items-center justify-between gap-4">
         <div>

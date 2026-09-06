@@ -1,37 +1,77 @@
 import { apiFetch } from "./client";
 import type { ApiResponse } from "@/types/api";
 
-export interface AdminStats {
-  products: number;
-  categories: number;
-  brands: number;
-  sellers: number;
-  users: number;
+export interface DashboardProduct {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+
+  brand: {
+    name: string;
+  };
+
+  images: {
+    url: string;
+  }[];
+
+  prices: {
+    amount: string | number;
+    currency: string;
+  }[];
 }
 
-export async function getAdminStats(): Promise<
-  ApiResponse<AdminStats>
-> {
-  const [
-    productsResponse,
-    categoriesResponse,
-    brandsResponse,
-    sellersResponse,
-  ] = await Promise.all([
-    apiFetch<ApiResponse<unknown[]>>("/products"),
-    apiFetch<ApiResponse<unknown[]>>("/categories"),
-    apiFetch<ApiResponse<unknown[]>>("/brands"),
-    apiFetch<ApiResponse<unknown[]>>("/sellers"),
-  ]);
+export interface DashboardNews {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  featuredImage: string | null;
+  createdAt: string;
+  publishedAt: string | null;
+}
 
-  return {
-    success: true,
-    data: {
-      products: productsResponse.data.length,
-      categories: categoriesResponse.data.length,
-      brands: brandsResponse.data.length,
-      sellers: sellersResponse.data.length,
-      users: 0,
-    },
+export interface AdminDashboard {
+  overview: {
+    products: number;
+    news: number;
+    users: number;
+    brands: number;
   };
+
+  recentProducts: DashboardProduct[];
+
+  recentNews: DashboardNews[];
+
+  contentHealth: {
+    missingImages: number;
+    missingPrices: number;
+    missingSpecifications: number;
+    draftArticles: number;
+  };
+}
+
+export async function getAdminDashboard(): Promise<
+  ApiResponse<AdminDashboard>
+> {
+  return apiFetch<ApiResponse<AdminDashboard>>(
+    "/admin/dashboard",
+  );
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export async function changeAdminPassword(
+  input: ChangePasswordInput,
+) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+  }>("/admin/password", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 }

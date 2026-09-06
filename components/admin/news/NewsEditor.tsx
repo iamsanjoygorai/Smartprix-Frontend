@@ -299,7 +299,7 @@ export default function NewsEditor({
   "help",
   "directionality",
   "emoticons",
-  "quickbars",
+  // "quickbars",
 ],
 
 quickbars_image_toolbar:

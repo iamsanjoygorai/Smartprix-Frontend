@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { apiFetch } from "@/lib/api/client";
-import type { ApiResponse } from "@/types/api";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
+interface LoginUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: string;
+}
 
 interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
+  success: boolean;
+  message: string;
+  data?: {
+    token: string;
+    user: LoginUser;
   };
 }
 
@@ -22,8 +30,45 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  /*
+   * If the user is already logged in:
+   *
+   * ADMIN -> /admin
+   * USER  -> /
+   *
+   * This prevents an already logged-in user from staying
+   * on the login page.
+   */
+  useEffect(() => {
+    const token = localStorage.getItem("smartprix_token");
+    const userData = localStorage.getItem("smartprix_user");
+
+    if (!token || !userData) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    try {
+      const user: LoginUser = JSON.parse(userData);
+
+      if (user.role === "ADMIN") {
+        router.replace("/admin");
+        return;
+      }
+
+      router.replace("/");
+    } catch {
+      localStorage.removeItem("smartprix_user");
+      localStorage.removeItem("smartprix_token");
+      setCheckingAuth(false);
+    }
+  }, [router]);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -31,13 +76,28 @@ export default function LoginPage() {
     event.preventDefault();
 
     setError("");
-    setLoading(true);
+    setSuccess("");
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
 
     try {
-      const response = await apiFetch<ApiResponse<LoginResponse>>(
-        "/auth/login",
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/auth/login`,
         {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             email: email.trim(),
             password,
@@ -45,47 +105,102 @@ export default function LoginPage() {
         },
       );
 
-      localStorage.setItem("smartprix_token", response.data.token);
+      const responseData: LoginResponse =
+        await response.json();
 
-      if (response.data.user.role === "ADMIN") {
-        router.push("/admin");
-      } else {
-        router.push("/");
+      if (!response.ok || !responseData.success) {
+        throw new Error(
+          responseData.message ||
+            "Invalid email or password",
+        );
       }
-    } catch (err) {
+
+      if (
+        !responseData.data?.token ||
+        !responseData.data?.user
+      ) {
+        throw new Error(
+          "Invalid login response from server.",
+        );
+      }
+
+      const { token, user } = responseData.data;
+
+      /*
+       * Store authentication information.
+       */
+      localStorage.setItem(
+        "smartprix_token",
+        token,
+      );
+
+      localStorage.setItem(
+        "smartprix_user",
+        JSON.stringify(user),
+      );
+
+      setSuccess(
+        responseData.message ||
+          "Login successful",
+      );
+
+      /*
+       * Redirect according to user role.
+       */
+      if (user.role === "ADMIN") {
+        router.replace("/admin");
+      } else {
+        router.replace("/");
+      }
+    } catch (error) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Login failed.",
+        error instanceof Error
+          ? error.message
+          : "Unable to login.",
       );
     } finally {
       setLoading(false);
     }
   }
 
+  /*
+   * Prevent the login form from briefly appearing
+   * while we check localStorage.
+   */
+  if (checkingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">
+          Checking authentication...
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-10">
-      <div className="w-full rounded-xl bg-white p-6 shadow-sm">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Login
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome back
           </h1>
 
-          <p className="mt-2 text-sm text-gray-600">
-            Login to access your Smartprix account.
+          <p className="mt-2 text-sm text-gray-500">
+            Login to your Smartprix account.
           </p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-5"
+          className="space-y-5"
         >
+          {/* Email */}
           <div>
             <label
               htmlFor="email"
               className="mb-2 block text-sm font-medium text-gray-700"
             >
-              Email
+              Email address
             </label>
 
             <input
@@ -95,19 +210,30 @@ export default function LoginPage() {
               onChange={(event) =>
                 setEmail(event.target.value)
               }
-              placeholder="admin@example.com"
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+              placeholder="you@example.com"
+              autoComplete="email"
+              disabled={loading}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-100"
             />
           </div>
 
+          {/* Password */}
           <div>
-            <label
-              htmlFor="password"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Password
-            </label>
+            <div className="mb-2 flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Password
+              </label>
+
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-gray-600 hover:text-black"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <input
               id="password"
@@ -117,26 +243,49 @@ export default function LoginPage() {
                 setPassword(event.target.value)
               }
               placeholder="Enter your password"
-              required
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
+              autoComplete="current-password"
+              disabled={loading}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-100"
             />
           </div>
 
+          {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
+          {/* Success */}
+          {success && (
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              {success}
+            </div>
+          )}
+
+          {/* Login button */}
           <button
             type="submit"
             disabled={loading}
-            className="rounded-lg bg-black px-5 py-3 font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        {/* Register */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-gray-900 hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

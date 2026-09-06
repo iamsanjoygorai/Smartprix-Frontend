@@ -124,6 +124,26 @@ try {
 
 };
 
+const removeFeaturedImageFromHtml = (
+  html: string,
+  featuredImage?: string | null,
+) => {
+  if (!featuredImage || !html) return html;
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  doc.querySelectorAll("img").forEach((img) => {
+    const src = img.getAttribute("src");
+
+    if (src === featuredImage) {
+      img.remove();
+    }
+  });
+
+  return doc.body.innerHTML;
+};
+
 if (loading) {
 return (
 <main className="min-h-screen bg-[#f3f5f8] pb-10">
@@ -240,14 +260,14 @@ Home
 
         {/* Featured image */}
         {post.featuredImage && (
-          <div className="px-5 md:px-7">
-            <img
-              src={post.featuredImage}
-              alt={post.title}
-              className="max-h-[520px] w-full rounded-md object-cover"
-            />
-          </div>
-        )}
+  <div className="px-5 md:px-7">
+    <img
+      src={post.featuredImage}
+      alt={post.title}
+      className="max-h-[520px] w-full rounded-md object-cover"
+    />
+  </div>
+)}
 
         {/* Article content */}
         <div className="px-5 py-7 md:px-7 md:py-9">
@@ -266,8 +286,11 @@ Home
                     key={block.id}
                     className="news-content prose prose-slate max-w-none prose-headings:font-bold prose-a:text-[#087be7] prose-img:rounded-md"
                     dangerouslySetInnerHTML={{
-                      __html: block.content.html,
-                    }}
+  __html: removeFeaturedImageFromHtml(
+    block.content.html,
+    post.featuredImage,
+  ),
+}}
                   />
                 );
               }

@@ -114,8 +114,160 @@ export default function NewsEditor({
         }
 
         onInit={(_evt, editor) => {
-          editorRef.current = editor;
-        }}
+  editorRef.current = editor;
+
+  let savedBookmark: any = null;
+
+  editor.ui.registry.addMenuButton("textcase", {
+    text: "Aa",
+    tooltip: "Change text case",
+
+    onSetup: (api) => {
+      const saveSelection = () => {
+        if (!editor.selection.isCollapsed()) {
+          savedBookmark = editor.selection.getBookmark(
+            2,
+            true
+          );
+        }
+      };
+
+      editor.on("mousedown", saveSelection);
+
+      return () => {
+        editor.off("mousedown", saveSelection);
+      };
+    },
+
+    fetch: (callback) => {
+      // Save the exact selection before opening the menu
+      if (!editor.selection.isCollapsed()) {
+        savedBookmark = editor.selection.getBookmark(
+          2,
+          true
+        );
+      }
+
+      const applyCase = (
+  transform: (text: string) => string
+) => {
+  if (!savedBookmark) return;
+
+  // Restore the user's original selection
+  editor.focus();
+  editor.selection.moveToBookmark(savedBookmark);
+
+  const selectedHtml = editor.selection.getContent({
+    format: "html",
+  });
+
+  if (!selectedHtml.trim()) return;
+
+  // Transform only text nodes.
+  // This preserves the spacing and HTML formatting.
+  const temp = document.createElement("div");
+  temp.innerHTML = selectedHtml;
+
+  const walker = document.createTreeWalker(
+    temp,
+    NodeFilter.SHOW_TEXT
+  );
+
+  const textNodes: Text[] = [];
+
+  let node: Node | null;
+
+  while ((node = walker.nextNode())) {
+    textNodes.push(node as Text);
+  }
+
+  textNodes.forEach((textNode) => {
+    textNode.nodeValue = transform(
+      textNode.nodeValue || ""
+    );
+  });
+
+  // Give the replacement a temporary marker.
+  const marker = document.createElement("span");
+  marker.setAttribute(
+    "data-textcase-selection",
+    "true"
+  );
+
+  while (temp.firstChild) {
+    marker.appendChild(temp.firstChild);
+  }
+
+  // Replace ONLY the selected text
+  editor.selection.setContent(marker.outerHTML);
+
+  // Find the inserted marker
+  const insertedMarker = editor
+    .getBody()
+    .querySelector(
+      'span[data-textcase-selection="true"]'
+    );
+
+  if (!insertedMarker) {
+    return;
+  }
+
+  // Select ONLY the contents of the marker
+  const newRange = editor.dom.createRng();
+
+  newRange.selectNodeContents(insertedMarker);
+
+  editor.selection.setRng(newRange);
+  editor.focus();
+
+  // Remove the marker attribute but keep the span.
+  // This keeps the exact text selection intact.
+  insertedMarker.removeAttribute(
+    "data-textcase-selection"
+  );
+
+  // Save the new selection so another Aa operation
+  // can work on the same selected text.
+  savedBookmark = editor.selection.getBookmark(
+    2,
+    true
+  );
+};
+
+      callback([
+        {
+          type: "menuitem",
+          text: "lowercase",
+          onAction: () => {
+            applyCase((text) => text.toLowerCase());
+          },
+        },
+
+        {
+          type: "menuitem",
+          text: "UPPERCASE",
+          onAction: () => {
+            applyCase((text) => text.toUpperCase());
+          },
+        },
+
+        {
+          type: "menuitem",
+          text: "Title Case",
+          onAction: () => {
+            applyCase((text) =>
+              text
+                .toLowerCase()
+                .replace(/\b\w/g, (char) =>
+                  char.toUpperCase()
+                )
+            );
+          },
+        },
+      ]);
+    },
+  });
+}}
 
         value={value}
 
@@ -150,16 +302,16 @@ export default function NewsEditor({
           ],
 
           toolbar:
-            "undo redo | " +
-            "blocks fontfamily fontsize | " +
-            "bold italic underline strikethrough | " +
-            "forecolor backcolor | " +
-            "alignleft aligncenter alignright alignjustify | " +
-            "bullist numlist outdent indent | " +
-            "link image media table | " +
-            "blockquote hr | " +
-            "removeformat | " +
-            "code fullscreen",
+  "undo redo | " +
+  "blocks fontfamily fontsize | " +
+  "bold italic underline strikethrough textcase | " +
+  "forecolor backcolor | " +
+  "alignleft aligncenter alignright alignjustify | " +
+  "bullist numlist outdent indent | " +
+  "link image media table | " +
+  "blockquote hr | " +
+  "removeformat | " +
+  "code fullscreen",
 
           toolbar_mode: "sliding",
 

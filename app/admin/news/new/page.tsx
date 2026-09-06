@@ -46,7 +46,6 @@ type ApiResponse = {
 
 export default function NewNewsPage() {
   const router = useRouter();
-// const [isDirty, setIsDirty] = useState(false);
 
 
   // =========================================================
@@ -162,11 +161,35 @@ const [categoryTab, setCategoryTab] = useState<"all" | "most-used">("all");
 
   useEffect(() => {
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (!isDirty) return;
 
     event.preventDefault();
     event.returnValue = "";
   };
+
+//   useEffect(() => {
+//   const handleBeforeUnload = (
+//     event: BeforeUnloadEvent
+//   ) => {
+//     if (!hasUnsavedChanges) {
+//       return;
+//     }
+
+//     event.preventDefault();
+//     event.returnValue = "";
+//   };
+
+//   window.addEventListener(
+//     "beforeunload",
+//     handleBeforeUnload
+//   );
+
+//   return () => {
+//     window.removeEventListener(
+//       "beforeunload",
+//       handleBeforeUnload
+//     );
+//   };
+// }, [hasUnsavedChanges]);
 
   window.addEventListener(
     "beforeunload",
@@ -179,7 +202,45 @@ const [categoryTab, setCategoryTab] = useState<"all" | "most-used">("all");
       handleBeforeUnload
     );
   };
-}, [isDirty]);
+}, []);
+
+
+const hasEditorContent = (() => {
+  const text = content
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/gi, " ")
+    .trim();
+
+  return text.length > 0;
+})();
+
+const hasUnsavedChanges =
+  form.title.trim().length > 0 ||
+  form.authorName.trim().length > 0 ||
+  form.featuredImage.trim().length > 0 ||
+  hasEditorContent ||
+  selectedCategoryIds.length > 0 ||
+  newCategoryName.trim().length > 0 ||
+  newCategoryParentId.length > 0;
+
+
+  useEffect(() => {
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = "";
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  };
+}, [hasUnsavedChanges]);
 
   // =========================================================
   // SLUG PREVIEW
@@ -555,7 +616,6 @@ const getDisplayChildCategories = (parentId: string) =>
               type="text"
               value={form.title}
               onChange={(event) => {
-  setIsDirty(true);
 
   updateForm(
     "title",
@@ -663,7 +723,6 @@ const getDisplayChildCategories = (parentId: string) =>
                   type="text"
                   value={form.authorName}
                   onChange={(event) => {
-  setIsDirty(true);
 
   updateForm(
     "authorName",
@@ -920,7 +979,6 @@ const getDisplayChildCategories = (parentId: string) =>
       onChange={(event) => {
   const value = event.target.value;
 
-  setIsDirty(true);
   setFeaturedImageInput(value);
   updateForm("featuredImage", value);
 }}

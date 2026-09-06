@@ -1,229 +1,324 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import {
+FormEvent,
+useEffect,
+useState,
+} from "react";
+
 import Link from "next/link";
+
 import { apiFetch } from "@/lib/api/client";
 
+import AdminPermissionGuard from "@/components/admin/AdminPermissionGuard";
+import AdminPermission from "@/components/admin/AdminPermission";
+
 type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string | null;
-  parentId?: string | null;
-  parent?: {
-    id: string;
-    name: string;
-  } | null;
-  _count?: {
-    posts: number;
-    children?: number;
-  };
+id: string;
+name: string;
+slug: string;
+description?: string | null;
+parentId?: string | null;
+parent?: {
+id: string;
+name: string;
+} | null;
+_count?: {
+posts: number;
+children?: number;
+};
 };
 
 export default function NewsCategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+const [categories, setCategories] = useState<Category[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+const [loading, setLoading] = useState(true);
+const [saving, setSaving] = useState(false);
+const [deletingId, setDeletingId] =
+useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+const [name, setName] = useState("");
+const [description, setDescription] = useState("");
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+const [editingId, setEditingId] =
+useState<string | null>(null);
 
-  const loadCategories = async () => {
-    try {
-      setLoading(true);
+// =========================================================
+// LOAD CATEGORIES
+// =========================================================
 
-      const response = await apiFetch<{
-        success: boolean;
-        data: Category[];
-      }>("/admin/news/categories");
+const loadCategories = async () => {
+try {
+setLoading(true);
 
-      setCategories(Array.isArray(response?.data) ? response.data : []);
-    } catch (error) {
-      console.error("Failed to load categories:", error);
+  const response = await apiFetch<{
+    success: boolean;
+    data: Category[];
+  }>("/admin/news/categories");
 
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to load categories",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const resetForm = () => {
-    setName("");
-    setDescription("");
-    setEditingId(null);
-  };
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-
-    if (!name.trim()) {
-      alert("Category name is required");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      if (editingId) {
-        await apiFetch(`/admin/news/categories/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim() || undefined,
-          }),
-        });
-
-        alert("Category updated successfully");
-      } else {
-        await apiFetch("/admin/news/categories", {
-          method: "POST",
-          body: JSON.stringify({
-            name: name.trim(),
-            description: description.trim() || undefined,
-          }),
-        });
-
-        alert("Category created successfully");
-      }
-
-      resetForm();
-      await loadCategories();
-    } catch (error) {
-      console.error(
-        editingId
-          ? "Failed to update category:"
-          : "Failed to create category:",
-        error,
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : editingId
-            ? "Failed to update category"
-            : "Failed to create category",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEdit = (category: Category) => {
-    setEditingId(category.id);
-    setName(category.name);
-    setDescription(category.description ?? "");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const handleDelete = async (
-    id: string,
-    categoryName: string,
-    postCount: number,
-  ) => {
-    if (postCount > 0) {
-      const confirmed = window.confirm(
-        `"${categoryName}" is assigned to ${postCount} ${
-          postCount === 1 ? "post" : "posts"
-        }.\n\nAre you sure you want to delete this category?`,
-      );
-
-      if (!confirmed) return;
-    } else {
-      const confirmed = window.confirm(
-        `Delete category "${categoryName}"?`,
-      );
-
-      if (!confirmed) return;
-    }
-
-    try {
-      setDeletingId(id);
-
-      await apiFetch(`/admin/news/categories/${id}`, {
-        method: "DELETE",
-      });
-
-      setCategories((current) =>
-        current.filter((category) => category.id !== id),
-      );
-
-      if (editingId === id) {
-        resetForm();
-      }
-    } catch (error) {
-      console.error("Failed to delete category:", error);
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to delete category",
-      );
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const parentCategories = categories.filter(
-  (category) => !category.parentId
-);
-
-const getChildCategories = (parentId: string) =>
-  categories.filter(
-    (category) => category.parentId === parentId
+  setCategories(
+    Array.isArray(response?.data)
+      ? response.data
+      : [],
+  );
+} catch (error) {
+  console.error(
+    "Failed to load categories:",
+    error,
   );
 
-  return (
-    <div className="min-h-screen bg-[#f5f5f5]">
-      {/* Header */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="flex h-[72px] items-center justify-between px-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Categories
-            </h1>
+  alert(
+    error instanceof Error
+      ? error.message
+      : "Failed to load categories",
+  );
+} finally {
+  setLoading(false);
+}
 
-            <p className="mt-1 text-sm text-gray-500">
-              Manage news categories
-            </p>
-          </div>
+};
 
+useEffect(() => {
+loadCategories();
+}, []);
+
+// =========================================================
+// RESET FORM
+// =========================================================
+
+const resetForm = () => {
+setName("");
+setDescription("");
+setEditingId(null);
+};
+
+// =========================================================
+// CREATE / UPDATE CATEGORY
+// =========================================================
+
+const handleSubmit = async (
+event: FormEvent,
+) => {
+event.preventDefault();
+
+if (!name.trim()) {
+  alert("Category name is required");
+  return;
+}
+
+try {
+  setSaving(true);
+
+  if (editingId) {
+    await apiFetch(
+      `/admin/news/categories/${editingId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          name: name.trim(),
+          description:
+            description.trim() || undefined,
+        }),
+      },
+    );
+
+    alert("Category updated successfully");
+  } else {
+    await apiFetch(
+      "/admin/news/categories",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          description:
+            description.trim() || undefined,
+        }),
+      },
+    );
+
+    alert("Category created successfully");
+  }
+
+  resetForm();
+
+  await loadCategories();
+} catch (error) {
+  console.error(
+    editingId
+      ? "Failed to update category:"
+      : "Failed to create category:",
+    error,
+  );
+
+  alert(
+    error instanceof Error
+      ? error.message
+      : editingId
+        ? "Failed to update category"
+        : "Failed to create category",
+  );
+} finally {
+  setSaving(false);
+}
+
+};
+
+// =========================================================
+// EDIT CATEGORY
+// =========================================================
+
+const handleEdit = (category: Category) => {
+setEditingId(category.id);
+setName(category.name);
+setDescription(
+category.description ?? "",
+);
+
+window.scrollTo({
+  top: 0,
+  behavior: "smooth",
+});
+
+};
+
+// =========================================================
+// DELETE CATEGORY
+// =========================================================
+
+const handleDelete = async (
+id: string,
+categoryName: string,
+postCount: number,
+) => {
+if (postCount > 0) {
+const confirmed = window.confirm(
+`"${categoryName}" is assigned to ${postCount} ${
+          postCount === 1 ? "post" : "posts"
+        }.\n\nAre you sure you want to delete this category?`,
+);
+
+  if (!confirmed) {
+    return;
+  }
+} else {
+  const confirmed = window.confirm(
+    `Delete category "${categoryName}"?`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+}
+
+try {
+  setDeletingId(id);
+
+  await apiFetch(
+    `/admin/news/categories/${id}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  setCategories((current) =>
+    current.filter(
+      (category) => category.id !== id,
+    ),
+  );
+
+  if (editingId === id) {
+    resetForm();
+  }
+} catch (error) {
+  console.error(
+    "Failed to delete category:",
+    error,
+  );
+
+  alert(
+    error instanceof Error
+      ? error.message
+      : "Failed to delete category",
+  );
+} finally {
+  setDeletingId(null);
+}
+
+};
+
+// =========================================================
+// CATEGORY HIERARCHY
+// =========================================================
+
+const parentCategories = categories.filter(
+(category) => !category.parentId,
+);
+
+const getChildCategories = (
+parentId: string,
+) =>
+categories.filter(
+(category) =>
+category.parentId === parentId,
+);
+
+// =========================================================
+// RENDER
+// =========================================================
+
+return ( <AdminPermissionGuard permission="news.view"> <div className="min-h-screen bg-[#f5f5f5]">
+{/* =====================================================
+HEADER
+===================================================== */}
+
+    <div className="border-b border-gray-200 bg-white">
+      <div className="flex h-[72px] items-center justify-between px-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Categories
+          </h1>
+
+          <p className="mt-1 text-sm text-gray-500">
+            Manage news categories
+          </p>
+        </div>
+
+        <AdminPermission permission="news.create">
           <Link
             href="/admin/news/new"
             className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
           >
             + Add New Post
           </Link>
-        </div>
+        </AdminPermission>
       </div>
+    </div>
 
-      <div className="p-8">
-        {/* Add / Edit Category */}
+    <div className="p-8">
+      {/* =================================================
+          ADD / EDIT CATEGORY
+          ================================================= */}
+
+      <AdminPermission
+        permission={
+          editingId
+            ? "news.update"
+            : "news.create"
+        }
+      >
         <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {editingId ? "Edit Category" : "Add Category"}
+                {editingId
+                  ? "Edit Category"
+                  : "Add Category"}
               </h2>
 
               {editingId && (
                 <p className="mt-1 text-sm text-gray-500">
-                  Update the category information below.
+                  Update the category
+                  information below.
                 </p>
               )}
             </div>
@@ -243,7 +338,8 @@ const getChildCategories = (parentId: string) =>
             onSubmit={handleSubmit}
             className="grid gap-4 md:grid-cols-[1fr_1fr_auto]"
           >
-            {/* Name */}
+            {/* NAME */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Name
@@ -252,14 +348,19 @@ const getChildCategories = (parentId: string) =>
               <input
                 type="text"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) =>
+                  setName(
+                    event.target.value,
+                  )
+                }
                 placeholder="e.g. Mobile"
                 disabled={saving}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
               />
             </div>
 
-            {/* Description */}
+            {/* DESCRIPTION */}
+
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Description
@@ -269,7 +370,9 @@ const getChildCategories = (parentId: string) =>
                 type="text"
                 value={description}
                 onChange={(event) =>
-                  setDescription(event.target.value)
+                  setDescription(
+                    event.target.value,
+                  )
                 }
                 placeholder="Optional description"
                 disabled={saving}
@@ -277,7 +380,8 @@ const getChildCategories = (parentId: string) =>
               />
             </div>
 
-            {/* Submit */}
+            {/* SUBMIT */}
+
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -306,225 +410,301 @@ const getChildCategories = (parentId: string) =>
             </div>
           </form>
         </div>
+      </AdminPermission>
 
-        {/* Category List */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-200 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  All Categories
-                </h2>
+      {/* =================================================
+          CATEGORY LIST
+          ================================================= */}
 
-                <p className="mt-1 text-sm text-gray-500">
-                  {categories.length}{" "}
-                  {categories.length === 1
-                    ? "category"
-                    : "categories"}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={loadCategories}
-                disabled={loading}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {loading ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
-          </div>
-
-          {/* Loading */}
-          {loading ? (
-            <div className="px-6 py-12 text-center text-sm text-gray-500">
-              Loading categories...
-            </div>
-          ) : categories.length === 0 ? (
-            /* Empty */
-            <div className="px-6 py-16 text-center">
-              <div className="text-4xl">📂</div>
-
-              <h3 className="mt-4 text-base font-semibold text-gray-900">
-                No categories yet
-              </h3>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                All Categories
+              </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                Create your first news category above.
+                {categories.length}{" "}
+                {categories.length === 1
+                  ? "category"
+                  : "categories"}
               </p>
             </div>
-          ) : (
-            /* List */
-            <div className="divide-y divide-gray-100">
-  {parentCategories.map((parentCategory) => {
-    const postCount =
-      parentCategory._count?.posts ?? 0;
-
-    const children = getChildCategories(
-      parentCategory.id
-    );
-
-    return (
-      <div key={parentCategory.id}>
-        {/* Parent Category */}
-        <div className="flex items-center justify-between bg-gray-50 px-6 py-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="font-semibold text-gray-900">
-                📁 {parentCategory.name}
-              </h3>
-
-              <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs text-gray-500">
-                {parentCategory.slug}
-              </span>
-            </div>
-
-            {parentCategory.description && (
-              <p className="mt-1 text-sm text-gray-500">
-                {parentCategory.description}
-              </p>
-            )}
-
-            <p className="mt-2 text-xs text-gray-400">
-              {postCount}{" "}
-              {postCount === 1 ? "post" : "posts"}
-              {children.length > 0 && (
-                <>
-                  {" "}
-                  · {children.length}{" "}
-                  {children.length === 1
-                    ? "child"
-                    : "children"}
-                </>
-              )}
-            </p>
-          </div>
-
-          {/* Parent Actions */}
-          <div className="ml-4 flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                handleEdit(parentCategory)
-              }
-              disabled={
-                deletingId === parentCategory.id
-              }
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Edit
-            </button>
 
             <button
               type="button"
-              onClick={() =>
-                handleDelete(
-                  parentCategory.id,
-                  parentCategory.name,
-                  postCount
-                )
-              }
-              disabled={
-                deletingId === parentCategory.id
-              }
-              className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={loadCategories}
+              disabled={loading}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              {deletingId === parentCategory.id
-                ? "Deleting..."
-                : "Delete"}
+              {loading
+                ? "Refreshing..."
+                : "Refresh"}
             </button>
           </div>
         </div>
 
-        {/* Child Categories */}
-        {children.length > 0 && (
-          <div className="bg-white">
-            {children.map((childCategory) => {
-              const childPostCount =
-                childCategory._count?.posts ?? 0;
+        {/* LOADING */}
 
-              return (
-                <div
-                  key={childCategory.id}
-                  className="flex items-center justify-between border-t border-gray-100 px-6 py-4 pl-14 transition hover:bg-gray-50"
-                >
-                  {/* Child Information */}
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="font-medium text-gray-800">
-                        <span className="mr-2 text-gray-400">
-                          └─
-                        </span>
-                        {childCategory.name}
-                      </h3>
+        {loading ? (
+          <div className="px-6 py-12 text-center text-sm text-gray-500">
+            Loading categories...
+          </div>
+        ) : categories.length === 0 ? (
+          /* EMPTY */
+          <div className="px-6 py-16 text-center">
+            <div className="text-4xl">
+              📂
+            </div>
 
-                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
-                        {childCategory.slug}
-                      </span>
+            <h3 className="mt-4 text-base font-semibold text-gray-900">
+              No categories yet
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Create your first news category
+              above.
+            </p>
+          </div>
+        ) : (
+          /* LIST */
+          <div className="divide-y divide-gray-100">
+            {parentCategories.map(
+              (parentCategory) => {
+                const postCount =
+                  parentCategory._count
+                    ?.posts ?? 0;
+
+                const children =
+                  getChildCategories(
+                    parentCategory.id,
+                  );
+
+                return (
+                  <div
+                    key={
+                      parentCategory.id
+                    }
+                  >
+                    {/* =================================================
+                        PARENT CATEGORY
+                        ================================================= */}
+
+                    <div className="flex items-center justify-between bg-gray-50 px-6 py-5">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="font-semibold text-gray-900">
+                            📁{" "}
+                            {
+                              parentCategory.name
+                            }
+                          </h3>
+
+                          <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs text-gray-500">
+                            {
+                              parentCategory.slug
+                            }
+                          </span>
+                        </div>
+
+                        {parentCategory.description && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            {
+                              parentCategory.description
+                            }
+                          </p>
+                        )}
+
+                        <p className="mt-2 text-xs text-gray-400">
+                          {postCount}{" "}
+                          {postCount === 1
+                            ? "post"
+                            : "posts"}
+
+                          {children.length >
+                            0 && (
+                            <>
+                              {" "}
+                              ·{" "}
+                              {
+                                children.length
+                              }{" "}
+                              {children.length ===
+                              1
+                                ? "child"
+                                : "children"}
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* PARENT ACTIONS */}
+
+                      <div className="ml-4 flex shrink-0 items-center gap-2">
+                        <AdminPermission permission="news.update">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleEdit(
+                                parentCategory,
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              parentCategory.id
+                            }
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
+                        </AdminPermission>
+
+                        <AdminPermission permission="news.delete">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete(
+                                parentCategory.id,
+                                parentCategory.name,
+                                postCount,
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              parentCategory.id
+                            }
+                            className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId ===
+                            parentCategory.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </AdminPermission>
+                      </div>
                     </div>
 
-                    {childCategory.description && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        {childCategory.description}
-                      </p>
+                    {/* =================================================
+                        CHILD CATEGORIES
+                        ================================================= */}
+
+                    {children.length > 0 && (
+                      <div className="bg-white">
+                        {children.map(
+                          (childCategory) => {
+                            const childPostCount =
+                              childCategory
+                                ._count
+                                ?.posts ?? 0;
+
+                            return (
+                              <div
+                                key={
+                                  childCategory.id
+                                }
+                                className="flex items-center justify-between border-t border-gray-100 px-6 py-4 pl-14 transition hover:bg-gray-50"
+                              >
+                                {/* CHILD INFORMATION */}
+
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <h3 className="font-medium text-gray-800">
+                                      <span className="mr-2 text-gray-400">
+                                        └─
+                                      </span>
+
+                                      {
+                                        childCategory.name
+                                      }
+                                    </h3>
+
+                                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+                                      {
+                                        childCategory.slug
+                                      }
+                                    </span>
+                                  </div>
+
+                                  {childCategory.description && (
+                                    <p className="mt-1 text-sm text-gray-500">
+                                      {
+                                        childCategory.description
+                                      }
+                                    </p>
+                                  )}
+
+                                  <p className="mt-2 text-xs text-gray-400">
+                                    {
+                                      childPostCount
+                                    }{" "}
+                                    {childPostCount ===
+                                    1
+                                      ? "post"
+                                      : "posts"}
+                                  </p>
+                                </div>
+
+                                {/* CHILD ACTIONS */}
+
+                                <div className="ml-4 flex shrink-0 items-center gap-2">
+                                  <AdminPermission permission="news.update">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleEdit(
+                                          childCategory,
+                                        )
+                                      }
+                                      disabled={
+                                        deletingId ===
+                                        childCategory.id
+                                      }
+                                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      Edit
+                                    </button>
+                                  </AdminPermission>
+
+                                  <AdminPermission permission="news.delete">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleDelete(
+                                          childCategory.id,
+                                          childCategory.name,
+                                          childPostCount,
+                                        )
+                                      }
+                                      disabled={
+                                        deletingId ===
+                                        childCategory.id
+                                      }
+                                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {deletingId ===
+                                      childCategory.id
+                                        ? "Deleting..."
+                                        : "Delete"}
+                                    </button>
+                                  </AdminPermission>
+                                </div>
+                              </div>
+                            );
+                          },
+                        )}
+                      </div>
                     )}
-
-                    <p className="mt-2 text-xs text-gray-400">
-                      {childPostCount}{" "}
-                      {childPostCount === 1
-                        ? "post"
-                        : "posts"}
-                    </p>
                   </div>
-
-                  {/* Child Actions */}
-                  <div className="ml-4 flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleEdit(childCategory)
-                      }
-                      disabled={
-                        deletingId ===
-                        childCategory.id
-                      }
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDelete(
-                          childCategory.id,
-                          childCategory.name,
-                          childPostCount
-                        )
-                      }
-                      disabled={
-                        deletingId ===
-                        childCategory.id
-                      }
-                      className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {deletingId === childCategory.id
-                        ? "Deleting..."
-                        : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              },
+            )}
           </div>
         )}
       </div>
-    );
-  })}
-</div>
-          )}
-        </div>
-      </div>
     </div>
-  );
+  </div>
+</AdminPermissionGuard>
+
+);
 }

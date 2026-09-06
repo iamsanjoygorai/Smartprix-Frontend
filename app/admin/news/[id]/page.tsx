@@ -1,16 +1,18 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api/client";
 import dynamic from "next/dynamic";
+
+import { apiFetch } from "@/lib/api/client";
+import AdminPermission from "@/components/admin/AdminPermission";
+import AdminPermissionGuard from "@/components/admin/AdminPermissionGuard";
 
 const NewsEditor = dynamic(
   () => import("@/components/admin/news/NewsEditor"),
   {
     ssr: false,
-  }
+  },
 );
 
 type NewsBlock = {
@@ -52,24 +54,39 @@ export default function EditNewsPage() {
   const params = useParams();
   const router = useRouter();
 
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const id = Array.isArray(params.id)
+    ? params.id[0]
+    : params.id;
 
-  const [post, setPost] = useState<NewsPost | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-  []
-);
-const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [post, setPost] = useState<NewsPost | null>(
+    null,
+  );
+
+  const [categories, setCategories] = useState<
+    Category[]
+  >([]);
+
+  const [selectedCategoryIds, setSelectedCategoryIds] =
+    useState<string[]>([]);
+
+  const [categoriesLoading, setCategoriesLoading] =
+    useState(true);
 
   const [title, setTitle] = useState("");
   const [authorName, setAuthorName] = useState("");
-  const [featuredImage, setFeaturedImage] = useState("");
+  const [featuredImage, setFeaturedImage] =
+    useState("");
   const [content, setContent] = useState("");
-  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+
+  const [status, setStatus] = useState<
+    "DRAFT" | "PUBLISHED"
+  >("DRAFT");
 
   const [allowLikes, setAllowLikes] = useState(true);
-  const [allowComments, setAllowComments] = useState(true);
-  const [allowSharing, setAllowSharing] = useState(true);
+  const [allowComments, setAllowComments] =
+    useState(true);
+  const [allowSharing, setAllowSharing] =
+    useState(true);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,77 +102,111 @@ const [categoriesLoading, setCategoriesLoading] = useState(true);
 
         console.log("Loading news ID:", id);
 
-        const response = await apiFetch(`/admin/news/${id}`);
+        const response = await apiFetch(
+          `/admin/news/${id}`,
+        );
 
-        console.log("News API response:", response);
+        console.log(
+          "News API response:",
+          response,
+        );
 
-        const news: NewsPost = response?.data ?? response;
+        const news: NewsPost =
+          response?.data ?? response;
 
         if (!news || !news.id) {
-          throw new Error("News post was not found.");
+          throw new Error(
+            "News post was not found.",
+          );
         }
 
         setPost(news);
 
         setTitle(news.title ?? "");
         setAuthorName(news.authorName ?? "");
-        setFeaturedImage(news.featuredImage ?? "");
+        setFeaturedImage(
+          news.featuredImage ?? "",
+        );
+
         setStatus(news.status ?? "DRAFT");
 
-        setAllowLikes(news.allowLikes ?? true);
-        setAllowComments(news.allowComments ?? true);
-        setAllowSharing(news.allowSharing ?? true);
+        setAllowLikes(
+          news.allowLikes ?? true,
+        );
 
-const sortedBlocks = [...(news.blocks ?? [])].sort(
-  (a, b) => a.position - b.position,
-);
+        setAllowComments(
+          news.allowComments ?? true,
+        );
 
-const combinedHtml = sortedBlocks
-  .map((block) => {
-    if (block.type === "rich-text") {
-      return block.content?.html ?? "";
-    }
+        setAllowSharing(
+          news.allowSharing ?? true,
+        );
 
-    if (block.type === "image") {
-      const src = block.content?.src;
-      if (!src) return "";
+        const sortedBlocks = [
+          ...(news.blocks ?? []),
+        ].sort(
+          (a, b) => a.position - b.position,
+        );
 
-      return `<img src="${src}" alt="${block.content?.alt ?? ""}" />`;
-    }
+        const combinedHtml = sortedBlocks
+          .map((block) => {
+            if (block.type === "rich-text") {
+              return (
+                block.content?.html ?? ""
+              );
+            }
 
-    if (block.type === "video") {
-      const src = block.content?.src;
-      if (!src) return "";
+            if (block.type === "image") {
+              const src =
+                block.content?.src;
 
-      return `<video src="${src}" controls></video>`;
-    }
+              if (!src) return "";
 
-    if (block.type === "audio") {
-      const src = block.content?.src;
-      if (!src) return "";
+              return `<img src="${src}" alt="${
+                block.content?.alt ?? ""
+              }" />`;
+            }
 
-      return `<audio src="${src}" controls preload="metadata"></audio>`;
-    }
+            if (block.type === "video") {
+              const src =
+                block.content?.src;
 
-    if (block.type === "table") {
-      return block.content?.html ?? "";
-    }
+              if (!src) return "";
 
-    return "";
-  })
-  .join("");
+              return `<video src="${src}" controls></video>`;
+            }
 
-setContent(combinedHtml);
+            if (block.type === "audio") {
+              const src =
+                block.content?.src;
 
- 
+              if (!src) return "";
 
-setContent(combinedHtml);
+              return `<audio src="${src}" controls preload="metadata"></audio>`;
+            }
+
+            if (block.type === "table") {
+              return (
+                block.content?.html ?? ""
+              );
+            }
+
+            return "";
+          })
+          .join("");
+
+        setContent(combinedHtml);
 
         setSelectedCategoryIds(
-          news.categories?.map((item) => item.category.id) ?? []
+          news.categories?.map(
+            (item) => item.category.id,
+          ) ?? [],
         );
       } catch (error) {
-        console.error("Failed to load news:", error);
+        console.error(
+          "Failed to load news:",
+          error,
+        );
 
         const message =
           error instanceof Error
@@ -171,68 +222,85 @@ setContent(combinedHtml);
     loadNews();
   }, [id]);
 
- useEffect(() => {
-  const loadCategories = async () => {
-    try {
-      setCategoriesLoading(true);
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setCategoriesLoading(true);
 
-      const response = await apiFetch<{
-        success: boolean;
-        data: Category[];
-      }>("/admin/news/categories");
+        const response = await apiFetch<{
+          success: boolean;
+          data: Category[];
+        }>(
+          "/admin/news/categories",
+        );
 
-      console.log("Categories API response:", response);
+        console.log(
+          "Categories API response:",
+          response,
+        );
 
-      if (!response?.success) {
-        throw new Error("Failed to load categories.");
+        if (!response?.success) {
+          throw new Error(
+            "Failed to load categories.",
+          );
+        }
+
+        setCategories(
+          Array.isArray(response.data)
+            ? response.data
+            : [],
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load categories:",
+          error,
+        );
+
+        setCategories([]);
+
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Failed to load categories.",
+        );
+      } finally {
+        setCategoriesLoading(false);
       }
+    };
 
-      setCategories(
-        Array.isArray(response.data) ? response.data : []
-      );
-    } catch (error) {
-      console.error("Failed to load categories:", error);
-      setCategories([]);
+    loadCategories();
+  }, []);
 
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to load categories."
-      );
-    } finally {
-      setCategoriesLoading(false);
-    }
-  };
-
-  loadCategories();
-}, []);
-
-  const toggleCategory = (categoryId: string) => {
+  const toggleCategory = (
+    categoryId: string,
+  ) => {
     setSelectedCategoryIds((current) =>
       current.includes(categoryId)
-        ? current.filter((item) => item !== categoryId)
-        : [...current, categoryId]
+        ? current.filter(
+            (item) => item !== categoryId,
+          )
+        : [...current, categoryId],
     );
   };
 
   const createBlocks = () => {
-  if (!content.trim()) {
-    return [];
-  }
+    if (!content.trim()) {
+      return [];
+    }
 
-  return [
-    {
-      type: "rich-text",
-      position: 0,
-      content: {
-        html: content,
+    return [
+      {
+        type: "rich-text",
+        position: 0,
+        content: {
+          html: content,
+        },
       },
-    },
-  ];
-};
+    ];
+  };
 
   const savePost = async (
-    newStatus: "DRAFT" | "PUBLISHED" = status
+    newStatus: "DRAFT" | "PUBLISHED" = status,
   ) => {
     if (!title.trim()) {
       alert("Title is required");
@@ -252,12 +320,14 @@ setContent(combinedHtml);
         body: JSON.stringify({
           title: title.trim(),
           authorName: authorName.trim(),
-          featuredImage: featuredImage.trim() || undefined,
+          featuredImage:
+            featuredImage.trim() || undefined,
           status: newStatus,
           allowLikes,
           allowComments,
           allowSharing,
-          categoryIds: selectedCategoryIds,
+          categoryIds:
+            selectedCategoryIds,
           blocks: createBlocks(),
         }),
       });
@@ -267,17 +337,20 @@ setContent(combinedHtml);
       alert(
         newStatus === "PUBLISHED"
           ? "News published successfully"
-          : "Draft saved successfully"
+          : "Draft saved successfully",
       );
 
       router.push("/admin/news");
     } catch (error) {
-      console.error("Failed to save news:", error);
+      console.error(
+        "Failed to save news:",
+        error,
+      );
 
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to save news"
+          : "Failed to save news",
       );
     } finally {
       setSaving(false);
@@ -316,7 +389,9 @@ setContent(combinedHtml);
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() =>
+                  window.location.reload()
+                }
                 className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
               >
                 Try Again
@@ -324,7 +399,9 @@ setContent(combinedHtml);
 
               <button
                 type="button"
-                onClick={() => router.push("/admin/news")}
+                onClick={() =>
+                  router.push("/admin/news")
+                }
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Back to News
@@ -345,7 +422,9 @@ setContent(combinedHtml);
           </h2>
 
           <button
-            onClick={() => router.push("/admin/news")}
+            onClick={() =>
+              router.push("/admin/news")
+            }
             className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
           >
             Back to News
@@ -356,243 +435,335 @@ setContent(combinedHtml);
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
-      {/* Header */}
-      <div className="sticky top-0 z-30 border-b border-gray-200 bg-white">
-        <div className="flex h-[72px] items-center justify-between px-8">
-          <div>
-            <button
-              onClick={() => router.push("/admin/news")}
-              className="mb-1 text-sm text-gray-500 hover:text-gray-900"
-            >
-              ← All Posts
-            </button>
+    <AdminPermissionGuard permission="news.view">
+      <div className="min-h-screen bg-[#f5f5f5]">
+        {/* Header */}
+        <div className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+          <div className="flex h-[72px] items-center justify-between px-8">
+            <div>
+              <button
+                onClick={() =>
+                  router.push("/admin/news")
+                }
+                className="mb-1 text-sm text-gray-500 hover:text-gray-900"
+              >
+                ← All Posts
+              </button>
 
-            <h1 className="text-2xl font-bold text-gray-900">
-              Edit News
-            </h1>
-          </div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Edit News
+              </h1>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => savePost("DRAFT")}
-              disabled={saving}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Draft"}
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Save Draft */}
+              <AdminPermission permission="news.update">
+                <button
+                  type="button"
+                  onClick={() =>
+                    savePost("DRAFT")
+                  }
+                  disabled={saving}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Save Draft"}
+                </button>
+              </AdminPermission>
 
-            <button
-              type="button"
-              onClick={() => savePost("PUBLISHED")}
-              disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Publish"}
-            </button>
+              {/* Publish */}
+              <AdminPermission permission="news.publish">
+                <button
+                  type="button"
+                  onClick={() =>
+                    savePost("PUBLISHED")
+                  }
+                  disabled={saving}
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Publish"}
+                </button>
+              </AdminPermission>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-6xl p-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="mx-auto max-w-6xl p-8">
+          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+            {/* Main editor */}
+            <div className="space-y-6">
+              {/* Title */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Title
+                </label>
 
-          {/* Main editor */}
-          <div className="space-y-6">
-
-            {/* Title */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Title
-              </label>
-
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter news title"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* Author */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Author
-              </label>
-
-              <input
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Author name"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            {/* Content */}
-            <div className="rounded-xl border border-gray-200 bg-white">
-  <label className="block px-6 pt-6 pb-2 text-sm font-semibold text-gray-700">
-    Content
-  </label>
-
-  <NewsEditor
-    value={content}
-    onChange={setContent}
-    onChangeText={(text) => console.log("Editor text:", text)}
-    onChangeJSON={(json) => console.log("Editor JSON:", json)}
-  />
-</div>
-
-            {/* Categories */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Categories
-              </h2>
-
-              <p className="mt-1 text-xs text-gray-500">
-                Select one or more categories.
-              </p>
-
-             {categoriesLoading ? (
-  <p className="mt-4 text-sm text-gray-500">
-    Loading categories...
-  </p>
-) : categories.length === 0 ? (
-  <p className="mt-4 text-sm text-gray-500">
-    No categories available.
-  </p>
-) : (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {categories.map((category) => {
-                    const selected = selectedCategoryIds.includes(
-                      category.id
-                    );
-
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => toggleCategory(category.id)}
-                        className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                          selected
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        {selected && "✓ "}
-                        {category.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-
-            {/* Featured Image */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Featured Image
-              </h2>
-
-              <input
-                value={featuredImage}
-                onChange={(e) => setFeaturedImage(e.target.value)}
-                placeholder="Image URL"
-                className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-              />
-
-              {featuredImage && (
-                <img
-                  src={featuredImage}
-                  alt=""
-                  className="mt-4 aspect-video w-full rounded-lg object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
+                <input
+                  value={title}
+                  onChange={(e) =>
+                    setTitle(
+                      e.target.value,
+                    )
+                  }
+                  placeholder="Enter news title"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
-              )}
+              </div>
+
+              {/* Author */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Author
+                </label>
+
+                <input
+                  value={authorName}
+                  onChange={(e) =>
+                    setAuthorName(
+                      e.target.value,
+                    )
+                  }
+                  placeholder="Author name"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              {/* Content */}
+              <div className="rounded-xl border border-gray-200 bg-white">
+                <label className="block px-6 pb-2 pt-6 text-sm font-semibold text-gray-700">
+                  Content
+                </label>
+
+                <NewsEditor
+                  value={content}
+                  onChange={setContent}
+                  onChangeText={(text) =>
+                    console.log(
+                      "Editor text:",
+                      text,
+                    )
+                  }
+                  onChangeJSON={(json) =>
+                    console.log(
+                      "Editor JSON:",
+                      json,
+                    )
+                  }
+                />
+              </div>
+
+              {/* Categories */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Categories
+                </h2>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Select one or more
+                  categories.
+                </p>
+
+                {categoriesLoading ? (
+                  <p className="mt-4 text-sm text-gray-500">
+                    Loading categories...
+                  </p>
+                ) : categories.length ===
+                  0 ? (
+                  <p className="mt-4 text-sm text-gray-500">
+                    No categories
+                    available.
+                  </p>
+                ) : (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {categories.map(
+                      (category) => {
+                        const selected =
+                          selectedCategoryIds.includes(
+                            category.id,
+                          );
+
+                        return (
+                          <button
+                            key={
+                              category.id
+                            }
+                            type="button"
+                            onClick={() =>
+                              toggleCategory(
+                                category.id,
+                              )
+                            }
+                            className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                              selected
+                                ? "border-blue-600 bg-blue-50 text-blue-700"
+                                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {selected &&
+                              "✓ "}
+
+                            {
+                              category.name
+                            }
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Status */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Status
-              </h2>
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Featured Image */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Featured Image
+                </h2>
 
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(
-                    e.target.value as "DRAFT" | "PUBLISHED"
-                  )
-                }
-                className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none"
-              >
-                <option value="DRAFT">Draft</option>
-                <option value="PUBLISHED">Published</option>
-              </select>
-            </div>
+                <input
+                  value={
+                    featuredImage
+                  }
+                  onChange={(e) =>
+                    setFeaturedImage(
+                      e.target.value,
+                    )
+                  }
+                  placeholder="Image URL"
+                  className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                />
 
-            {/* Settings */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Post Settings
-              </h2>
-
-              <div className="mt-4 space-y-4">
-                <label className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-gray-700">
-                    Allow Likes
-                  </span>
-
-                  <input
-                    type="checkbox"
-                    checked={allowLikes}
-                    onChange={(e) =>
-                      setAllowLikes(e.target.checked)
-                    }
-                    className="h-4 w-4"
+                {featuredImage && (
+                  <img
+                    src={featuredImage}
+                    alt=""
+                    className="mt-4 aspect-video w-full rounded-lg object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display =
+                        "none";
+                    }}
                   />
-                </label>
+                )}
+              </div>
 
-                <label className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-gray-700">
-                    Allow Comments
-                  </span>
+              {/* Status */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Status
+                </h2>
 
-                  <input
-                    type="checkbox"
-                    checked={allowComments}
+                <AdminPermission permission="news.publish">
+                  <select
+                    value={status}
                     onChange={(e) =>
-                      setAllowComments(e.target.checked)
+                      setStatus(
+                        e.target
+                          .value as
+                          | "DRAFT"
+                          | "PUBLISHED",
+                      )
                     }
-                    className="h-4 w-4"
-                  />
-                </label>
+                    className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option value="DRAFT">
+                      Draft
+                    </option>
 
-                <label className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-gray-700">
-                    Allow Sharing
-                  </span>
+                    <option value="PUBLISHED">
+                      Published
+                    </option>
+                  </select>
+                </AdminPermission>
 
-                  <input
-                    type="checkbox"
-                    checked={allowSharing}
-                    onChange={(e) =>
-                      setAllowSharing(e.target.checked)
-                    }
-                    className="h-4 w-4"
-                  />
-                </label>
+                <AdminPermission
+                  permission="news.publish"
+                  fallback={
+                    <p className="mt-4 text-sm text-gray-500">
+                      You do not have
+                      permission to change
+                      publication status.
+                    </p>
+                  }
+                />
+              </div>
+
+              {/* Settings */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Post Settings
+                </h2>
+
+                <div className="mt-4 space-y-4">
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-gray-700">
+                      Allow Likes
+                    </span>
+
+                    <input
+                      type="checkbox"
+                      checked={
+                        allowLikes
+                      }
+                      onChange={(e) =>
+                        setAllowLikes(
+                          e.target
+                            .checked,
+                        )
+                      }
+                      className="h-4 w-4"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-gray-700">
+                      Allow Comments
+                    </span>
+
+                    <input
+                      type="checkbox"
+                      checked={
+                        allowComments
+                      }
+                      onChange={(e) =>
+                        setAllowComments(
+                          e.target
+                            .checked,
+                        )
+                      }
+                      className="h-4 w-4"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-gray-700">
+                      Allow Sharing
+                    </span>
+
+                    <input
+                      type="checkbox"
+                      checked={
+                        allowSharing
+                      }
+                      onChange={(e) =>
+                        setAllowSharing(
+                          e.target
+                            .checked,
+                        )
+                      }
+                      className="h-4 w-4"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </AdminPermissionGuard>
   );
 }

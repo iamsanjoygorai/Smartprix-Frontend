@@ -11,8 +11,9 @@ const API_URL =
 interface LoginUser {
   id: string;
   email: string;
-  name?: string | null;
+  name?: string;
   role: string;
+  permissions: string[];
 }
 
 interface LoginResponse {
@@ -39,10 +40,12 @@ export default function LoginPage() {
   /*
    * If the user is already logged in:
    *
-   * ADMIN -> /admin
-   * USER  -> /
+   * ADMIN        -> /admin
+   * SUPER_ADMIN  -> /admin
+   * EDITOR       -> /admin
+   * USER         -> /
    *
-   * This prevents an already logged-in user from staying
+   * This prevents an already-logged-in user from staying
    * on the login page.
    */
   useEffect(() => {
@@ -57,7 +60,12 @@ export default function LoginPage() {
     try {
       const user: LoginUser = JSON.parse(userData);
 
-      if (user.role === "ADMIN") {
+      const isAdminUser =
+        user.role === "ADMIN" ||
+        user.role === "SUPER_ADMIN" ||
+        user.role === "EDITOR";
+
+      if (isAdminUser) {
         router.replace("/admin");
         return;
       }
@@ -66,6 +74,7 @@ export default function LoginPage() {
     } catch {
       localStorage.removeItem("smartprix_user");
       localStorage.removeItem("smartprix_token");
+
       setCheckingAuth(false);
     }
   }, [router]);
@@ -146,8 +155,18 @@ export default function LoginPage() {
 
       /*
        * Redirect according to user role.
+       *
+       * ADMIN        -> /admin
+       * SUPER_ADMIN  -> /admin
+       * EDITOR       -> /admin
+       * USER         -> /
        */
-      if (user.role === "ADMIN") {
+      const isAdminUser =
+        user.role === "ADMIN" ||
+        user.role === "SUPER_ADMIN" ||
+        user.role === "EDITOR";
+
+      if (isAdminUser) {
         router.replace("/admin");
       } else {
         router.replace("/");
@@ -269,7 +288,9 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading
+              ? "Logging in..."
+              : "Login"}
           </button>
         </form>
 
@@ -277,6 +298,7 @@ export default function LoginPage() {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             Don't have an account?{" "}
+
             <Link
               href="/register"
               className="font-medium text-gray-900 hover:underline"

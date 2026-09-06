@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+
 import { useEffect, useRef, useState } from "react";
+
 import { usePathname, useRouter } from "next/navigation";
 
 interface AdminUser {
@@ -9,6 +11,7 @@ interface AdminUser {
   email: string;
   name: string;
   role: string;
+  permissions: string[];
 }
 
 export default function AdminLayout({
@@ -19,13 +22,16 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [adminUser, setAdminUser] =
+    useState<AdminUser | null>(null);
+
   const [profileOpen, setProfileOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("smartprix_user");
+    const storedUser =
+      localStorage.getItem("smartprix_user");
 
     if (!storedUser) {
       router.replace("/login");
@@ -33,9 +39,16 @@ export default function AdminLayout({
     }
 
     try {
-      const user = JSON.parse(storedUser) as AdminUser;
+      const user = JSON.parse(
+        storedUser,
+      ) as AdminUser;
 
-      if (user.role !== "ADMIN") {
+      const isAdminUser =
+        user.role === "ADMIN" ||
+        user.role === "SUPER_ADMIN" ||
+        user.role === "EDITOR";
+
+      if (!isAdminUser) {
         router.replace("/");
         return;
       }
@@ -44,24 +57,35 @@ export default function AdminLayout({
     } catch {
       localStorage.removeItem("smartprix_user");
       localStorage.removeItem("smartprix_token");
+
       router.replace("/login");
     }
   }, [router]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (
+      event: MouseEvent,
+    ) => {
       if (
         profileRef.current &&
-        !profileRef.current.contains(event.target as Node)
+        !profileRef.current.contains(
+          event.target as Node,
+        )
       ) {
         setProfileOpen(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
     };
   }, []);
 
@@ -82,10 +106,20 @@ export default function AdminLayout({
     return pathname.startsWith(href);
   };
 
+  const hasPermission = (permission: string) => {
+    if (!adminUser) {
+      return false;
+    }
+
+    return adminUser.permissions?.includes(permission);
+  };
+
   if (!adminUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-500">Loading admin...</p>
+        <p className="text-sm text-gray-500">
+          Loading admin...
+        </p>
       </div>
     );
   }
@@ -102,9 +136,11 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
+
       <header className="sticky top-0 z-50 border-b bg-white">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6">
           {/* Logo */}
+
           <Link
             href="/admin"
             className="flex items-center gap-3"
@@ -125,6 +161,7 @@ export default function AdminLayout({
           </Link>
 
           {/* Profile */}
+
           <div
             ref={profileRef}
             className="relative"
@@ -132,16 +169,20 @@ export default function AdminLayout({
             <button
               type="button"
               onClick={() =>
-                setProfileOpen((current) => !current)
+                setProfileOpen(
+                  (current) => !current,
+                )
               }
               className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 transition hover:bg-gray-50"
             >
               {/* Avatar */}
+
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-xs font-semibold text-white">
                 {initials}
               </span>
 
               {/* User info */}
+
               <span className="hidden text-left sm:block">
                 <span className="block text-sm font-semibold text-gray-900">
                   {adminUser.name}
@@ -153,9 +194,12 @@ export default function AdminLayout({
               </span>
 
               {/* Arrow */}
+
               <span
                 className={`text-xs text-gray-400 transition ${
-                  profileOpen ? "rotate-180" : ""
+                  profileOpen
+                    ? "rotate-180"
+                    : ""
                 }`}
               >
                 ▼
@@ -163,9 +207,11 @@ export default function AdminLayout({
             </button>
 
             {/* Dropdown */}
+
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
                 {/* User information */}
+
                 <div className="border-b bg-gray-50 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-sm font-semibold text-white">
@@ -191,10 +237,13 @@ export default function AdminLayout({
                 </div>
 
                 {/* Menu */}
+
                 <div className="p-2">
                   <Link
                     href="/admin/profile"
-                    onClick={() => setProfileOpen(false)}
+                    onClick={() =>
+                      setProfileOpen(false)
+                    }
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     <span className="w-5 text-center">
@@ -204,20 +253,27 @@ export default function AdminLayout({
                     <span>Profile</span>
                   </Link>
 
-                 <Link
-  href="/admin/settings"
-  onClick={() => setProfileOpen(false)}
-  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
->
-  <span className="w-5 text-center">
-    ⚙️
-  </span>
+                  {hasPermission(
+                    "settings.view",
+                  ) && (
+                    <Link
+                      href="/admin/settings"
+                      onClick={() =>
+                        setProfileOpen(false)
+                      }
+                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="w-5 text-center">
+                        ⚙️
+                      </span>
 
-  <span>Settings</span>
-</Link>
+                      <span>Settings</span>
+                    </Link>
+                  )}
                 </div>
 
                 {/* Logout */}
+
                 <div className="border-t p-2">
                   <button
                     type="button"
@@ -238,30 +294,96 @@ export default function AdminLayout({
       </header>
 
       {/* Admin Navigation */}
+
       <div className="border-b bg-white">
         <nav className="flex gap-1 overflow-x-auto px-4 sm:px-6">
-          <AdminNavLink
-            href="/admin"
-            label="Dashboard"
-            active={isActive("/admin")}
-            exact
-          />
+          {hasPermission(
+            "dashboard.view",
+          ) && (
+            <AdminNavLink
+              href="/admin"
+              label="Dashboard"
+              active={isActive("/admin")}
+              exact
+            />
+          )}
 
-          <AdminNavLink
-            href="/admin/products"
-            label="Products"
-            active={isActive("/admin/products")}
-          />
+          {hasPermission(
+            "products.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/products"
+              label="Products"
+              active={isActive(
+                "/admin/products",
+              )}
+            />
+          )}
 
-          <AdminNavLink
-            href="/admin/news"
-            label="News"
-            active={isActive("/admin/news")}
-          />
+          {hasPermission(
+            "news.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/news"
+              label="News"
+              active={isActive(
+                "/admin/news",
+              )}
+            />
+          )}
+
+          {hasPermission(
+            "media.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/media"
+              label="Media"
+              active={isActive(
+                "/admin/media",
+              )}
+            />
+          )}
+
+          {hasPermission(
+            "users.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/users"
+              label="Users"
+              active={isActive(
+                "/admin/users",
+              )}
+            />
+          )}
+
+          {hasPermission(
+            "admins.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/admins"
+              label="Admins"
+              active={isActive(
+                "/admin/admins",
+              )}
+            />
+          )}
+
+          {hasPermission(
+            "audit.view",
+          ) && (
+            <AdminNavLink
+              href="/admin/audit-logs"
+              label="Audit Logs"
+              active={isActive(
+                "/admin/audit-logs",
+              )}
+            />
+          )}
         </nav>
       </div>
 
       {/* Main Content */}
+
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>

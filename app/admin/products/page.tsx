@@ -84,72 +84,71 @@ export default async function AdminProductsPage() {
               </thead>
 
               <tbody className="divide-y">
-                {products.map((product) => {
-                  const lowestPrice =
-                    product.prices[0]?.amount;
+                {Array.isArray(products) &&
+products.map((product) => {
+const lowestPrice = product.prices?.[0]?.amount;
 
-                  return (
-                    <tr
-                      key={product.id}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">
-                          {product.name}
-                        </div>
+return (
+  <tr
+    key={product.id}
+    className="hover:bg-gray-50"
+  >
+    <td className="px-6 py-4">
+      <div className="font-medium text-gray-900">
+        {product.name}
+      </div>
 
-                        <div className="mt-1 text-xs text-gray-500">
-                          {product.slug}
-                        </div>
-                      </td>
+      <div className="mt-1 text-xs text-gray-500">
+        {product.slug}
+      </div>
+    </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {product.brand.name}
-                      </td>
+    <td className="px-6 py-4 text-sm text-gray-600">
+      {product.brand?.name ?? "N/A"}
+    </td>
 
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {product.category.name}
-                      </td>
+    <td className="px-6 py-4 text-sm text-gray-600">
+      {product.category?.name ?? "N/A"}
+    </td>
 
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {lowestPrice
-                          ? `₹${Number(
-                              lowestPrice,
-                            ).toLocaleString("en-IN")}`
-                          : "N/A"}
-                      </td>
+    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+      {lowestPrice
+        ? `₹${Number(lowestPrice).toLocaleString("en-IN")}`
+        : "N/A"}
+    </td>
 
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end gap-2">
-                          {/* Edit */}
-                          <AdminPermission permission="products.update">
-                            <Link
-                              href={`/admin/products/${product.id}`}
-                              className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              Edit
-                            </Link>
-                          </AdminPermission>
+    <td className="px-6 py-4">
+      <div className="flex justify-end gap-2">
+        {/* Edit */}
+        <AdminPermission permission="products.update">
+          <Link
+            href={`/admin/products/${product.id}`}
+            className="rounded-md border px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Edit
+          </Link>
+        </AdminPermission>
 
-                          {/* Delete / Restore */}
-                          <AdminPermission permission="products.delete">
-                            {product.isActive ? (
-                              <ProductDeleteButton
-                                productId={product.id}
-                                productName={product.name}
-                              />
-                            ) : (
-                              <ProductRestoreButton
-                                productId={product.id}
-                                productName={product.name}
-                              />
-                            )}
-                          </AdminPermission>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+        {/* Delete / Restore */}
+        <AdminPermission permission="products.delete">
+          {product.isActive ? (
+            <ProductDeleteButton
+              productId={product.id}
+              productName={product.name}
+            />
+          ) : (
+            <ProductRestoreButton
+              productId={product.id}
+              productName={product.name}
+            />
+          )}
+        </AdminPermission>
+      </div>
+    </td>
+  </tr>
+);
+})}
+
               </tbody>
             </table>
           </div>

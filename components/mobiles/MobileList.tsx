@@ -71,8 +71,10 @@ interface MobileListProps {
   minPrice: string;
   maxPrice: string;
   displays: string[];
+  filterValues: Record<string, string[]>;
   onBrandCountsChange: (counts: Record<string, number>) => void;
 }
+
 
 function getSpecification(
   product: Product,
@@ -202,6 +204,7 @@ export default function MobileList({
   minPrice,
   maxPrice,
   displays,
+  filterValues,
   onBrandCountsChange,
 }: MobileListProps) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -252,6 +255,17 @@ if (maxPrice) {
       const response = await apiFetch<ProductsResponse>(
         `/products?${params.toString()}`
       );
+
+      Object.entries(filterValues).forEach(
+  ([group, values]) => {
+    if (values.length > 0) {
+      params.set(
+        group,
+        values.join(","),
+      );
+    }
+  },
+);
       
 
       if (cancelled) {

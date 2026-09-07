@@ -13,8 +13,11 @@ export default function MobilesPage() {
   const [search, setSearch] = useState("");
   const [brands, setBrands] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("30000+");
   const [displays, setDisplays] = useState<string[]>([]);
+  const [filterValues, setFilterValues] =
+  useState<Record<string, string[]>>({});
+  
 
   // Brand counts returned by the backend
   const [brandCounts, setBrandCounts] = useState<Record<string, number>>(
@@ -39,6 +42,8 @@ export default function MobilesPage() {
     const savedDisplays = localStorage.getItem(
       "mobiles-filter-displays",
     );
+    const savedFilterValues =
+  localStorage.getItem("mobiles-filter-values");
 
     if (savedSearch !== null) {
       setSearch(savedSearch);
@@ -61,8 +66,10 @@ export default function MobilesPage() {
     }
 
     if (savedMaxPrice !== null) {
-      setMaxPrice(savedMaxPrice);
-    }
+  setMaxPrice(savedMaxPrice);
+} else {
+  setMaxPrice("30000+");
+}
 
     if (savedDisplays !== null) {
       try {
@@ -76,8 +83,33 @@ export default function MobilesPage() {
       }
     }
 
+    if (savedFilterValues !== null) {
+  try {
+    const parsedFilters = JSON.parse(savedFilterValues);
+
+    if (
+      parsedFilters &&
+      typeof parsedFilters === "object"
+    ) {
+      setFilterValues(parsedFilters);
+    }
+  } catch {
+    setFilterValues({});
+  }
+}
+
     setHydrated(true);
   }, []);
+
+
+  useEffect(() => {
+  if (!hydrated) return;
+
+  localStorage.setItem(
+    "mobiles-filter-values",
+    JSON.stringify(filterValues),
+  );
+}, [filterValues, hydrated]);
 
   // ─────────────────────────────────────────────
   // SAVE SEARCH
@@ -180,6 +212,24 @@ export default function MobilesPage() {
     );
   };
 
+  const handleFilterChange = (
+  group: string,
+  value: string,
+) => {
+  setFilterValues((current) => {
+    const currentValues = current[group] ?? [];
+
+    const nextValues = currentValues.includes(value)
+      ? currentValues.filter((item) => item !== value)
+      : [...currentValues, value];
+
+    return {
+      ...current,
+      [group]: nextValues,
+    };
+  });
+};
+
   // ─────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────
@@ -191,17 +241,19 @@ export default function MobilesPage() {
 
         <aside className="hidden w-[275px] shrink-0 lg:block">
           <MobileFilters
-            search={search}
-            brands={brands}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            displays={displays}
-            brandCounts={brandCounts}
-            onSearchChange={setSearch}
-            onBrandChange={handleBrandChange}
-            onDisplayChange={handleDisplayChange}
-            onPriceChange={handlePriceChange}
-          />
+  search={search}
+  brands={brands}
+  minPrice={minPrice}
+  maxPrice={maxPrice}
+  displays={displays}
+  filterValues={filterValues}
+  brandCounts={brandCounts}
+  onSearchChange={setSearch}
+  onBrandChange={handleBrandChange}
+  onDisplayChange={handleDisplayChange}
+  onPriceChange={handlePriceChange}
+  onFilterChange={handleFilterChange}
+/>
         </aside>
 
         {/* MAIN CONTENT */}
@@ -222,14 +274,15 @@ export default function MobilesPage() {
 
           <PopularFeatures />
 
-          <MobileList
-            search={search}
-            brands={brands}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            displays={displays}
-            onBrandCountsChange={setBrandCounts}
-          />
+         <MobileList
+  search={search}
+  brands={brands}
+  minPrice={minPrice}
+  maxPrice={maxPrice}
+  displays={displays}
+  filterValues={filterValues}
+  onBrandCountsChange={setBrandCounts}
+/>
         </main>
       </div>
     </div>

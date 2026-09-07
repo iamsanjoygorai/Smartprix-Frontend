@@ -41,7 +41,7 @@ const priceRanges = [
     label: "Above",
     price: "₹30,000",
     min: "30000",
-    max: "",
+    max: "30000+",
   },
 ];
 
@@ -68,7 +68,7 @@ export default function PriceRanges({
               type="button"
               onClick={() => {
                 if (isSelected) {
-                  onPriceChange("", "");
+                  onPriceChange("", "30000+");
                 } else {
                   onPriceChange(range.min, range.max);
                 }
@@ -93,3 +93,4 @@ export default function PriceRanges({
     </section>
   );
 }
+ 

@@ -1,12 +1,26 @@
 import ProductCard from "@/components/products/ProductCard";
 import { getProducts } from "@/lib/api/products";
 import type { Product } from "@/types/product";
-import { getProductPriceHistory } from "@/lib/api/priceHistory";
 
 interface ProductsPageProps {
   searchParams: Promise<{
     search?: string;
   }>;
+}
+
+interface ProductsResponse {
+  success: boolean;
+  data: {
+    products: Product[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  };
 }
 
 export default async function ProductsPage({
@@ -17,12 +31,16 @@ export default async function ProductsPage({
   let products: Product[] = [];
 
   try {
-    const response = await getProducts({
-      search: params.search,
-    });
+    const response =
+      (await getProducts({
+        search: params.search,
+      })) as ProductsResponse;
 
-    products = response.data;
-  } catch {
+    products = Array.isArray(response.data?.products)
+      ? response.data.products
+      : [];
+  } catch (error) {
+    console.error("Failed to load products:", error);
     products = [];
   }
 

@@ -61,6 +61,7 @@ interface ProductsResponse {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
+    brandCounts: Record<string, number>;
   };
 }
 
@@ -69,6 +70,8 @@ interface MobileListProps {
   brands: string[];
   minPrice: string;
   maxPrice: string;
+  displays: string[];
+  onBrandCountsChange: (counts: Record<string, number>) => void;
 }
 
 function getSpecification(
@@ -90,16 +93,38 @@ function getSpecification(
   );
 }
 
-function getPrimaryImage(product: Product) {
-  const primary =
-    product.images?.find((image) => image.isPrimary);
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
 
-  return (
-    primary?.url ??
+const BACKEND_URL = API_URL.replace(/\/api\/?$/, "");
+
+function getPrimaryImage(product: Product): string {
+  const image =
+    product.images?.find((item) => item.isPrimary)?.url ??
     product.images?.[0]?.url ??
-    "/placeholder-mobile.png"
-  );
+    "";
+
+  if (!image) {
+    return "";
+  }
+
+  // Already an absolute URL
+  if (
+    image.startsWith("http://") ||
+    image.startsWith("https://")
+  ) {
+    return image;
+  }
+
+  // Relative backend URL
+  if (image.startsWith("/")) {
+    return `${BACKEND_URL}${image}`;
+  }
+
+  return `${BACKEND_URL}/${image}`;
 }
+
 
 function getLowestPrice(product: Product) {
   if (!product.prices?.length) {
@@ -123,7 +148,7 @@ function formatPrice(amount: string | number | null) {
 
 function convertProduct(product: Product) {
   const lowestPrice = getLowestPrice(product);
-
+console.log("Product image:", product.name, product.images);
   return {
     id: product.id,
     slug: product.slug,
@@ -134,6 +159,7 @@ function convertProduct(product: Product) {
     score: 0,
     rating: 0,
     image: getPrimaryImage(product),
+    
 
     display:
       getSpecification(product, [
@@ -175,6 +201,8 @@ export default function MobileList({
   brands,
   minPrice,
   maxPrice,
+  displays,
+  onBrandCountsChange,
 }: MobileListProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] =
@@ -188,77 +216,76 @@ export default function MobileList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const controller = new AbortController();
+useEffect(() => {
+  let cancelled = false;
 
-    async function loadProducts() {
-      try {
-        setLoading(true);
-        setError("");
+  async function loadProducts() {
+    try {
+      setLoading(true);
+      setError("");
 
-        const params = new URLSearchParams();
+      const params = new URLSearchParams();
 
-        params.set("category", "mobiles");
-        params.set("page", String(page));
-        params.set("limit", "20");
+params.set("category", "mobiles");
+params.set("page", String(page));
+params.set("limit", "20");
 
-        if (search.trim()) {
-          params.set("search", search.trim());
-        }
+if (search.trim()) {
+  params.set("search", search.trim());
+}
 
-        if (brands.length > 0) {
+if (brands.length > 0) {
   params.set("brands", brands.join(","));
 }
 
-        if (minPrice) {
-          params.set("minPrice", minPrice);
-        }
+if (minPrice) {
+  params.set("minPrice", minPrice);
+}
 
-        if (maxPrice) {
-          params.set("maxPrice", maxPrice);
-        }
+if (maxPrice) {
+  params.set("maxPrice", maxPrice);
+}
 
-        if (sort !== "relevance") {
-          params.set("sort", sort);
-        }
+      if (displays.length > 0) {
+  params.set("displays", displays.join(","));
+}
+      const response = await apiFetch<ProductsResponse>(
+        `/products?${params.toString()}`
+      );
+      
 
-        const response = await apiFetch<ProductsResponse>(
-          `/products?${params.toString()}`,
-          {
-            signal: controller.signal,
-          },
-        );
+      if (cancelled) {
+        return;
+      }
 
-        if (!response.success) {
-          throw new Error("Failed to load mobile phones.");
-        }
+      setProducts(response.data.products);
+      setPagination(response.data.pagination);
+      onBrandCountsChange(response.data.brandCounts ?? {});
+    } catch (error) {
+      if (cancelled) {
+        return;
+      }
 
-        setProducts(response.data.products);
-        setPagination(response.data.pagination);
-      } catch (err) {
-        if (
-          err instanceof DOMException &&
-          err.name === "AbortError"
-        ) {
-          return;
-        }
+      console.error("Failed to fetch mobiles:", error);
 
-        console.error(err);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load mobile phones.",
-        );
-      } finally {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load mobiles"
+      );
+    } finally {
+      if (!cancelled) {
         setLoading(false);
       }
     }
+  }
 
-    loadProducts();
+  loadProducts();
 
-    return () => controller.abort();
-  }, [
+  return () => {
+    cancelled = true;
+  };
+}, [
   search,
   brands,
   minPrice,
@@ -266,10 +293,11 @@ export default function MobileList({
   page,
 ]);
 
+
   // Reset to page 1 whenever filters change.
  useEffect(() => {
   setPage(1);
-}, [search, brands, minPrice, maxPrice]);
+}, [search, brands, minPrice, maxPrice, displays]);
 
   return (
     <section className="overflow-hidden rounded-sm border border-gray-300 bg-white">

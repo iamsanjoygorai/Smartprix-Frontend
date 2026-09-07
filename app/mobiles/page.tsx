@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import MobilePageHeader from "@/components/mobiles/MobilePageHeader";
 import PopularBrands from "@/components/mobiles/PopularBrands";
@@ -10,53 +11,116 @@ import MobileFilters from "@/components/mobiles/MobileFilters";
 import MobileList from "@/components/mobiles/MobileList";
 
 export default function MobilesPage() {
-  const [search, setSearch] = useState("");
-  const [brands, setBrands] = useState<string[]>([]);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("30000+");
-  const [displays, setDisplays] = useState<string[]>([]);
-  const [filterValues, setFilterValues] =
-  useState<Record<string, string[]>>({});
-  const [sortBy, setSortBy] = useState("relevance");
-  
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Brand counts returned by the backend
-  const [brandCounts, setBrandCounts] = useState<Record<string, number>>(
-    {},
-  );
+  // Search comes from the URL
+  const urlSearch = searchParams.get("search") ?? "";
+
+  // ─────────────────────────────────────────────
+  // STATE
+  // ─────────────────────────────────────────────
+
+  // Single shared search value for Header + Filter Search
+  const [search, setSearch] = useState("");
+
+  const [brands, setBrands] = useState<string[]>([]);
+
+  const [minPrice, setMinPrice] = useState("");
+
+  const [maxPrice, setMaxPrice] = useState("30000+");
+
+  const [displays, setDisplays] = useState<string[]>([]);
+
+  const [filterValues, setFilterValues] = useState<
+    Record<string, string[]>
+  >({});
+
+  const [sortBy, setSortBy] = useState("relevance");
+
+  // Brand counts returned by backend
+  const [brandCounts, setBrandCounts] = useState<
+    Record<string, number>
+  >({});
 
   const [hydrated, setHydrated] = useState(false);
 
+  const searchBrandMap: [string, string][] = [
+  ["vivo", "vivo"],
+  ["samsung", "samsung"],
+  ["motorola", "motorola"],
+  ["realme", "realme"],
+  ["oppo", "oppo"],
+  ["poco", "poco"],
+  ["xiaomi", "xiaomi"],
+  ["oneplus", "oneplus"],
+  ["apple", "apple"],
+  ["nothing", "nothing"],
+  ["boltt", "boltt"],
+];
+
+
+useEffect(() => {
+  const query = urlSearch.trim().toLowerCase();
+
+  if (!query) {
+    return;
+  }
+
+  const matchedBrand = searchBrandMap.find(
+    ([brandName]) =>
+      query === brandName ||
+      query.includes(brandName),
+  );
+
+  if (!matchedBrand) {
+    return;
+  }
+
+  const [, brandSlug] = matchedBrand;
+
+  setBrands((current) => {
+    if (current.includes(brandSlug)) {
+      return current;
+    }
+
+    return [...current, brandSlug];
+  });
+}, [urlSearch]);
+
+
   // ─────────────────────────────────────────────
-  // LOAD SAVED FILTERS
+  // LOAD URL SEARCH + SAVED FILTERS
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    const savedSearch = localStorage.getItem("mobiles-filter-search");
-    const savedBrands = localStorage.getItem("mobiles-filter-brands");
+    const savedBrands = localStorage.getItem(
+      "mobiles-filter-brands",
+    );
+
     const savedMinPrice = localStorage.getItem(
       "mobiles-filter-min-price",
     );
+
     const savedMaxPrice = localStorage.getItem(
       "mobiles-filter-max-price",
     );
+
     const savedDisplays = localStorage.getItem(
       "mobiles-filter-displays",
     );
-    const savedFilterValues =
-  localStorage.getItem("mobiles-filter-values");
 
-    if (savedSearch !== null) {
-      setSearch(savedSearch);
-    }
+    const savedFilterValues = localStorage.getItem(
+      "mobiles-filter-values",
+    );
 
-    if (savedBrands !== null) {
+    // URL is the source of truth for search
+    setSearch(urlSearch);
+
+    // Restore saved filters
+    if (savedBrands) {
       try {
-        const parsedBrands = JSON.parse(savedBrands);
-
-        if (Array.isArray(parsedBrands)) {
-          setBrands(parsedBrands);
-        }
+        setBrands(JSON.parse(savedBrands));
       } catch {
         setBrands([]);
       }
@@ -67,70 +131,36 @@ export default function MobilesPage() {
     }
 
     if (savedMaxPrice !== null) {
-  setMaxPrice(savedMaxPrice);
-} else {
-  setMaxPrice("30000+");
-}
+      setMaxPrice(savedMaxPrice);
+    }
 
-    if (savedDisplays !== null) {
+    if (savedDisplays) {
       try {
-        const parsedDisplays = JSON.parse(savedDisplays);
-
-        if (Array.isArray(parsedDisplays)) {
-          setDisplays(parsedDisplays);
-        }
+        setDisplays(JSON.parse(savedDisplays));
       } catch {
         setDisplays([]);
       }
     }
 
-    if (savedFilterValues !== null) {
-  try {
-    const parsedFilters = JSON.parse(savedFilterValues);
-
-    if (
-      parsedFilters &&
-      typeof parsedFilters === "object"
-    ) {
-      setFilterValues(parsedFilters);
+    if (savedFilterValues) {
+      try {
+        setFilterValues(JSON.parse(savedFilterValues));
+      } catch {
+        setFilterValues({});
+      }
     }
-  } catch {
-    setFilterValues({});
-  }
-}
 
     setHydrated(true);
-  }, []);
-
-
-  useEffect(() => {
-  if (!hydrated) return;
-
-  localStorage.setItem(
-    "mobiles-filter-values",
-    JSON.stringify(filterValues),
-  );
-}, [filterValues, hydrated]);
-
-  // ─────────────────────────────────────────────
-  // SAVE SEARCH
-  // ─────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!hydrated) return;
-
-    localStorage.setItem(
-      "mobiles-filter-search",
-      search,
-    );
-  }, [search, hydrated]);
+  }, [urlSearch]);
 
   // ─────────────────────────────────────────────
   // SAVE BRANDS
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated) {
+      return;
+    }
 
     localStorage.setItem(
       "mobiles-filter-brands",
@@ -143,7 +173,9 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated) {
+      return;
+    }
 
     localStorage.setItem(
       "mobiles-filter-min-price",
@@ -156,7 +188,9 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated) {
+      return;
+    }
 
     localStorage.setItem(
       "mobiles-filter-max-price",
@@ -169,7 +203,9 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated) {
+      return;
+    }
 
     localStorage.setItem(
       "mobiles-filter-displays",
@@ -194,12 +230,12 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   const handleBrandChange = (brand: string) => {
-    setBrands((current) =>
-      current.includes(brand)
-        ? current.filter((item) => item !== brand)
-        : [...current, brand],
-    );
-  };
+  setBrands((current) =>
+    current.includes(brand)
+      ? current.filter((item) => item !== brand)
+      : [...current, brand],
+  );
+};
 
   // ─────────────────────────────────────────────
   // DISPLAY FILTER
@@ -213,23 +249,58 @@ export default function MobilesPage() {
     );
   };
 
+  // ─────────────────────────────────────────────
+  // OTHER FILTERS
+  // ─────────────────────────────────────────────
+
   const handleFilterChange = (
-  group: string,
-  value: string,
-) => {
-  setFilterValues((current) => {
-    const currentValues = current[group] ?? [];
+    group: string,
+    value: string,
+  ) => {
+    setFilterValues((current) => {
+      const currentValues = current[group] ?? [];
 
-    const nextValues = currentValues.includes(value)
-      ? currentValues.filter((item) => item !== value)
-      : [...currentValues, value];
+      const nextValues = currentValues.includes(value)
+        ? currentValues.filter(
+            (item) => item !== value,
+          )
+        : [...currentValues, value];
 
-    return {
-      ...current,
-      [group]: nextValues,
-    };
-  });
-};
+      return {
+        ...current,
+        [group]: nextValues,
+      };
+    });
+  };
+
+  // ─────────────────────────────────────────────
+  // SEARCH FROM MOBILE FILTERS
+  // ─────────────────────────────────────────────
+
+  const handleSearchChange = (value: string) => {
+    const trimmedValue = value.trim();
+
+    const params = new URLSearchParams(
+      searchParams.toString(),
+    );
+
+    if (trimmedValue) {
+      params.set("search", trimmedValue);
+    } else {
+      params.delete("search");
+    }
+
+    const queryString = params.toString();
+
+    router.replace(
+      queryString
+        ? `/mobiles?${queryString}`
+        : "/mobiles",
+      {
+        scroll: false,
+      },
+    );
+  };
 
   // ─────────────────────────────────────────────
   // RENDER
@@ -238,27 +309,26 @@ export default function MobilesPage() {
   return (
     <div className="min-h-screen bg-[#f1f3f6]">
       <div className="mx-auto flex w-full max-w-[1030px] gap-3 px-2 py-3">
-        {/* LEFT FILTER SIDEBAR */}
 
+        {/* LEFT FILTER SIDEBAR */}
         <aside className="hidden w-[275px] shrink-0 lg:block">
           <MobileFilters
-  search={search}
-  brands={brands}
-  minPrice={minPrice}
-  maxPrice={maxPrice}
-  displays={displays}
-  filterValues={filterValues}
-  brandCounts={brandCounts}
-  onSearchChange={setSearch}
-  onBrandChange={handleBrandChange}
-  onDisplayChange={handleDisplayChange}
-  onPriceChange={handlePriceChange}
-  onFilterChange={handleFilterChange}
-/>
+              search={search}
+              brands={brands}
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              displays={displays}
+              filterValues={filterValues}
+              brandCounts={brandCounts}
+              onSearchChange={handleSearchChange}
+              onBrandChange={handleBrandChange}
+              onDisplayChange={handleDisplayChange}
+              onPriceChange={handlePriceChange}
+              onFilterChange={handleFilterChange}
+          />
         </aside>
 
         {/* MAIN CONTENT */}
-
         <main className="min-w-0 flex-1 space-y-3">
           <MobilePageHeader />
 
@@ -275,16 +345,16 @@ export default function MobilesPage() {
 
           <PopularFeatures />
 
-         <MobileList
-          search={search}
-          brands={brands}
-          minPrice={minPrice}
-          maxPrice={maxPrice}
-          displays={displays}
-          filterValues={filterValues}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          onBrandCountsChange={setBrandCounts}
+          <MobileList
+            search={search}
+            brands={brands}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            displays={displays}
+            filterValues={filterValues}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onBrandCountsChange={setBrandCounts}
           />
         </main>
       </div>

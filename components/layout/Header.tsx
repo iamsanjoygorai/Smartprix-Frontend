@@ -1,11 +1,37 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Header() {
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+
+  const handleSearch = () => {
+    const trimmedSearch = search.trim();
+
+    if (!trimmedSearch) {
+      router.push("/mobiles");
+      return;
+    }
+
+    router.push(`/mobiles?search=${encodeURIComponent(trimmedSearch)}`);
+  };
+
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSearch();
+    }
+  };
+
   return (
     <header className="border-b border-blue-950 bg-[#08366f]">
       <div className="mx-auto flex h-16 max-w-7xl items-center px-4">
-
         {/* Logo - Left */}
         <Link href="/" className="flex shrink-0 items-center">
           <Image
@@ -23,12 +49,16 @@ export default function Header() {
           <div className="relative">
             <input
               type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Search for products, brands and more..."
               className="h-10 w-full rounded-full border border-gray-300 bg-white pl-5 pr-12 text-sm text-gray-800 outline-none transition focus:border-gray-500"
             />
 
             <button
               type="button"
+              onClick={handleSearch}
               className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
               aria-label="Search"
             >
@@ -52,7 +82,6 @@ export default function Header() {
 
         {/* Right Side */}
         <div className="flex shrink-0 items-center gap-5">
-
           {/* Login + Profile */}
           <Link
             href="/login"
@@ -74,7 +103,6 @@ export default function Header() {
                 <path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" />
               </svg>
             </span>
-
             <span>Login</span>
           </Link>
 
@@ -169,7 +197,6 @@ export default function Header() {
               </Link>
             </div>
           </div>
-
         </div>
       </div>
     </header>

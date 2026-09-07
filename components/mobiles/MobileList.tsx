@@ -41,10 +41,12 @@ interface Product {
   id: string;
   name: string;
   slug: string;
+
   brand?: {
     name: string;
     slug: string;
   } | null;
+
   images: ProductImage[];
   prices: ProductPrice[];
   variants?: ProductVariant[];
@@ -53,8 +55,10 @@ interface Product {
 
 interface ProductsResponse {
   success: boolean;
+
   data: {
     products: Product[];
+
     pagination: {
       page: number;
       limit: number;
@@ -63,19 +67,28 @@ interface ProductsResponse {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
+
     brandCounts: Record<string, number>;
   };
 }
 
 interface MobileListProps {
   search: string;
+
   brands: string[];
+
   minPrice: string;
+
   maxPrice: string;
+
   displays: string[];
+
   filterValues: Record<string, string[]>;
+
   sortBy: string;
+
   onSortChange: (value: string) => void;
+
   onBrandCountsChange: (
     counts: Record<string, number>,
   ) => void;
@@ -86,7 +99,8 @@ function getSpecification(
   slugs: string[],
 ) {
   const specification = product.specifications?.find(
-    (item) => slugs.includes(item.specification.slug),
+    (item) =>
+      slugs.includes(item.specification.slug),
   );
 
   if (!specification) {
@@ -104,11 +118,16 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:5000/api";
 
-const BACKEND_URL = API_URL.replace(/\/api\/?$/, "");
+const BACKEND_URL = API_URL.replace(
+  /\/api\/?$/,
+  "",
+);
 
 function getPrimaryImage(product: Product): string {
   const image =
-    product.images?.find((item) => item.isPrimary)?.url ??
+    product.images?.find(
+      (item) => item.isPrimary,
+    )?.url ??
     product.images?.[0]?.url ??
     "";
 
@@ -135,10 +154,12 @@ function getLowestPrice(product: Product) {
     return null;
   }
 
-  return product.prices.reduce((lowest, current) =>
-    Number(current.amount) < Number(lowest.amount)
-      ? current
-      : lowest,
+  return product.prices.reduce(
+    (lowest, current) =>
+      Number(current.amount) <
+      Number(lowest.amount)
+        ? current
+        : lowest,
   );
 }
 
@@ -149,7 +170,9 @@ function formatPrice(
     return "Price unavailable";
   }
 
-  return `₹${Number(amount).toLocaleString("en-IN")}`;
+  return `₹${Number(amount).toLocaleString(
+    "en-IN",
+  )}`;
 }
 
 function convertProduct(product: Product) {
@@ -157,13 +180,19 @@ function convertProduct(product: Product) {
 
   return {
     id: product.id,
+
     slug: product.slug,
+
     name: product.name,
+
     price: formatPrice(
       lowestPrice ? lowestPrice.amount : null,
     ),
+
     score: 0,
+
     rating: 0,
+
     image: getPrimaryImage(product),
 
     display:
@@ -171,20 +200,23 @@ function convertProduct(product: Product) {
         "display",
         "display-type",
         "screen-size",
-      ]) ?? "Display information unavailable",
+      ]) ??
+      "Display information unavailable",
 
     battery:
       getSpecification(product, [
         "battery",
         "battery-capacity",
-      ]) ?? "Battery information unavailable",
+      ]) ??
+      "Battery information unavailable",
 
     camera:
       getSpecification(product, [
         "camera",
         "rear-camera",
         "main-camera",
-      ]) ?? "Camera information unavailable",
+      ]) ??
+      "Camera information unavailable",
 
     storage:
       getSpecification(product, [
@@ -212,133 +244,25 @@ export default function MobileList({
   onSortChange,
   onBrandCountsChange,
 }: MobileListProps) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] =
+    useState<Product[]>([]);
+
   const [pagination, setPagination] =
     useState<
       ProductsResponse["data"]["pagination"] | null
     >(null);
 
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  const [loading, setLoading] =
+    useState(true);
 
-    async function loadProducts() {
-      try {
-        setLoading(true);
-        setError("");
-
-        const params = new URLSearchParams();
-
-        params.set("category", "mobiles");
-        params.set("page", String(page));
-        params.set("limit", "20");
-
-        if (search.trim()) {
-          params.set("search", search.trim());
-        }
-
-        if (brands.length > 0) {
-          params.set("brands", brands.join(","));
-        }
-
-        if (minPrice) {
-          params.set("minPrice", minPrice);
-        }
-
-        if (maxPrice) {
-          /*
-           * The frontend uses "30000+" to represent
-           * ₹30,000 and above.
-           *
-           * If your backend treats an empty maxPrice as
-           * "no upper limit", convert it here.
-           */
-          if (maxPrice === "30000+") {
-            params.set("maxPrice", "");
-          } else {
-            params.set("maxPrice", maxPrice);
-          }
-        }
-
-        if (displays.length > 0) {
-          params.set("displays", displays.join(","));
-        }
-
-        /*
-         * Additional filters
-         */
-        Object.entries(filterValues).forEach(
-          ([group, values]) => {
-            if (values.length > 0) {
-              params.set(group, values.join(","));
-            }
-          },
-        );
-
-        /*
-         * Sort
-         */
-        params.set("sort", sortBy);
-
-        const response =
-          await apiFetch<ProductsResponse>(
-            `/products?${params.toString()}`,
-          );
-
-        if (cancelled) {
-          return;
-        }
-
-        setProducts(response.data.products);
-        setPagination(response.data.pagination);
-
-        onBrandCountsChange(
-          response.data.brandCounts ?? {},
-        );
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(
-          "Failed to fetch mobiles:",
-          error,
-        );
-
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load mobiles",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadProducts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    search,
-    brands,
-    minPrice,
-    maxPrice,
-    displays,
-    filterValues,
-    sortBy,
-    page,
-    onBrandCountsChange,
-  ]);
+  const [error, setError] =
+    useState("");
 
   /*
-   * Reset to page 1 whenever filters or sorting changes.
+   * Reset to page 1 whenever
+   * search, filters or sorting changes.
    */
   useEffect(() => {
     setPage(1);
@@ -352,10 +276,246 @@ export default function MobileList({
     sortBy,
   ]);
 
+  /*
+   * Fetch mobile products.
+   *
+   * Search is debounced by 300ms.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const params =
+          new URLSearchParams();
+
+        /*
+         * CATEGORY
+         */
+        params.set(
+          "category",
+          "mobiles",
+        );
+
+        console.log("🔎 MOBILE SEARCH:", search);
+console.log(
+  "🌐 MOBILE API URL:",
+  `/products?${params.toString()}`
+);
+
+        /*
+         * PAGINATION
+         */
+        params.set(
+          "page",
+          String(page),
+        );
+
+        params.set(
+          "limit",
+          "20",
+        );
+
+        /*
+         * SEARCH
+         */
+        const trimmedSearch =
+          search.trim();
+
+        if (trimmedSearch) {
+          params.set(
+            "search",
+            trimmedSearch,
+          );
+        }
+
+        /*
+         * BRANDS
+         */
+        if (brands.length > 0) {
+          params.set(
+            "brands",
+            brands.join(","),
+          );
+        }
+
+        /*
+         * MIN PRICE
+         */
+        if (minPrice) {
+          params.set(
+            "minPrice",
+            minPrice,
+          );
+        }
+
+        /*
+         * MAX PRICE
+         *
+         * 30000+ means no maximum.
+         */
+        if (
+          maxPrice &&
+          maxPrice !== "30000+"
+        ) {
+          params.set(
+            "maxPrice",
+            maxPrice,
+          );
+        }
+
+        /*
+         * DISPLAY
+         */
+        if (displays.length > 0) {
+          params.set(
+            "displays",
+            displays.join(","),
+          );
+        }
+
+        /*
+         * OTHER FILTERS
+         */
+        Object.entries(
+          filterValues,
+        ).forEach(
+          ([key, values]) => {
+            if (values.length > 0) {
+              params.set(
+                key,
+                values.join(","),
+              );
+            }
+          },
+        );
+
+        /*
+         * SORT
+         */
+        if (sortBy) {
+          params.set(
+            "sort",
+            sortBy,
+          );
+        }
+
+        /*
+         * Debug request.
+         */
+        console.log(
+          "Mobile products API:",
+          `/products?${params.toString()}`,
+        );
+
+        /*
+         * API REQUEST
+         */
+        const response =
+          await apiFetch<ProductsResponse>(
+            `/products?${params.toString()}`,
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        /*
+         * Backend response:
+         *
+         * {
+         *   success: true,
+         *   data: {
+         *     products: [],
+         *     pagination: {},
+         *     brandCounts: {}
+         *   }
+         * }
+         */
+        const data =
+          response.data;
+
+        /*
+         * PRODUCTS
+         */
+        setProducts(
+          data.products ?? [],
+        );
+
+        /*
+         * PAGINATION
+         */
+        setPagination(
+          data.pagination ?? null,
+        );
+
+        /*
+         * BRAND COUNTS
+         */
+        if (data.brandCounts) {
+          onBrandCountsChange(
+            data.brandCounts,
+          );
+          
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Failed to fetch mobile products:",
+          err,
+        );
+
+        setError(
+          "Failed to load mobile phones.",
+        );
+
+        setProducts([]);
+
+        setPagination(null);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    /*
+     * Wait 300ms after the user
+     * stops typing.
+     */
+    const timeout = setTimeout(
+      fetchProducts,
+      300,
+    );
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [
+    search,
+    brands,
+    minPrice,
+    maxPrice,
+    displays,
+    filterValues,
+    sortBy,
+    page,
+    onBrandCountsChange,
+  ]);
+
   return (
     <section className="overflow-hidden rounded-sm border border-gray-300 bg-white">
+
       {/* HEADER */}
       <div className="flex flex-col gap-3 border-b bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+
         <h2 className="text-sm font-medium text-gray-800">
           {loading
             ? "Loading Mobile Phones..."
@@ -363,6 +523,7 @@ export default function MobileList({
         </h2>
 
         <div className="flex items-center gap-2">
+
           <span className="text-sm text-gray-700">
             ☷
           </span>
@@ -374,7 +535,10 @@ export default function MobileList({
           <select
             value={sortBy}
             onChange={(event) => {
-              onSortChange(event.target.value);
+              onSortChange(
+                event.target.value,
+              );
+
               setPage(1);
             }}
             className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400"
@@ -424,6 +588,7 @@ export default function MobileList({
       {/* ERROR */}
       {!loading && error && (
         <div className="px-4 py-12 text-center">
+
           <p className="text-sm text-red-600">
             {error}
           </p>
@@ -437,6 +602,7 @@ export default function MobileList({
           >
             Try Again
           </button>
+
         </div>
       )}
 
@@ -445,7 +611,11 @@ export default function MobileList({
         !error &&
         products.length === 0 && (
           <div className="px-4 py-12 text-center text-sm text-gray-500">
-            No mobile phones found.
+
+            {search.trim()
+              ? `No mobile phones found for "${search.trim()}".`
+              : "No mobile phones found."}
+
           </div>
         )}
 
@@ -454,12 +624,16 @@ export default function MobileList({
         !error &&
         products.length > 0 && (
           <div>
-            {products.map((product) => (
-              <MobileCard
-                key={product.id}
-                mobile={convertProduct(product)}
-              />
-            ))}
+            {products.map(
+              (product) => (
+                <MobileCard
+                  key={product.id}
+                  mobile={convertProduct(
+                    product,
+                  )}
+                />
+              ),
+            )}
           </div>
         )}
 
@@ -469,12 +643,19 @@ export default function MobileList({
         pagination &&
         pagination.totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 border-t px-4 py-4">
+
             <button
               type="button"
-              disabled={!pagination.hasPreviousPage}
+              disabled={
+                !pagination.hasPreviousPage
+              }
               onClick={() =>
-                setPage((current) =>
-                  Math.max(1, current - 1),
+                setPage(
+                  (current) =>
+                    Math.max(
+                      1,
+                      current - 1,
+                    ),
                 )
               }
               className="rounded border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
@@ -483,23 +664,29 @@ export default function MobileList({
             </button>
 
             <span className="px-3 text-sm text-gray-600">
-              Page {pagination.page} of{" "}
+              Page{" "}
+              {pagination.page} of{" "}
               {pagination.totalPages}
             </span>
 
             <button
               type="button"
-              disabled={!pagination.hasNextPage}
+              disabled={
+                !pagination.hasNextPage
+              }
               onClick={() =>
-                setPage((current) => current + 1)
+                setPage(
+                  (current) =>
+                    current + 1,
+                )
               }
               className="rounded border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next
             </button>
+
           </div>
         )}
     </section>
   );
 }
-

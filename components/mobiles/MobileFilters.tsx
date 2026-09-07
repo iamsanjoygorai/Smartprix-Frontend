@@ -10,6 +10,7 @@ interface MobileFiltersProps {
   maxPrice: string;
   displays: string[];
 
+  
   filterValues: Record<string, string[]>;
 
   brandCounts: Record<string, number>;
@@ -392,6 +393,7 @@ export default function MobileFilters({
 }: MobileFiltersProps) {
   const [brandSearch, setBrandSearch] = useState("");
   const [showAllAppliedFilters, setShowAllAppliedFilters] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
 
   const filteredBrands = useMemo(() => {
     const query = brandSearch.trim().toLowerCase();
@@ -423,6 +425,8 @@ export default function MobileFilters({
     );
   }, [brandSearch, selectedBrands, brandCounts]);
 
+  
+
   const getDisplayName = (slug: string) => {
     return (
       displayOptions.find(([, value]) => value === slug)?.[0] ??
@@ -451,18 +455,24 @@ export default function MobileFilters({
     (values) => values.length > 0,
   );
 
-  const clearAllFilters = () => {
+const clearAllFilters = () => {
+  // Clear search
   onSearchChange("");
+
+  // Clear price
   onPriceChange("", "30000+");
 
+  // Clear brands
   selectedBrands.forEach((brand) => {
     onBrandChange(brand);
   });
 
+  // Clear displays
   displays.forEach((display) => {
     onDisplayChange(display);
   });
 
+  // Clear other filters
   Object.entries(filterValues).forEach(([groupKey, values]) => {
     values.forEach((value) => {
       onFilterChange(groupKey, value);
@@ -590,14 +600,18 @@ const filteredMaxPriceOptions = maxPriceOptions.filter(([, value]) => {
         </h2>
 
         <input
-          type="text"
-          value={search}
-          onChange={(event) =>
-            onSearchChange(event.target.value)
-          }
-          placeholder="Search For Filters"
-          className="mt-3 w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-        />
+  type="text"
+  value={search}
+  onChange={(event) => {
+    const value = event.target.value;
+
+    console.log("🔥 PHONE SEARCH INPUT:", value);
+
+    onSearchChange(value);
+  }}
+  placeholder="Search mobile phones"
+  className="mt-3 w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+/>
       </div>
 
       {/* APPLIED FILTERS */}
@@ -764,13 +778,11 @@ const filteredMaxPriceOptions = maxPriceOptions.filter(([, value]) => {
               >
                 <span className="flex items-center gap-2">
                   <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() =>
-                      onBrandChange(brandSlug)
-                    }
-                    className="h-4 w-4 cursor-pointer"
-                  />
+  type="checkbox"
+  checked={selectedBrands.includes(brandSlug)}
+  onChange={() => onBrandChange(brandSlug)}
+  className="h-4 w-4 cursor-pointer"
+/>
 
                   <span
                     className={

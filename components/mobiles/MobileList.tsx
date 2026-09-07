@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import MobileCard from "./MobileCard";
+
 import { apiFetch } from "@/lib/api/api";
 
 interface ProductSpecification {
@@ -72,16 +74,19 @@ interface MobileListProps {
   maxPrice: string;
   displays: string[];
   filterValues: Record<string, string[]>;
-  onBrandCountsChange: (counts: Record<string, number>) => void;
+  sortBy: string;
+  onSortChange: (value: string) => void;
+  onBrandCountsChange: (
+    counts: Record<string, number>,
+  ) => void;
 }
-
 
 function getSpecification(
   product: Product,
   slugs: string[],
 ) {
-  const specification = product.specifications?.find((item) =>
-    slugs.includes(item.specification.slug),
+  const specification = product.specifications?.find(
+    (item) => slugs.includes(item.specification.slug),
   );
 
   if (!specification) {
@@ -111,7 +116,6 @@ function getPrimaryImage(product: Product): string {
     return "";
   }
 
-  // Already an absolute URL
   if (
     image.startsWith("http://") ||
     image.startsWith("https://")
@@ -119,14 +123,12 @@ function getPrimaryImage(product: Product): string {
     return image;
   }
 
-  // Relative backend URL
   if (image.startsWith("/")) {
     return `${BACKEND_URL}${image}`;
   }
 
   return `${BACKEND_URL}/${image}`;
 }
-
 
 function getLowestPrice(product: Product) {
   if (!product.prices?.length) {
@@ -140,7 +142,9 @@ function getLowestPrice(product: Product) {
   );
 }
 
-function formatPrice(amount: string | number | null) {
+function formatPrice(
+  amount: string | number | null,
+) {
   if (amount === null) {
     return "Price unavailable";
   }
@@ -150,7 +154,7 @@ function formatPrice(amount: string | number | null) {
 
 function convertProduct(product: Product) {
   const lowestPrice = getLowestPrice(product);
-console.log("Product image:", product.name, product.images);
+
   return {
     id: product.id,
     slug: product.slug,
@@ -161,7 +165,6 @@ console.log("Product image:", product.name, product.images);
     score: 0,
     rating: 0,
     image: getPrimaryImage(product),
-    
 
     display:
       getSpecification(product, [
@@ -205,113 +208,149 @@ export default function MobileList({
   maxPrice,
   displays,
   filterValues,
+  sortBy,
+  onSortChange,
   onBrandCountsChange,
 }: MobileListProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [pagination, setPagination] =
-    useState<ProductsResponse["data"]["pagination"] | null>(
-      null,
-    );
+    useState<
+      ProductsResponse["data"]["pagination"] | null
+    >(null);
 
-  const [sort, setSort] = useState("relevance");
   const [page, setPage] = useState(1);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadProducts() {
-    try {
-      setLoading(true);
-      setError("");
+    async function loadProducts() {
+      try {
+        setLoading(true);
+        setError("");
 
-      const params = new URLSearchParams();
+        const params = new URLSearchParams();
 
-params.set("category", "mobiles");
-params.set("page", String(page));
-params.set("limit", "20");
+        params.set("category", "mobiles");
+        params.set("page", String(page));
+        params.set("limit", "20");
 
-if (search.trim()) {
-  params.set("search", search.trim());
-}
+        if (search.trim()) {
+          params.set("search", search.trim());
+        }
 
-if (brands.length > 0) {
-  params.set("brands", brands.join(","));
-}
+        if (brands.length > 0) {
+          params.set("brands", brands.join(","));
+        }
 
-if (minPrice) {
-  params.set("minPrice", minPrice);
-}
+        if (minPrice) {
+          params.set("minPrice", minPrice);
+        }
 
-if (maxPrice) {
-  params.set("maxPrice", maxPrice);
-}
+        if (maxPrice) {
+          /*
+           * The frontend uses "30000+" to represent
+           * ₹30,000 and above.
+           *
+           * If your backend treats an empty maxPrice as
+           * "no upper limit", convert it here.
+           */
+          if (maxPrice === "30000+") {
+            params.set("maxPrice", "");
+          } else {
+            params.set("maxPrice", maxPrice);
+          }
+        }
 
-      if (displays.length > 0) {
-  params.set("displays", displays.join(","));
-}
-      const response = await apiFetch<ProductsResponse>(
-        `/products?${params.toString()}`
-      );
+        if (displays.length > 0) {
+          params.set("displays", displays.join(","));
+        }
 
-      Object.entries(filterValues).forEach(
-  ([group, values]) => {
-    if (values.length > 0) {
-      params.set(
-        group,
-        values.join(","),
-      );
+        /*
+         * Additional filters
+         */
+        Object.entries(filterValues).forEach(
+          ([group, values]) => {
+            if (values.length > 0) {
+              params.set(group, values.join(","));
+            }
+          },
+        );
+
+        /*
+         * Sort
+         */
+        params.set("sort", sortBy);
+
+        const response =
+          await apiFetch<ProductsResponse>(
+            `/products?${params.toString()}`,
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        setProducts(response.data.products);
+        setPagination(response.data.pagination);
+
+        onBrandCountsChange(
+          response.data.brandCounts ?? {},
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Failed to fetch mobiles:",
+          error,
+        );
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load mobiles",
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  },
-);
-      
 
-      if (cancelled) {
-        return;
-      }
+    loadProducts();
 
-      setProducts(response.data.products);
-      setPagination(response.data.pagination);
-      onBrandCountsChange(response.data.brandCounts ?? {});
-    } catch (error) {
-      if (cancelled) {
-        return;
-      }
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    search,
+    brands,
+    minPrice,
+    maxPrice,
+    displays,
+    filterValues,
+    sortBy,
+    page,
+    onBrandCountsChange,
+  ]);
 
-      console.error("Failed to fetch mobiles:", error);
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load mobiles"
-      );
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    }
-  }
-
-  loadProducts();
-
-  return () => {
-    cancelled = true;
-  };
-}, [
-  search,
-  brands,
-  minPrice,
-  maxPrice,
-  page,
-]);
-
-
-  // Reset to page 1 whenever filters change.
- useEffect(() => {
-  setPage(1);
-}, [search, brands, minPrice, maxPrice, displays]);
+  /*
+   * Reset to page 1 whenever filters or sorting changes.
+   */
+  useEffect(() => {
+    setPage(1);
+  }, [
+    search,
+    brands,
+    minPrice,
+    maxPrice,
+    displays,
+    filterValues,
+    sortBy,
+  ]);
 
   return (
     <section className="overflow-hidden rounded-sm border border-gray-300 bg-white">
@@ -333,12 +372,12 @@ if (maxPrice) {
           </span>
 
           <select
-            value={sort}
+            value={sortBy}
             onChange={(event) => {
-              setSort(event.target.value);
+              onSortChange(event.target.value);
               setPage(1);
             }}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400"
           >
             <option value="relevance">
               Relevance
@@ -358,6 +397,18 @@ if (maxPrice) {
 
             <option value="name_desc">
               Name: Z to A
+            </option>
+
+            <option value="price_asc">
+              Price: Low to High
+            </option>
+
+            <option value="price_desc">
+              Price: High to Low
+            </option>
+
+            <option value="rating_desc">
+              Rating: High to Low
             </option>
           </select>
         </div>
@@ -379,7 +430,9 @@ if (maxPrice) {
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() =>
+              window.location.reload()
+            }
             className="mt-3 rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             Try Again
@@ -449,3 +502,4 @@ if (maxPrice) {
     </section>
   );
 }
+

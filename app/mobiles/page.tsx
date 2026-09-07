@@ -17,6 +17,7 @@ export default function MobilesPage() {
   const [displays, setDisplays] = useState<string[]>([]);
   const [filterValues, setFilterValues] =
   useState<Record<string, string[]>>({});
+  const [sortBy, setSortBy] = useState("relevance");
   
 
   // Brand counts returned by the backend
@@ -275,14 +276,16 @@ export default function MobilesPage() {
           <PopularFeatures />
 
          <MobileList
-  search={search}
-  brands={brands}
-  minPrice={minPrice}
-  maxPrice={maxPrice}
-  displays={displays}
-  filterValues={filterValues}
-  onBrandCountsChange={setBrandCounts}
-/>
+          search={search}
+          brands={brands}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          displays={displays}
+          filterValues={filterValues}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          onBrandCountsChange={setBrandCounts}
+          />
         </main>
       </div>
     </div>

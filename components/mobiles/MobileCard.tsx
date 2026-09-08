@@ -10,11 +10,20 @@ interface Mobile {
   score: number;
   rating: number;
   image: string;
+
   display: string;
   battery: string;
   camera: string;
   storage: string;
   ram?: string | null;
+
+  connectivity?: string | null;
+  processor?: string | null;
+  charging?: string | null;
+  frontCamera?: string | null;
+  memoryCard?: string | null;
+  operatingSystem?: string | null;
+  displayType?: string | null;
 }
 
 export default function MobileCard({

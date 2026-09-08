@@ -187,6 +187,11 @@ function convertProduct(product: Product) {
       ]) ??
       "Display information unavailable",
 
+    displayType:
+      getSpecification(product, [
+        "display-type",
+      ]),
+
     battery:
       getSpecification(product, [
         "battery",
@@ -202,18 +207,59 @@ function convertProduct(product: Product) {
       ]) ??
       "Camera information unavailable",
 
+    frontCamera:
+      getSpecification(product, [
+        "front-camera",
+        "selfie-camera",
+      ]),
+
     storage:
       getSpecification(product, [
         "storage",
         "internal-storage",
+        "inbuilt-memory",
       ]) ??
       product.variants?.[0]?.storage ??
       "Storage information unavailable",
 
     ram:
-      getSpecification(product, ["ram"]) ??
+      getSpecification(product, [
+        "ram",
+      ]) ??
       product.variants?.[0]?.ram ??
       null,
+
+    processor:
+      getSpecification(product, [
+        "cpu",
+        "processor",
+        "chipset",
+      ]),
+
+    connectivity:
+      getSpecification(product, [
+        "connectivity",
+      ]),
+
+    charging:
+      getSpecification(product, [
+        "charging",
+        "fast-charging",
+        "charging-speed",
+      ]),
+
+    memoryCard:
+      getSpecification(product, [
+        "memory-card",
+        "expandable-storage",
+        "card-slot",
+      ]),
+
+    operatingSystem:
+      getSpecification(product, [
+        "operating-system",
+        "os",
+      ]),
   };
 }
 

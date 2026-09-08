@@ -1,7 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 interface MobileFiltersProps {
   search: string;
@@ -9,373 +12,530 @@ interface MobileFiltersProps {
   minPrice: string;
   maxPrice: string;
   displays: string[];
-
-  
   filterValues: Record<string, string[]>;
-
   brandCounts: Record<string, number>;
 
   onSearchChange: (value: string) => void;
   onBrandChange: (value: string) => void;
   onDisplayChange: (value: string) => void;
   onPriceChange: (min: string, max: string) => void;
-
   onFilterChange: (group: string, value: string) => void;
 }
 
-const brands: [string, string][] = [
-  ["Vivo", "vivo"],
-  ["Samsung", "samsung"],
-  ["Motorola", "motorola"],
-  ["Realme", "realme"],
-  ["OPPO", "oppo"],
-  ["Poco", "poco"],
-  ["Xiaomi", "xiaomi"],
-  ["OnePlus", "oneplus"],
-  ["Apple", "apple"],
-  ["Nothing", "nothing"],
-  ["Boltt", "boltt"],
+const brands = [
+  "vivo",
+  "samsung",
+  "motorola",
+  "realme",
+  "oppo",
+  "poco",
+  "xiaomi",
+  "oneplus",
+  "apple",
+  "nothing",
+  "boltt",
 ];
 
-const displayOptions: [string, string][] = [
-  ["No Notch", "no-notch"],
-  ["No Touch", "no-touch"],
-  ["Notch", "notch"],
-  ["Touch Screen", "touch-screen"],
-  ["AMOLED", "amoled"],
-  ["IPS LCD", "ips-lcd"],
-  ["Super AMOLED", "super-amoled"],
-  ["Dual Display", "dual-display"],
-  ["Foldable Display", "foldable-display"],
-  ["Curved Display", "curved-display"],
+const displayOptions = [
+  "AMOLED",
+  "OLED",
+  "LCD",
+  "IPS LCD",
+  "P-OLED",
+  "LTPO AMOLED",
 ];
 
-interface FilterGroup {
-  key: string;
-  title: string;
-  options: [string, string][];
-}
+const stores = [
+  "Amazon",
+  "Flipkart",
+  "Croma",
+  "Reliance Digital",
+];
 
-const filterGroups: FilterGroup[] = [
+const minPriceOptions = [
+  { label: "Any Price", value: "" },
+  { label: "₹5,000", value: "5000" },
+  { label: "₹10,000", value: "10000" },
+  { label: "₹15,000", value: "15000" },
+  { label: "₹20,000", value: "20000" },
+  { label: "₹30,000", value: "30000" },
+  { label: "₹40,000", value: "40000" },
+  { label: "₹50,000", value: "50000" },
+  { label: "₹75,000", value: "75000" },
+  { label: "₹1,00,000", value: "100000" },
+];
+
+const maxPriceOptions = [
+  { label: "₹10,000", value: "10000" },
+  { label: "₹15,000", value: "15000" },
+  { label: "₹20,000", value: "20000" },
+  { label: "₹30,000", value: "30000" },
+  { label: "₹40,000", value: "40000" },
+  { label: "₹50,000", value: "50000" },
+  { label: "₹75,000", value: "75000" },
+  { label: "₹1,00,000", value: "100000" },
+  { label: "₹1,50,000", value: "150000" },
+  { label: "₹2,00,000", value: "200000" },
+  { label: "₹3,00,000+", value: "30000+" },
+];
+
+const filterGroups = [
   {
     key: "availability",
     title: "Availability",
+    icon: "◉",
     options: [
-      ["Exclude Out Of Stock", "exclude-out-of-stock"],
-      ["Exclude Upcoming", "exclude-upcoming"],
-      ["Upcoming", "upcoming"],
-      ["Exclude Global", "exclude-global"],
+      "In Stock",
+      "Out of Stock",
     ],
   },
-
   {
     key: "types",
-    title: "Types",
+    title: "Phone Type",
+    icon: "▣",
     options: [
-      ["Smartphone", "smartphone"],
-      ["Feature Phone", "feature-phone"],
-      ["Budget Phone", "budget-phone"],
-      ["Dual Sim", "dual-sim"],
-      ["Triple Sim", "triple-sim"],
+      "Smartphones",
+      "Foldable Phones",
+      "Gaming Phones",
+      "Rugged Phones",
     ],
   },
-
   {
     key: "launched-within",
     title: "Launched Within",
+    icon: "◷",
     options: [
-      ["3 months", "3-months"],
-      ["6 months", "6-months"],
-      ["12 months", "12-months"],
+      "Last 1 Month",
+      "Last 3 Months",
+      "Last 6 Months",
+      "Last 1 Year",
     ],
   },
-
   {
     key: "design",
     title: "Design",
+    icon: "◇",
     options: [
-      ["Qwerty", "qwerty"],
-      ["Slim", "slim"],
-      ["Light Weight", "light-weight"],
+      "Water Drop Notch",
+      "Punch Hole",
+      "Bezel-less",
+      "Curved Display",
+      "Flat Display",
     ],
   },
-
   {
     key: "screen-sizes",
-    title: "Screen Sizes",
+    title: "Screen Size",
+    icon: "▤",
     options: [
-      ["4 inch & Below", "4-inch-below"],
-      ["4 inch - 4.7 inch", "4-4.7-inch"],
-      ["5 inch - 5.5 inch", "5-5.5-inch"],
-      ["5 inch - 6 inch", "5-6-inch"],
-      ["6 inch - 6.5 inch", "6-6.5-inch"],
-      ["6.5 inch & Above", "6.5-inch-above"],
+      "Below 6 inch",
+      "6 - 6.4 inch",
+      "6.4 - 6.7 inch",
+      "Above 6.7 inch",
     ],
   },
-
   {
     key: "screen-resolution",
     title: "Screen Resolution",
+    icon: "▦",
     options: [
-      ["High PPI Display", "high-ppi"],
-      ["4096 x 2160 (4K)", "4096x2160"],
-      ["2048 x 1536 (2K)", "2048x1536"],
-      ["1920 x 1080 (Full HD)", "1920x1080"],
-      ["1280 x 720 (HD)", "1280x720"],
+      "HD+",
+      "Full HD+",
+      "1.5K",
+      "2K",
+      "QHD+",
     ],
   },
-
   {
     key: "rear-camera",
     title: "Rear Camera",
+    icon: "◎",
     options: [
-      ["Rear Camera", "rear-camera"],
-      ["Dual Camera", "dual-camera"],
-      ["Triple Camera", "triple-camera"],
-      ["Quad Camera", "quad-camera"],
-      ["No Rear Camera", "no-rear-camera"],
-      ["5 MP & Above", "5mp-above"],
-      ["13 MP & Above", "13mp-above"],
-      ["16 MP & Above", "16mp-above"],
-      ["20 MP & Above", "20mp-above"],
-      ["48 MP & Above", "48mp-above"],
-      ["64 MP & Above", "64mp-above"],
-      ["108 MP & Above", "108mp-above"],
-      ["200 MP & Above", "200mp-above"],
-      ["Autofocus", "autofocus"],
-      ["Flash", "flash"],
-      ["OIS", "ois"],
+      "12 MP & Below",
+      "13 - 32 MP",
+      "33 - 49 MP",
+      "50 MP",
+      "64 MP",
+      "108 MP",
+      "200 MP",
     ],
   },
-
   {
     key: "front-camera",
     title: "Front Camera",
+    icon: "◉",
     options: [
-      ["Front Camera", "front-camera"],
-      ["Dual Front Camera", "dual-front-camera"],
-      ["5 MP & Above", "front-5mp-above"],
-      ["8 MP & Above", "front-8mp-above"],
-      ["12 MP & Above", "front-12mp-above"],
-      ["16 MP & Above", "front-16mp-above"],
-      ["32 MP & Above", "front-32mp-above"],
-      ["Front Camera Flash", "front-camera-flash"],
-      ["Front Camera Autofocus", "front-camera-autofocus"],
+      "8 MP & Below",
+      "12 MP",
+      "16 MP",
+      "32 MP",
+      "50 MP",
     ],
   },
-
   {
     key: "cpu",
-    title: "CPU",
+    title: "Processor",
+    icon: "▥",
     options: [
-      ["Quad Core", "quad-core"],
-      ["Octa Core", "octa-core"],
-      ["Deca Core", "deca-core"],
-      ["1.4 GHz & Above", "1.4ghz-above"],
-      ["2 GHz & Above", "2ghz-above"],
-      ["2.3 GHz & Above", "2.3ghz-above"],
-      ["3 GHz & Above", "3ghz-above"],
+      "Snapdragon",
+      "MediaTek",
+      "Exynos",
+      "Apple",
+      "Tensor",
+      "Unisoc",
     ],
   },
-
   {
-  key: "ram",
-  title: "RAM",
-  options: [
-    ["1 GB and Below", "1gb-below"],
-    ["2 GB", "2gb"],
-    ["3 GB", "3gb"],
-    ["4 GB", "4gb"],
-    ["6 GB", "6gb"],
-    ["8 GB and Above", "8gb-above"],
-  ],
-},
-
+    key: "ram",
+    title: "RAM",
+    icon: "▤",
+    options: [
+      "2 GB",
+      "3 GB",
+      "4 GB",
+      "6 GB",
+      "8 GB",
+      "12 GB",
+      "16 GB",
+      "24 GB",
+    ],
+  },
   {
     key: "battery-size",
     title: "Battery Size",
+    icon: "▰",
     options: [
-      ["Removable Battery", "removable-battery"],
-      ["Fast Charging", "fast-charging"],
-      ["Long Battery Backup", "long-battery-backup"],
-      ["4000 mAh & Above", "4000mah-above"],
-      ["5000 mAh & Above", "5000mah-above"],
-      ["6000 mAh & Above", "6000mah-above"],
-      ["7000 mAh & Above", "7000mah-above"],
+      "Below 4000 mAh",
+      "4000 - 4500 mAh",
+      "4500 - 5000 mAh",
+      "5000 - 6000 mAh",
+      "6000 mAh & Above",
     ],
   },
-
   {
     key: "connectivity",
     title: "Connectivity",
+    icon: "⌁",
     options: [
-      ["5G", "5g"],
-      ["Wireless Charging", "wireless-charging"],
-      ["NFC", "nfc"],
-      ["Supports Reliance Jio", "reliance-jio"],
-      ["VoLTE", "volte"],
-      ["Wi-Fi", "wifi"],
-      ["3G", "3g"],
-      ["4G", "4g"],
-      ["USB-C", "usb-c"],
-      ["USB OTG", "usb-otg"],
-      ["3.5mm Jack", "3.5mm-jack"],
-      ["IR Blaster", "ir-blaster"],
+      "5G",
+      "4G",
+      "VoLTE",
+      "Wi-Fi 6",
+      "Wi-Fi 7",
+      "NFC",
     ],
   },
-
   {
     key: "features",
     title: "Features",
+    icon: "✦",
     options: [
-      ["Memory Card Support", "memory-card-support"],
-      ["Torch", "torch"],
-      ["Face Unlock", "face-unlock"],
-      ["FM Radio", "fm-radio"],
-      ["Fingerprint", "fingerprint"],
-      ["GPS", "gps"],
-      ["WaterProof", "waterproof"],
-      ["Expandable RAM", "expandable-ram"],
-      ["Dedicated Memory Card Slot", "dedicated-memory-card"],
-      ["In-display Fingerprint", "in-display-fingerprint"],
-      ["UFS 3 Storage", "ufs-3"],
-      ["UFS 4 Storage", "ufs-4"],
+      "Fast Charging",
+      "Wireless Charging",
+      "Water Resistant",
+      "Stereo Speakers",
+      "IR Blaster",
+      "FM Radio",
     ],
   },
-
   {
     key: "operating-system",
     title: "Operating System",
+    icon: "▣",
     options: [
-      ["Android", "android"],
-      ["Windows Phone", "windows-phone"],
-      ["iOS", "ios"],
+      "Android",
+      "iOS",
     ],
   },
-
   {
     key: "android-version",
     title: "Android Version",
+    icon: "◈",
     options: [
-      ["Android 14 & Above", "android-14"],
-      ["Android 15 & Above", "android-15"],
-      ["Android 16 & Above", "android-16"],
-      ["Android 17 & Above", "android-17"],
+      "Android 13",
+      "Android 14",
+      "Android 15",
+      "Android 16",
     ],
   },
-
   {
     key: "inbuilt-memory",
     title: "Inbuilt Memory",
+    icon: "▤",
     options: [
-      ["32 GB & Above", "32gb-above"],
-      ["64 GB & Above", "64gb-above"],
-      ["128 GB & Above", "128gb-above"],
-      ["256 GB & Above", "256gb-above"],
-      ["512 GB & Above", "512gb-above"],
+      "32 GB",
+      "64 GB",
+      "128 GB",
+      "256 GB",
+      "512 GB",
+      "1 TB",
     ],
   },
-
   {
     key: "price-drop",
     title: "Price Drop",
+    icon: "↘",
     options: [
-      ["5% & Above", "5-percent"],
-      ["10% & Above", "10-percent"],
-      ["20% & Above", "20-percent"],
-      ["30% & Above", "30-percent"],
+      "Price Dropped Recently",
+      "Biggest Price Drops",
     ],
   },
-
   {
     key: "aspect-ratio",
     title: "Aspect Ratio",
+    icon: "▥",
     options: [
-      ["16:9", "16-9"],
-      ["18:9", "18-9"],
-      ["19:9", "19-9"],
-      ["20:9", "20-9"],
+      "19:9",
+      "20:9",
+      "20.5:9",
+      "21:9",
+      "22:9",
     ],
   },
-
   {
     key: "refresh-rate",
     title: "Refresh Rate",
+    icon: "↻",
     options: [
-      ["90 Hz", "90hz"],
-      ["120 Hz", "120hz"],
-      ["144 Hz", "144hz"],
+      "60 Hz",
+      "90 Hz",
+      "120 Hz",
+      "144 Hz",
+      "165 Hz",
     ],
   },
-
   {
     key: "cpu-manufacturer",
     title: "CPU Manufacturer",
+    icon: "▦",
     options: [
-      ["Apple", "apple"],
-      ["HiSilicon", "hisilicon"],
-      ["MediaTek", "mediatek"],
-      ["Others", "others"],
-      ["Qualcomm", "qualcomm"],
-      ["Samsung", "samsung"],
+      "Qualcomm",
+      "MediaTek",
+      "Samsung",
+      "Apple",
+      "Google",
+      "Unisoc",
     ],
   },
-
   {
     key: "gpu-manufacturer",
     title: "GPU Manufacturer",
+    icon: "◫",
     options: [
-      ["Apple", "apple"],
-      ["Arm Mali", "arm-mali"],
-      ["Imagination PowerVR", "imagination-powervr"],
-      ["Nvidia GeForce", "nvidia-geforce"],
-      ["Others", "others"],
-      ["Qualcomm Adreno", "qualcomm-adreno"],
+      "Adreno",
+      "Mali",
+      "Apple GPU",
+      "Immortalis",
+      "Xclipse",
     ],
   },
-
   {
     key: "ip-rating",
     title: "IP Rating",
+    icon: "◉",
     options: [
-      ["IP53", "ip53"],
-      ["IP54", "ip54"],
-      ["IP64", "ip64"],
-      ["IPX8", "ipx8"],
-      ["IP48", "ip48"],
-      ["IP67", "ip67"],
-      ["IP68", "ip68"],
-      ["IP69K", "ip69k"],
+      "IP53",
+      "IP54",
+      "IP55",
+      "IP67",
+      "IP68",
+      "IP69",
     ],
   },
 ];
 
-const stores: [string, string][] = [
-  ["Amazon", "amazon"],
-  ["Flipkart", "flipkart"],
-  ["Croma", "croma"],
-  ["Reliance Digital", "reliance-digital"],
-];
+function getFilterIcon(key: string) {
+  const group = filterGroups.find(
+    (item) => item.key === key,
+  );
 
+  return group?.icon ?? "•";
+}
 
-const minPriceOptions: [string, string][] = [
-  ["Min", ""],
-  ["₹10,000", "10000"],
-  ["₹15,000", "15000"],
-  ["₹20,000", "20000"],
-  ["₹25,000", "25000"],
-  ["₹30,000", "30000"],
-];
+function getFilterAccent(key: string) {
+  const accents: Record<string, string> = {
+    availability: "emerald",
+    types: "indigo",
+    "launched-within": "violet",
+    design: "pink",
+    "screen-sizes": "sky",
+    "screen-resolution": "blue",
+    "rear-camera": "amber",
+    "front-camera": "orange",
+    cpu: "purple",
+    ram: "cyan",
+    "battery-size": "rose",
+    connectivity: "teal",
+    features: "yellow",
+    "operating-system": "slate",
+    "android-version": "green",
+    "inbuilt-memory": "indigo",
+    "price-drop": "emerald",
+    "aspect-ratio": "fuchsia",
+    "refresh-rate": "blue",
+    "cpu-manufacturer": "violet",
+    "gpu-manufacturer": "pink",
+    "ip-rating": "cyan",
+  };
 
-const maxPriceOptions: [string, string][] = [
-  ["₹10,000", "10000"],
-  ["₹15,000", "15000"],
-  ["₹20,000", "20000"],
-  ["₹25,000", "25000"],
-  ["₹30,000", "30000"],
-  ["₹30,000+", "30000+"],
-];
+  return accents[key] ?? "indigo";
+}
 
+function FilterSection({
+  title,
+  icon,
+  accent = "indigo",
+  badge,
+  children,
+}: {
+  title: string;
+  icon: string;
+  accent?: string;
+  badge?: number;
+  children: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  const accentClasses: Record<string, string> = {
+    indigo: "bg-indigo-50 text-indigo-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+    violet: "bg-violet-50 text-violet-600",
+    pink: "bg-pink-50 text-pink-600",
+    sky: "bg-sky-50 text-sky-600",
+    blue: "bg-blue-50 text-blue-600",
+    amber: "bg-amber-50 text-amber-600",
+    orange: "bg-orange-50 text-orange-600",
+    purple: "bg-purple-50 text-purple-600",
+    cyan: "bg-cyan-50 text-cyan-600",
+    rose: "bg-rose-50 text-rose-600",
+    teal: "bg-teal-50 text-teal-600",
+    yellow: "bg-yellow-50 text-yellow-600",
+    slate: "bg-slate-100 text-slate-600",
+    green: "bg-green-50 text-green-600",
+    fuchsia: "bg-fuchsia-50 text-fuchsia-600",
+  };
+
+  return (
+    <section className="border-b border-slate-100 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
+              accentClasses[accent] ??
+              accentClasses.indigo
+            }`}
+          >
+            {icon}
+          </span>
+
+          <span className="truncate text-[13px] font-extrabold text-slate-800">
+            {title}
+          </span>
+
+          {typeof badge === "number" && badge > 0 && (
+            <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black text-indigo-600">
+              {badge}
+            </span>
+          )}
+        </div>
+
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        >
+          ↓
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="px-4 pb-4">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Checkbox({
+  checked,
+}: {
+  checked: boolean;
+}) {
+  return (
+    <span
+      className={`flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-[5px] border transition-all ${
+        checked
+          ? "border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100"
+          : "border-slate-300 bg-white"
+      }`}
+    >
+      {checked && (
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          className="h-3 w-3"
+        >
+          <path
+            d="M5 10.5L8.5 14L15.5 6.5"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </span>
+  );
+}
+
+function FilterOption({
+  label,
+  checked,
+  onClick,
+  count,
+}: {
+  label: string;
+  checked: boolean;
+  onClick: () => void;
+  count?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left transition-colors ${
+        checked
+          ? "bg-indigo-50/80"
+          : "hover:bg-slate-50"
+      }`}
+    >
+      <span className="flex min-w-0 items-center gap-2.5">
+        <Checkbox checked={checked} />
+
+        <span
+          className={`truncate text-[12px] ${
+            checked
+              ? "font-bold text-indigo-700"
+              : "font-medium text-slate-600 group-hover:text-slate-900"
+          }`}
+        >
+          {label}
+        </span>
+      </span>
+
+      {typeof count === "number" && (
+        <span className="shrink-0 text-[10px] font-semibold text-slate-400">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
 
 export default function MobileFilters({
   search,
@@ -392,590 +552,794 @@ export default function MobileFilters({
   onFilterChange,
 }: MobileFiltersProps) {
   const [brandSearch, setBrandSearch] = useState("");
-  const [showAllAppliedFilters, setShowAllAppliedFilters] = useState(false);
-  const [filterSearch, setFilterSearch] = useState("");
+  const [brandSort, setBrandSort] = useState<
+    "popular" | "name"
+  >("popular");
+  const [showAllBrands, setShowAllBrands] =
+    useState(false);
+  const [showAllAppliedGroups, setShowAllAppliedGroups] =
+  useState(false);
 
   const filteredBrands = useMemo(() => {
-    const query = brandSearch.trim().toLowerCase();
+    const query = brandSearch
+      .trim()
+      .toLowerCase();
 
-    const matchingBrands = query
-      ? brands.filter(([name]) =>
-          name.toLowerCase().includes(query),
-        )
-      : brands;
+    let result = brands.filter((brand) =>
+      brand.toLowerCase().includes(query),
+    );
 
-    return [...matchingBrands].sort(
-      ([nameA, slugA], [nameB, slugB]) => {
-        const selectedA = selectedBrands.includes(slugA);
-        const selectedB = selectedBrands.includes(slugB);
+    if (brandSort === "popular") {
+      result = [...result].sort((a, b) => {
+        const countA = brandCounts[a] ?? 0;
+        const countB = brandCounts[b] ?? 0;
 
-        if (selectedA !== selectedB) {
-          return selectedA ? -1 : 1;
-        }
-
-        const countA = brandCounts[slugA] ?? 0;
-        const countB = brandCounts[slugB] ?? 0;
-
-        if (countA !== countB) {
+        if (countB !== countA) {
           return countB - countA;
         }
 
-        return nameA.localeCompare(nameB);
-      },
-    );
-  }, [brandSearch, selectedBrands, brandCounts]);
+        return a.localeCompare(b);
+      });
+    } else {
+      result = [...result].sort((a, b) =>
+        a.localeCompare(b),
+      );
+    }
 
-  
+    return result;
+  }, [
+    brandSearch,
+    brandCounts,
+    brandSort,
+  ]);
 
-  const getDisplayName = (slug: string) => {
-    return (
-      displayOptions.find(([, value]) => value === slug)?.[0] ??
-      slug
-    );
+  const visibleBrands = showAllBrands
+    ? filteredBrands
+    : filteredBrands.slice(0, 7);
+
+ const appliedFilterGroups = useMemo(() => {
+  const groups: Record<
+    string,
+    {
+      label: string;
+      value: string;
+      key: string;
+    }[]
+  > = {};
+
+  const addToGroup = (
+    groupName: string,
+    item: {
+      label: string;
+      value: string;
+      key: string;
+    },
+  ) => {
+    if (!groups[groupName]) {
+      groups[groupName] = [];
+    }
+
+    groups[groupName].push(item);
   };
-
-  const getFilterName = (groupKey: string, value: string) => {
-    const group = filterGroups.find(
-      (item) => item.key === groupKey,
-    );
-
-    return (
-      group?.options.find(([, optionValue]) => optionValue === value)?.[0] ??
-      value
-    );
-  };
-
-  const hasAppliedFilters =
-  Boolean(search) ||
-  selectedBrands.length > 0 ||
-  Boolean(minPrice) ||
-  (Boolean(maxPrice) && maxPrice !== "30000+") ||
-  displays.length > 0 ||
-  Object.values(filterValues).some(
-    (values) => values.length > 0,
-  );
-
-const clearAllFilters = () => {
-  // Clear search
-  onSearchChange("");
-
-  // Clear price
-  onPriceChange("", "30000+");
-
-  // Clear brands
-  selectedBrands.forEach((brand) => {
-    onBrandChange(brand);
-  });
-
-  // Clear displays
-  displays.forEach((display) => {
-    onDisplayChange(display);
-  });
-
-  // Clear other filters
-  Object.entries(filterValues).forEach(([groupKey, values]) => {
-    values.forEach((value) => {
-      onFilterChange(groupKey, value);
-    });
-  });
-
-  setShowAllAppliedFilters(false);
-};
-
-  const appliedFilters: {
-    title: string;
-    values: string[];
-    onRemove: () => void;
-  }[] = [];
-
-  if (selectedBrands.length > 0) {
-    appliedFilters.push({
-      title: "Brands",
-      values: selectedBrands.map((slug) => {
-        return (
-          brands.find(([, brandSlug]) => brandSlug === slug)?.[0] ??
-          slug
-        );
-      }),
-      onRemove: () => {
-        selectedBrands.forEach((brand) => {
-          onBrandChange(brand);
-        });
-      },
-    });
-  }
-
-  if (displays.length > 0) {
-    appliedFilters.push({
-      title: "Display",
-      values: displays.map(getDisplayName),
-      onRemove: () => {
-        displays.forEach((display) => {
-          onDisplayChange(display);
-        });
-      },
-    });
-  }
-
- const filteredMinPriceOptions = minPriceOptions.filter(([, value]) => {
-  if (value === "") {
-    return true;
-  }
-
-  if (!maxPrice || maxPrice === "30000+") {
-    return true;
-  }
-
-  return Number(value) < Number(maxPrice);
-});
-
-const filteredMaxPriceOptions = maxPriceOptions.filter(([, value]) => {
-  if (!minPrice) {
-    return true;
-  }
-
-  if (value === "30000+") {
-    return true;
-  }
-
-  return Number(value) > Number(minPrice);
-});
 
   if (search) {
-    appliedFilters.push({
-      title: "Search",
-      values: [search],
-      onRemove: () => onSearchChange(""),
+    addToGroup("Search", {
+      label: "Search",
+      value: search,
+      key: "search",
     });
   }
 
-  if (minPrice || (maxPrice && maxPrice !== "30000+")) {
-  appliedFilters.push({
-    title: "Price",
-    values: [
-      `${minPrice
-        ? `₹${Number(minPrice).toLocaleString("en-IN")}`
-        : "Min"} to ${
-        maxPrice === "30000+"
-          ? "₹30,000+"
-          : maxPrice
-            ? `₹${Number(maxPrice).toLocaleString("en-IN")}`
-            : "Max"
-      }`,
-    ],
-    onRemove: () => onPriceChange("", "30000+"),
+  selectedBrands.forEach((brand) => {
+    addToGroup("Brand", {
+      label: "Brand",
+      value:
+        brand.charAt(0).toUpperCase() +
+        brand.slice(1),
+      key: `brand:${brand}`,
+    });
   });
-}
 
-  filterGroups.forEach((group) => {
-    const selectedValues = filterValues[group.key] ?? [];
+  displays.forEach((display) => {
+    addToGroup("Display", {
+      label: "Display",
+      value: display,
+      key: `display:${display}`,
+    });
+  });
 
-    if (selectedValues.length === 0) {
+  if (minPrice) {
+    addToGroup("Price", {
+      label: "Minimum",
+      value: `₹${Number(
+        minPrice,
+      ).toLocaleString("en-IN")}`,
+      key: "price:min",
+    });
+  }
+
+  if (
+    maxPrice &&
+    maxPrice !== "30000+"
+  ) {
+    addToGroup("Price", {
+      label: "Maximum",
+      value: `₹${Number(
+        maxPrice,
+      ).toLocaleString("en-IN")}`,
+      key: "price:max",
+    });
+  }
+
+  Object.entries(filterValues).forEach(
+    ([groupKey, values]) => {
+      if (!values.length) return;
+
+      const group = filterGroups.find(
+        (item) => item.key === groupKey,
+      );
+
+      const groupName =
+        group?.title ?? groupKey;
+
+      values.forEach((value) => {
+        addToGroup(groupName, {
+          label: groupName,
+          value,
+          key: `${groupKey}:${value}`,
+        });
+      });
+    },
+  );
+
+  return groups;
+}, [
+  search,
+  selectedBrands,
+  displays,
+  minPrice,
+  maxPrice,
+  filterValues,
+]);
+
+  const hasAppliedFilters =
+    Boolean(search) ||
+    selectedBrands.length > 0 ||
+    Boolean(minPrice) ||
+    (Boolean(maxPrice) &&
+      maxPrice !== "30000+") ||
+    displays.length > 0 ||
+    Object.values(filterValues).some(
+      (values) => values.length > 0,
+    );
+
+  const clearAllFilters = () => {
+    onSearchChange("");
+    onPriceChange("", "30000+");
+
+    selectedBrands.forEach((brand) =>
+      onBrandChange(brand),
+    );
+
+    displays.forEach((display) =>
+      onDisplayChange(display),
+    );
+
+    Object.entries(filterValues).forEach(
+      ([groupKey, values]) => {
+        values.forEach((value) =>
+          onFilterChange(groupKey, value),
+        );
+      },
+    );
+
+    setShowAllAppliedFilters(false);
+  };
+
+  const removeAppliedFilter = (
+    item: {
+      key: string;
+      label: string;
+      value: string;
+    },
+  ) => {
+    if (item.key === "search") {
+      onSearchChange("");
       return;
     }
 
-    appliedFilters.push({
-      title: group.title,
-      values: selectedValues.map((value) =>
-        getFilterName(group.key, value),
-      ),
-      onRemove: () => {
-        selectedValues.forEach((value) => {
-          onFilterChange(group.key, value);
-        });
-      },
-    });
-  });
+    if (item.key === "brand") {
+      onBrandChange(item.value);
+      return;
+    }
 
-  const visibleFilters = showAllAppliedFilters
-    ? appliedFilters
-    : appliedFilters.slice(0, 2);
+    if (item.key === "display") {
+      onDisplayChange(item.value);
+      return;
+    }
+
+    if (item.key === "price") {
+      if (item.label === "Min Price") {
+        onPriceChange("", maxPrice);
+      } else {
+        onPriceChange(minPrice, "30000+");
+      }
+
+      return;
+    }
+
+    onFilterChange(item.key, item.value);
+  };
+
+  const minPriceNumber = minPrice
+    ? Number(minPrice)
+    : null;
+
+  const maxPriceNumber =
+    maxPrice &&
+    maxPrice !== "30000+"
+      ? Number(maxPrice)
+      : null;
+
+  const invalidPriceRange =
+    minPriceNumber !== null &&
+    maxPriceNumber !== null &&
+    minPriceNumber > maxPriceNumber;
 
   return (
-    <div className="overflow-hidden rounded-sm border border-gray-300 bg-[#e3f6c9]">
-      {/* HEADER */}
-      <div className="border-b border-gray-300 px-3 py-3">
-        <h2 className="text-[17px] font-semibold text-gray-700">
-          Filters
-        </h2>
+    <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* FILTER HEADER */}
+      <div className="border-b border-slate-200 bg-gradient-to-br from-white via-white to-indigo-50/40 px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-100">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-5 w-5"
+              >
+                <path
+                  d="M4 6H20M7 12H17M10 18H14"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
 
-        <input
-  type="text"
-  value={search}
-  onChange={(event) => {
-    const value = event.target.value;
+            <div className="min-w-0">
+              <h2 className="text-lg font-extrabold text-slate-900">
+                Filters
+              </h2>
 
-    console.log("🔥 PHONE SEARCH INPUT:", value);
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                Search or select filters to refine your
+                results
+              </p>
+            </div>
+          </div>
 
-    onSearchChange(value);
-  }}
-  placeholder="Search mobile phones"
-  className="mt-3 w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-/>
+          {hasAppliedFilters && (
+            <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-black text-indigo-700">
+              {appliedFilterGroups.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* APPLIED FILTERS */}
-      <div className="border-b border-gray-300 px-3 py-3">
-        {!hasAppliedFilters ? (
-          <div className="flex min-h-[90px] items-center justify-center text-center text-sm text-gray-600">
-            Search for filters or apply some filters from below
-          </div>
-        ) : (
-          <>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700">
-                Applied Filters
-              </h3>
+{hasAppliedFilters && (
+  <div className="border-b border-slate-100 bg-slate-50/60 p-4">
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-xs font-black text-emerald-600">
+          ✓
+        </span>
 
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-xs font-medium text-blue-600 hover:underline"
-              >
-                Clear All
-              </button>
-            </div>
-
-            <div className="overflow-hidden rounded border border-gray-300 bg-white">
-              {visibleFilters.map((filter) => (
-                <div
-                  key={filter.title}
-                  className="border-b border-gray-200 px-3 py-2 last:border-b-0"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700">
-                      {filter.title}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={filter.onRemove}
-                      aria-label={`Clear ${filter.title}`}
-                      className="flex h-5 w-5 items-center justify-center rounded-full text-base leading-none text-gray-400 hover:bg-gray-100 hover:text-red-500"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  <div className="mt-1 break-words text-xs leading-5 text-gray-600">
-                    {filter.values.join(" • ")}
-                  </div>
-                </div>
-              ))}
-
-              {appliedFilters.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowAllAppliedFilters(
-                      (current) => !current,
-                    )
-                  }
-                  className="w-full border-t border-gray-200 px-3 py-2 text-xs font-medium text-blue-600 hover:bg-gray-50 hover:underline"
-                >
-                  {showAllAppliedFilters
-                    ? "Show Less"
-                    : `Show More (${appliedFilters.length - 2})`}
-                </button>
-              )}
-            </div>
-          </>
-        )}
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+          Applied Filters
+        </span>
       </div>
 
-    
-  <FilterSection title="Price">
-  <div className="flex items-center gap-2 px-3 py-3">
-    {/* Min Price */}
-    <select
-      value={minPrice}
-      onChange={(e) => {
-        const newMin = e.target.value;
+      <button
+        type="button"
+        onClick={clearAllFilters}
+        className="text-[10px] font-bold text-rose-500 transition-colors hover:text-rose-600"
+      >
+        Clear All
+      </button>
+    </div>
 
-        // If selected Min is not smaller than current Max,
-        // clear Max so the range always remains valid.
-        if (
-          maxPrice &&
-          maxPrice !== "30000+" &&
-          newMin &&
-          Number(newMin) >= Number(maxPrice)
-        ) {
-          onPriceChange(newMin, "");
-          return;
-        }
-
-        onPriceChange(newMin, maxPrice);
-      }}
-      className="h-9 min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-green-500"
-    >
-      {filteredMinPriceOptions.map(([label, value]) => (
-        <option key={value || "min"} value={value}>
-          {label}
-        </option>
-      ))}
-    </select>
-
-    <span className="shrink-0 text-sm text-gray-500">
-      to
-    </span>
-
-    {/* Max Price */}
-    <select
-      value={maxPrice}
-      onChange={(e) => {
-        const newMax = e.target.value;
-
-        // If selected Max is not greater than current Min,
-        // clear Min so the range always remains valid.
-        if (
-          minPrice &&
-          newMax !== "30000+" &&
-          Number(newMax) <= Number(minPrice)
-        ) {
-          onPriceChange("", newMax);
-          return;
-        }
-
-        onPriceChange(minPrice, newMax);
-      }}
-      className="h-9 min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-green-500"
-    >
-      {filteredMaxPriceOptions.map(([label, value]) => (
-        <option key={value} value={value}>
-          {label}
-        </option>
-      ))}
-    </select>
-  </div>
-</FilterSection>
-
-
-
-
-      {/* BRANDS */}
-      <FilterSection title="Brands">
-        <input
-          type="text"
-          value={brandSearch}
-          onChange={(event) =>
-            setBrandSearch(event.target.value)
-          }
-          placeholder="Search brands"
-          className="mb-3 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-400"
-        />
-
-        <div className="space-y-2">
-          {filteredBrands.map(([brandName, brandSlug]) => {
-            const isSelected =
-              selectedBrands.includes(brandSlug);
-
-            const count = brandCounts[brandSlug];
-
-            return (
-              <label
-                key={brandSlug}
-                className="flex cursor-pointer items-center justify-between text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <input
-  type="checkbox"
-  checked={selectedBrands.includes(brandSlug)}
-  onChange={() => onBrandChange(brandSlug)}
-  className="h-4 w-4 cursor-pointer"
-/>
-
-                  <span
-                    className={
-                      isSelected
-                        ? "font-semibold text-blue-600"
-                        : "text-gray-700"
-                    }
-                  >
-                    {brandName}
-                  </span>
+    <div className="space-y-3">
+      {Object.entries(appliedFilterGroups)
+        .slice(
+          0,
+          showAllAppliedGroups
+            ? undefined
+            : 2,
+        )
+        .map(
+          ([groupName, items]) => (
+            <div key={groupName}>
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  {groupName}
                 </span>
 
-                {count !== undefined && (
-                  <span className="text-xs text-gray-500">
-                    {count}
-                  </span>
-                )}
-              </label>
-            );
-          })}
+                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
+                  {items.length}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {items.map((item) => (
+                  <button
+                    type="button"
+                    key={item.key}
+                    onClick={() => {
+                      if (
+                        item.key ===
+                        "search"
+                      ) {
+                        onSearchChange("");
+                        return;
+                      }
+
+                      if (
+                        item.key.startsWith(
+                          "brand:",
+                        )
+                      ) {
+                        const brand =
+                          item.key.replace(
+                            "brand:",
+                            "",
+                          );
+
+                        onBrandChange(
+                          brand,
+                        );
+                        return;
+                      }
+
+                      if (
+                        item.key.startsWith(
+                          "display:",
+                        )
+                      ) {
+                        const display =
+                          item.key.replace(
+                            "display:",
+                            "",
+                          );
+
+                        onDisplayChange(
+                          display,
+                        );
+                        return;
+                      }
+
+                      if (
+                        item.key ===
+                        "price:min"
+                      ) {
+                        onPriceChange(
+                          "",
+                          maxPrice,
+                        );
+                        return;
+                      }
+
+                      if (
+                        item.key ===
+                        "price:max"
+                      ) {
+                        onPriceChange(
+                          minPrice,
+                          "30000+",
+                        );
+                        return;
+                      }
+
+                      const separatorIndex =
+                        item.key.indexOf(
+                          ":",
+                        );
+
+                      const groupKey =
+                        item.key.slice(
+                          0,
+                          separatorIndex,
+                        );
+
+                      const value =
+                        item.key.slice(
+                          separatorIndex + 1,
+                        );
+
+                      onFilterChange(
+                        groupKey,
+                        value,
+                      );
+                    }}
+                    className="group inline-flex max-w-full items-center gap-1.5 rounded-lg border border-indigo-100 bg-white px-2.5 py-1.5 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50"
+                  >
+                    <span className="max-w-[125px] truncate text-[10px] font-bold text-slate-600 group-hover:text-rose-600">
+                      {item.value}
+                    </span>
+
+                    <span className="text-[10px] font-black text-slate-400 group-hover:text-rose-500">
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ),
+        )}
+    </div>
+
+    {/* SHOW MORE / LESS */}
+    {Object.keys(appliedFilterGroups).length >
+      2 && (
+      <button
+        type="button"
+        onClick={() =>
+          setShowAllAppliedGroups(
+            (value) => !value,
+          )
+        }
+        className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-white py-2 text-[10px] font-extrabold text-indigo-600 shadow-sm transition-all hover:bg-indigo-50"
+      >
+        {showAllAppliedGroups ? (
+          <>
+            Show less
+            <span className="text-xs">
+              ↑
+            </span>
+          </>
+        ) : (
+          <>
+            Show more
+            <span className="text-xs">
+              ↓
+            </span>
+          </>
+        )}
+      </button>
+    )}
+  </div>
+)}
+
+    {/* SEARCH */}
+<div className="border-b border-slate-100 p-4">
+  <label
+    htmlFor="mobile-filter-search"
+    className="mb-2 block text-[11px] font-extrabold uppercase tracking-wider text-slate-600"
+  >
+    Search
+  </label>
+
+  <div className="relative">
+    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        className="h-4 w-4"
+      >
+        <circle
+          cx="11"
+          cy="11"
+          r="6.5"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          d="M16 16L21 21"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
+
+    <input
+      id="mobile-filter-search"
+      value={search}
+      onChange={(event) =>
+        onSearchChange(event.target.value)
+      }
+      placeholder="Search mobiles..."
+      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+    />
+  </div>
+</div>
+
+      {/* BRAND */}
+<FilterSection
+  title="Brand"
+  icon="B"
+  accent="indigo"
+  badge={selectedBrands.length}
+>
+  <div className="space-y-0.5">
+    {visibleBrands.map((brand) => (
+      <FilterOption
+        key={brand}
+        label={
+          brand.charAt(0).toUpperCase() +
+          brand.slice(1)
+        }
+        checked={selectedBrands.includes(
+          brand,
+        )}
+        count={brandCounts[brand]}
+        onClick={() =>
+          onBrandChange(brand)
+        }
+      />
+    ))}
+  </div>
+
+  {filteredBrands.length > 7 && (
+    <button
+      type="button"
+      onClick={() =>
+        setShowAllBrands(
+          (value) => !value,
+        )
+      }
+      className="mt-2 w-full rounded-lg bg-slate-50 py-2 text-[10px] font-extrabold text-indigo-600 transition-colors hover:bg-indigo-50"
+    >
+      {showAllBrands
+        ? "Show less"
+        : `Show all ${filteredBrands.length} brands`}
+    </button>
+  )}
+</FilterSection>
+
+{/* SEARCH — BELOW BRAND */}
+<div className="border-b border-slate-100 p-4">
+  <div className="relative">
+    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        className="h-4 w-4"
+      >
+        <circle
+          cx="11"
+          cy="11"
+          r="6.5"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          d="M16 16L21 21"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
+
+    <input
+      id="mobile-filter-search"
+      value={search}
+      onChange={(event) =>
+        onSearchChange(event.target.value)
+      }
+      placeholder="Search mobiles..."
+      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+    />
+  </div>
+</div>
+
+{/* PRICE */}
+<FilterSection
+  title="Price"
+  icon="₹"
+  accent="emerald"
+>
+  ...
+</FilterSection>
+
+      {/* PRICE */}
+      <FilterSection
+        title="Price"
+        icon="₹"
+        accent="emerald"
+        badge={
+          (minPrice ? 1 : 0) +
+          (maxPrice &&
+          maxPrice !== "30000+"
+            ? 1
+            : 0)
+        }
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Minimum
+            </label>
+
+            <select
+              value={minPrice}
+              onChange={(event) =>
+                onPriceChange(
+                  event.target.value,
+                  maxPrice,
+                )
+              }
+              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-600 outline-none transition-all focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-50"
+            >
+              {minPriceOptions.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+              Maximum
+            </label>
+
+            <select
+              value={maxPrice}
+              onChange={(event) =>
+                onPriceChange(
+                  minPrice,
+                  event.target.value,
+                )
+              }
+              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-600 outline-none transition-all focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-50"
+            >
+              {maxPriceOptions.map(
+                (option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
         </div>
+
+        {invalidPriceRange && (
+          <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-600">
+            Minimum price cannot be higher than maximum
+            price.
+          </div>
+        )}
       </FilterSection>
 
       {/* DISPLAY */}
-      <FilterSection title="Display">
-        <div className="space-y-2">
+      <FilterSection
+        title="Display"
+        icon="▣"
+        accent="sky"
+        badge={displays.length}
+      >
+        <div className="space-y-0.5">
           {displayOptions.map(
-            ([displayName, displaySlug]) => {
-              const isSelected =
-                displays.includes(displaySlug);
-
-              return (
-                <label
-                  key={displaySlug}
-                  className="flex cursor-pointer items-center justify-between text-sm"
-                >
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() =>
-                        onDisplayChange(displaySlug)
-                      }
-                      className="h-4 w-4 cursor-pointer"
-                    />
-
-                    <span
-                      className={
-                        isSelected
-                          ? "font-semibold text-blue-600"
-                          : "text-gray-700"
-                      }
-                    >
-                      {displayName}
-                    </span>
-                  </span>
-                </label>
-              );
-            },
+            (display) => (
+              <FilterOption
+                key={display}
+                label={display}
+                checked={displays.includes(
+                  display,
+                )}
+                onClick={() =>
+                  onDisplayChange(
+                    display,
+                  )
+                }
+              />
+            ),
           )}
         </div>
       </FilterSection>
 
       {/* STORES */}
-      <FilterSection title="Stores">
-        <div className="space-y-2">
-          {stores.map(([storeName, storeSlug]) => {
-            const isSelected =
-              (filterValues.stores ?? []).includes(storeSlug);
-
-            return (
-              <label
-                key={storeSlug}
-                className="flex cursor-pointer items-center gap-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() =>
-                    onFilterChange("stores", storeSlug)
-                  }
-                  className="h-4 w-4 cursor-pointer"
-                />
-
-                <span
-                  className={
-                    isSelected
-                      ? "font-semibold text-blue-600"
-                      : "text-gray-700"
-                  }
-                >
-                  {storeName}
-                </span>
-              </label>
-            );
-          })}
+      <FilterSection
+        title="Stores"
+        icon="▤"
+        accent="amber"
+        badge={
+          filterValues.stores?.length ?? 0
+        }
+      >
+        <div className="space-y-0.5">
+          {stores.map((store) => (
+            <FilterOption
+              key={store}
+              label={store}
+              checked={Boolean(
+                filterValues.stores?.includes(
+                  store,
+                ),
+              )}
+              onClick={() =>
+                onFilterChange(
+                  "stores",
+                  store,
+                )
+              }
+            />
+          ))}
         </div>
       </FilterSection>
 
-      {/* OTHER FILTERS */}
-      {filterGroups.map((group) => (
-        <FilterSection
-          key={group.key}
-          title={group.title}
-        >
-          <div className="space-y-2">
-            {group.options.map(
-              ([label, value]) => {
-                const isSelected =
-                  (filterValues[group.key] ?? []).includes(
-                    value,
-                  );
+      {/* OTHER FILTER GROUPS */}
+      {filterGroups.map((group) => {
+        const selectedCount =
+          filterValues[group.key]?.length ??
+          0;
 
-                return (
-                  <label
-                    key={value}
-                    className="flex cursor-pointer items-center justify-between text-sm"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() =>
-                          onFilterChange(
-                            group.key,
-                            value,
-                          )
-                        }
-                        className="h-4 w-4 cursor-pointer"
-                      />
-
-                      <span
-                        className={
-                          isSelected
-                            ? "font-semibold text-blue-600"
-                            : "text-gray-700"
-                        }
-                      >
-                        {label}
-                      </span>
-                    </span>
-                  </label>
-                );
-              },
+        return (
+          <FilterSection
+            key={group.key}
+            title={group.title}
+            icon={getFilterIcon(
+              group.key,
             )}
-          </div>
-        </FilterSection>
-      ))}
-    </div>
-  );
-}
+            accent={getFilterAccent(
+              group.key,
+            )}
+            badge={selectedCount}
+          >
+            <div className="space-y-0.5">
+              {group.options.map(
+                (option) => (
+                  <FilterOption
+                    key={option}
+                    label={option}
+                    checked={Boolean(
+                      filterValues[
+                        group.key
+                      ]?.includes(
+                        option,
+                      ),
+                    )}
+                    onClick={() =>
+                      onFilterChange(
+                        group.key,
+                        option,
+                      )
+                    }
+                  />
+                ),
+              )}
+            </div>
+          </FilterSection>
+        );
+      })}
 
-function FilterSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(true);
-
-  return (
-    <section className="border-t border-gray-300">
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        className="flex w-full items-center justify-between bg-[#d4edb5] px-3 py-2 text-left transition-colors hover:bg-[#c9e6a8]"
-        aria-expanded={isOpen}
-      >
-        <h3 className="text-sm font-semibold text-gray-700">
-          {title}
-        </h3>
-
-        <span
-          className={`text-xs text-gray-500 transition-transform duration-200 ${
-            isOpen ? "rotate-0" : "rotate-180"
-          }`}
-        >
-          ▲
-        </span>
-      </button>
-
-      <div
-        className={`grid transition-all duration-200 ease-in-out ${
-          isOpen
-            ? "grid-rows-[1fr] opacity-100"
-            : "grid-rows-[0fr] opacity-0"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="p-3">{children}</div>
+      {/* BOTTOM CLEAR */}
+      {hasAppliedFilters && (
+        <div className="border-t border-slate-100 bg-slate-50/70 p-4">
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-[11px] font-extrabold text-slate-600 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+          >
+            <span className="text-sm">
+              ↺
+            </span>
+            Clear all filters
+          </button>
         </div>
-      </div>
-    </section>
+      )}
+    </aside>
   );
 }

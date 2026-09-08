@@ -41,12 +41,10 @@ interface Product {
   id: string;
   name: string;
   slug: string;
-
   brand?: {
     name: string;
     slug: string;
   } | null;
-
   images: ProductImage[];
   prices: ProductPrice[];
   variants?: ProductVariant[];
@@ -55,10 +53,8 @@ interface Product {
 
 interface ProductsResponse {
   success: boolean;
-
   data: {
     products: Product[];
-
     pagination: {
       page: number;
       limit: number;
@@ -67,28 +63,19 @@ interface ProductsResponse {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
-
     brandCounts: Record<string, number>;
   };
 }
 
 interface MobileListProps {
   search: string;
-
   brands: string[];
-
   minPrice: string;
-
   maxPrice: string;
-
   displays: string[];
-
   filterValues: Record<string, string[]>;
-
   sortBy: string;
-
   onSortChange: (value: string) => void;
-
   onBrandCountsChange: (
     counts: Record<string, number>,
   ) => void;
@@ -180,9 +167,7 @@ function convertProduct(product: Product) {
 
   return {
     id: product.id,
-
     slug: product.slug,
-
     name: product.name,
 
     price: formatPrice(
@@ -190,7 +175,6 @@ function convertProduct(product: Product) {
     ),
 
     score: 0,
-
     rating: 0,
 
     image: getPrimaryImage(product),
@@ -260,10 +244,10 @@ export default function MobileList({
   const [error, setError] =
     useState("");
 
-  /*
-   * Reset to page 1 whenever
-   * search, filters or sorting changes.
-   */
+  // ─────────────────────────────────────────────
+  // RESET PAGE WHEN FILTERS CHANGE
+  // ─────────────────────────────────────────────
+
   useEffect(() => {
     setPage(1);
   }, [
@@ -276,11 +260,10 @@ export default function MobileList({
     sortBy,
   ]);
 
-  /*
-   * Fetch mobile products.
-   *
-   * Search is debounced by 300ms.
-   */
+  // ─────────────────────────────────────────────
+  // FETCH PRODUCTS
+  // ─────────────────────────────────────────────
+
   useEffect(() => {
     let cancelled = false;
 
@@ -292,23 +275,13 @@ export default function MobileList({
         const params =
           new URLSearchParams();
 
-        /*
-         * CATEGORY
-         */
+        // CATEGORY
         params.set(
           "category",
           "mobiles",
         );
 
-        console.log("🔎 MOBILE SEARCH:", search);
-console.log(
-  "🌐 MOBILE API URL:",
-  `/products?${params.toString()}`
-);
-
-        /*
-         * PAGINATION
-         */
+        // PAGINATION
         params.set(
           "page",
           String(page),
@@ -319,9 +292,7 @@ console.log(
           "20",
         );
 
-        /*
-         * SEARCH
-         */
+        // SEARCH
         const trimmedSearch =
           search.trim();
 
@@ -332,9 +303,7 @@ console.log(
           );
         }
 
-        /*
-         * BRANDS
-         */
+        // BRANDS
         if (brands.length > 0) {
           params.set(
             "brands",
@@ -342,9 +311,7 @@ console.log(
           );
         }
 
-        /*
-         * MIN PRICE
-         */
+        // MIN PRICE
         if (minPrice) {
           params.set(
             "minPrice",
@@ -352,11 +319,7 @@ console.log(
           );
         }
 
-        /*
-         * MAX PRICE
-         *
-         * 30000+ means no maximum.
-         */
+        // MAX PRICE
         if (
           maxPrice &&
           maxPrice !== "30000+"
@@ -367,9 +330,7 @@ console.log(
           );
         }
 
-        /*
-         * DISPLAY
-         */
+        // DISPLAY
         if (displays.length > 0) {
           params.set(
             "displays",
@@ -377,9 +338,7 @@ console.log(
           );
         }
 
-        /*
-         * OTHER FILTERS
-         */
+        // OTHER FILTERS
         Object.entries(
           filterValues,
         ).forEach(
@@ -393,9 +352,7 @@ console.log(
           },
         );
 
-        /*
-         * SORT
-         */
+        // SORT
         if (sortBy) {
           params.set(
             "sort",
@@ -403,17 +360,6 @@ console.log(
           );
         }
 
-        /*
-         * Debug request.
-         */
-        console.log(
-          "Mobile products API:",
-          `/products?${params.toString()}`,
-        );
-
-        /*
-         * API REQUEST
-         */
         const response =
           await apiFetch<ProductsResponse>(
             `/products?${params.toString()}`,
@@ -423,43 +369,21 @@ console.log(
           return;
         }
 
-        /*
-         * Backend response:
-         *
-         * {
-         *   success: true,
-         *   data: {
-         *     products: [],
-         *     pagination: {},
-         *     brandCounts: {}
-         *   }
-         * }
-         */
         const data =
           response.data;
 
-        /*
-         * PRODUCTS
-         */
         setProducts(
           data.products ?? [],
         );
 
-        /*
-         * PAGINATION
-         */
         setPagination(
           data.pagination ?? null,
         );
 
-        /*
-         * BRAND COUNTS
-         */
         if (data.brandCounts) {
           onBrandCountsChange(
             data.brandCounts,
           );
-          
         }
       } catch (err) {
         if (cancelled) {
@@ -476,7 +400,6 @@ console.log(
         );
 
         setProducts([]);
-
         setPagination(null);
       } finally {
         if (!cancelled) {
@@ -485,10 +408,6 @@ console.log(
       }
     };
 
-    /*
-     * Wait 300ms after the user
-     * stops typing.
-     */
     const timeout = setTimeout(
       fetchProducts,
       300,
@@ -510,86 +429,199 @@ console.log(
     onBrandCountsChange,
   ]);
 
+  // ─────────────────────────────────────────────
+  // ACTIVE FILTER COUNT
+  // ─────────────────────────────────────────────
+
+  const activeFilterCount =
+    brands.length +
+    displays.length +
+    Object.values(filterValues).reduce(
+      (total, values) =>
+        total + values.length,
+      0,
+    ) +
+    (minPrice ? 1 : 0) +
+    (maxPrice &&
+    maxPrice !== "30000+"
+      ? 1
+      : 0);
+
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
+
   return (
-    <section className="overflow-hidden rounded-sm border border-gray-300 bg-white">
+    <section className="overflow-hidden bg-white">
+      {/* =====================================================
+          LIST HEADER
+      ====================================================== */}
 
-      {/* HEADER */}
-      <div className="flex flex-col gap-3 border-b bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-white via-white to-indigo-50/30 px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* RESULT INFORMATION */}
 
-        <h2 className="text-sm font-medium text-gray-800">
-          {loading
-            ? "Loading Mobile Phones..."
-            : `${pagination?.total ?? 0} Mobile Phones`}
-        </h2>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[17px] font-black tracking-tight text-slate-900 sm:text-[19px]">
+                {loading
+                  ? "Loading Mobile Phones..."
+                  : `${pagination?.total ?? 0} Mobile Phones`}
+              </h2>
 
-        <div className="flex items-center gap-2">
+              {!loading &&
+                activeFilterCount > 0 && (
+                  <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-600">
+                    {activeFilterCount} filter
+                    {activeFilterCount !== 1
+                      ? "s"
+                      : ""}{" "}
+                    applied
+                  </span>
+                )}
+            </div>
 
-          <span className="text-sm text-gray-700">
-            ☷
-          </span>
+            <p className="mt-1 text-[11px] font-medium text-slate-400">
+              {search.trim()
+                ? `Showing results for "${search.trim()}"`
+                : "Compare smartphones, prices and specifications"}
+            </p>
+          </div>
 
-          <span className="text-sm text-gray-700">
-            Sort By
-          </span>
+          {/* SORT */}
 
-          <select
-            value={sortBy}
-            onChange={(event) => {
-              onSortChange(
-                event.target.value,
-              );
+          <div className="flex items-center gap-2">
+            <span className="hidden text-[11px] font-bold uppercase tracking-wider text-slate-400 sm:block">
+              Sort by
+            </span>
 
-              setPage(1);
-            }}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400"
-          >
-            <option value="relevance">
-              Relevance
-            </option>
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  onSortChange(
+                    event.target.value,
+                  );
+                  setPage(1);
+                }}
+                className="h-10 min-w-[155px] appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 text-[12px] font-bold text-slate-700 outline-none transition-all hover:border-indigo-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
+              >
+                <option value="relevance">
+                  Relevance
+                </option>
 
-            <option value="newest">
-              Newest
-            </option>
+                <option value="newest">
+                  Newest
+                </option>
 
-            <option value="oldest">
-              Oldest
-            </option>
+                <option value="oldest">
+                  Oldest
+                </option>
 
-            <option value="name_asc">
-              Name: A to Z
-            </option>
+                <option value="name_asc">
+                  Name: A to Z
+                </option>
 
-            <option value="name_desc">
-              Name: Z to A
-            </option>
+                <option value="name_desc">
+                  Name: Z to A
+                </option>
 
-            <option value="price_asc">
-              Price: Low to High
-            </option>
+                <option value="price_asc">
+                  Price: Low to High
+                </option>
 
-            <option value="price_desc">
-              Price: High to Low
-            </option>
+                <option value="price_desc">
+                  Price: High to Low
+                </option>
 
-            <option value="rating_desc">
-              Rating: High to Low
-            </option>
-          </select>
+                <option value="rating_desc">
+                  Rating: High to Low
+                </option>
+              </select>
+
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* LOADING */}
+      {/* =====================================================
+          LOADING
+      ====================================================== */}
+
       {loading && (
-        <div className="px-4 py-12 text-center text-sm text-gray-500">
-          Loading mobile phones...
+        <div className="divide-y divide-slate-100">
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="flex gap-5 p-5"
+            >
+              <div className="h-[180px] w-[120px] shrink-0 animate-pulse rounded-2xl bg-slate-100" />
+
+              <div className="flex-1 space-y-4 py-2">
+                <div className="h-5 w-2/3 animate-pulse rounded-lg bg-slate-100" />
+
+                <div className="h-4 w-1/3 animate-pulse rounded-lg bg-slate-100" />
+
+                <div className="h-8 w-1/2 animate-pulse rounded-lg bg-slate-100" />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="h-4 animate-pulse rounded bg-slate-100" />
+                  <div className="h-4 animate-pulse rounded bg-slate-100" />
+                  <div className="h-4 animate-pulse rounded bg-slate-100" />
+                  <div className="h-4 animate-pulse rounded bg-slate-100" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ERROR */}
-      {!loading && error && (
-        <div className="px-4 py-12 text-center">
+      {/* =====================================================
+          ERROR
+      ====================================================== */}
 
-          <p className="text-sm text-red-600">
+      {!loading && error && (
+        <div className="px-5 py-16 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+              />
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
+            </svg>
+          </div>
+
+          <p className="mt-4 text-[14px] font-bold text-slate-800">
+            Something went wrong
+          </p>
+
+          <p className="mt-1 text-[12px] text-slate-400">
             {error}
           </p>
 
@@ -598,95 +630,169 @@ console.log(
             onClick={() =>
               window.location.reload()
             }
-            className="mt-3 rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-[12px] font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 hover:shadow-indigo-200"
           >
             Try Again
           </button>
-
         </div>
       )}
 
-      {/* EMPTY */}
+      {/* =====================================================
+          EMPTY STATE
+      ====================================================== */}
+
       {!loading &&
         !error &&
         products.length === 0 && (
-          <div className="px-4 py-12 text-center text-sm text-gray-500">
+          <div className="px-5 py-16 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect
+                  x="7"
+                  y="2"
+                  width="10"
+                  height="20"
+                  rx="2"
+                />
+                <path d="M11 18h2" />
+              </svg>
+            </div>
 
-            {search.trim()
-              ? `No mobile phones found for "${search.trim()}".`
-              : "No mobile phones found."}
+            <h3 className="mt-4 text-[16px] font-black text-slate-800">
+              No mobile phones found
+            </h3>
 
+            <p className="mx-auto mt-1 max-w-md text-[12px] leading-5 text-slate-400">
+              {search.trim()
+                ? `We couldn't find any mobile phones matching "${search.trim()}". Try another search or adjust your filters.`
+                : "Try changing your filters to see more mobile phones."}
+            </p>
           </div>
         )}
 
-      {/* PRODUCTS */}
+      {/* =====================================================
+          PRODUCTS
+      ====================================================== */}
+
       {!loading &&
         !error &&
         products.length > 0 && (
-          <div>
-            {products.map(
-              (product) => (
-                <MobileCard
-                  key={product.id}
-                  mobile={convertProduct(
-                    product,
-                  )}
-                />
-              ),
-            )}
+          <div className="divide-y divide-slate-100">
+            {products.map((product) => (
+              <MobileCard
+                key={product.id}
+                mobile={convertProduct(
+                  product,
+                )}
+              />
+            ))}
           </div>
         )}
 
-      {/* PAGINATION */}
+      {/* =====================================================
+          PAGINATION
+      ====================================================== */}
+
       {!loading &&
         !error &&
         pagination &&
         pagination.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 border-t px-4 py-4">
+          <div className="border-t border-slate-200 bg-slate-50/50 px-4 py-4 sm:px-5">
+            <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+              {/* PAGE INFO */}
 
-            <button
-              type="button"
-              disabled={
-                !pagination.hasPreviousPage
-              }
-              onClick={() =>
-                setPage(
-                  (current) =>
-                    Math.max(
-                      1,
-                      current - 1,
-                    ),
-                )
-              }
-              className="rounded border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Previous
-            </button>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Page{" "}
+                <span className="font-black text-slate-700">
+                  {pagination.page}
+                </span>{" "}
+                of{" "}
+                <span className="font-black text-slate-700">
+                  {pagination.totalPages}
+                </span>
+              </p>
 
-            <span className="px-3 text-sm text-gray-600">
-              Page{" "}
-              {pagination.page} of{" "}
-              {pagination.totalPages}
-            </span>
+              {/* BUTTONS */}
 
-            <button
-              type="button"
-              disabled={
-                !pagination.hasNextPage
-              }
-              onClick={() =>
-                setPage(
-                  (current) =>
-                    current + 1,
-                )
-              }
-              className="rounded border border-gray-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={
+                    !pagination.hasPreviousPage
+                  }
+                  onClick={() =>
+                    setPage(
+                      (current) =>
+                        Math.max(
+                          1,
+                          current - 1,
+                        ),
+                    )
+                  }
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
 
+                  Previous
+                </button>
+
+                <div className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-indigo-600 px-3 text-[11px] font-black text-white shadow-md shadow-indigo-100">
+                  {pagination.page}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    !pagination.hasNextPage
+                  }
+                  onClick={() =>
+                    setPage(
+                      (current) =>
+                        current + 1,
+                    )
+                  }
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         )}
     </section>
   );
 }
+

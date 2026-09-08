@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { useRouter, useSearchParams } from "next/navigation";
 
 import MobilePageHeader from "@/components/mobiles/MobilePageHeader";
@@ -21,7 +22,6 @@ export default function MobilesPage() {
   // STATE
   // ─────────────────────────────────────────────
 
-  // Single shared search value for Header + Filter Search
   const [search, setSearch] = useState("");
 
   const [brands, setBrands] = useState<string[]>([]);
@@ -46,48 +46,50 @@ export default function MobilesPage() {
   const [hydrated, setHydrated] = useState(false);
 
   const searchBrandMap: [string, string][] = [
-  ["vivo", "vivo"],
-  ["samsung", "samsung"],
-  ["motorola", "motorola"],
-  ["realme", "realme"],
-  ["oppo", "oppo"],
-  ["poco", "poco"],
-  ["xiaomi", "xiaomi"],
-  ["oneplus", "oneplus"],
-  ["apple", "apple"],
-  ["nothing", "nothing"],
-  ["boltt", "boltt"],
-];
+    ["vivo", "vivo"],
+    ["samsung", "samsung"],
+    ["motorola", "motorola"],
+    ["realme", "realme"],
+    ["oppo", "oppo"],
+    ["poco", "poco"],
+    ["xiaomi", "xiaomi"],
+    ["oneplus", "oneplus"],
+    ["apple", "apple"],
+    ["nothing", "nothing"],
+    ["boltt", "boltt"],
+  ];
 
+  // ─────────────────────────────────────────────
+  // AUTO SELECT BRAND FROM URL SEARCH
+  // ─────────────────────────────────────────────
 
-useEffect(() => {
-  const query = urlSearch.trim().toLowerCase();
+  useEffect(() => {
+    const query = urlSearch.trim().toLowerCase();
 
-  if (!query) {
-    return;
-  }
-
-  const matchedBrand = searchBrandMap.find(
-    ([brandName]) =>
-      query === brandName ||
-      query.includes(brandName),
-  );
-
-  if (!matchedBrand) {
-    return;
-  }
-
-  const [, brandSlug] = matchedBrand;
-
-  setBrands((current) => {
-    if (current.includes(brandSlug)) {
-      return current;
+    if (!query) {
+      return;
     }
 
-    return [...current, brandSlug];
-  });
-}, [urlSearch]);
+    const matchedBrand = searchBrandMap.find(
+      ([brandName]) =>
+        query === brandName ||
+        query.includes(brandName),
+    );
 
+    if (!matchedBrand) {
+      return;
+    }
+
+    const [, brandSlug] = matchedBrand;
+
+    setBrands((current) => {
+      if (current.includes(brandSlug)) {
+        return current;
+      }
+
+      return [...current, brandSlug];
+    });
+  }, [urlSearch]);
 
   // ─────────────────────────────────────────────
   // LOAD URL SEARCH + SAVED FILTERS
@@ -230,12 +232,12 @@ useEffect(() => {
   // ─────────────────────────────────────────────
 
   const handleBrandChange = (brand: string) => {
-  setBrands((current) =>
-    current.includes(brand)
-      ? current.filter((item) => item !== brand)
-      : [...current, brand],
-  );
-};
+    setBrands((current) =>
+      current.includes(brand)
+        ? current.filter((item) => item !== brand)
+        : [...current, brand],
+    );
+  };
 
   // ─────────────────────────────────────────────
   // DISPLAY FILTER
@@ -302,62 +304,159 @@ useEffect(() => {
     );
   };
 
+  // Keep state synchronized with URL search
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
   // ─────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#f1f3f6]">
-      <div className="mx-auto flex w-full max-w-[1030px] gap-3 px-2 py-3">
+    <div className="min-h-screen bg-[#f3f5f9]">
+      {/* =====================================================
+          PAGE WRAPPER
+      ====================================================== */}
 
-        {/* LEFT FILTER SIDEBAR */}
-        <aside className="hidden w-[275px] shrink-0 lg:block">
-          <MobileFilters
-              search={search}
-              brands={brands}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              displays={displays}
-              filterValues={filterValues}
-              brandCounts={brandCounts}
-              onSearchChange={handleSearchChange}
-              onBrandChange={handleBrandChange}
-              onDisplayChange={handleDisplayChange}
-              onPriceChange={handlePriceChange}
-              onFilterChange={handleFilterChange}
-          />
-        </aside>
+      <div className="mx-auto w-full max-w-[1320px] px-2 py-3 sm:px-4 lg:px-5">
+        {/* ===================================================
+            DESKTOP GRID
+        ==================================================== */}
 
-        {/* MAIN CONTENT */}
-        <main className="min-w-0 flex-1 space-y-3">
-          <MobilePageHeader />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[275px_minmax(0,1fr)]">
+          {/* =================================================
+              LEFT SIDEBAR
+          ================================================== */}
 
-          <PopularBrands
-            selectedBrands={brands}
-            onBrandChange={handleBrandChange}
-          />
+          <aside className="hidden lg:block">
+            <div className="sticky top-4">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
+                {/* Sidebar heading */}
 
-          <PriceRanges
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            onPriceChange={handlePriceChange}
-          />
+                <div className="border-b border-slate-100 bg-gradient-to-r from-white via-white to-indigo-50/40 px-5 py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500">
+                        Refine
+                      </p>
 
-          <PopularFeatures />
+                      <h2 className="mt-0.5 text-[18px] font-black tracking-tight text-slate-900">
+                        Filters
+                      </h2>
+                    </div>
 
-          <MobileList
-            search={search}
-            brands={brands}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            displays={displays}
-            filterValues={filterValues}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            onBrandCountsChange={setBrandCounts}
-          />
-        </main>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 5h16" />
+                        <path d="M7 12h10" />
+                        <path d="M10 19h4" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {(brands.length > 0 ||
+                    minPrice ||
+                    displays.length > 0 ||
+                    Object.values(filterValues).some(
+                      (values) => values.length > 0,
+                    )) && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                      Filters applied
+                    </div>
+                  )}
+                </div>
+
+                {/* Filters */}
+
+                <div className="p-2">
+                  <MobileFilters
+                    search={search}
+                    brands={brands}
+                    minPrice={minPrice}
+                    maxPrice={maxPrice}
+                    displays={displays}
+                    filterValues={filterValues}
+                    brandCounts={brandCounts}
+                    onSearchChange={handleSearchChange}
+                    onBrandChange={handleBrandChange}
+                    onDisplayChange={handleDisplayChange}
+                    onPriceChange={handlePriceChange}
+                    onFilterChange={handleFilterChange}
+                  />
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* =================================================
+              MAIN CONTENT
+          ================================================== */}
+
+          <main className="min-w-0 space-y-4">
+            {/* Page Header */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
+              <MobilePageHeader />
+            </section>
+
+    
+            {/* Popular Brands */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+              <PopularBrands
+                selectedBrands={brands}
+                onBrandChange={handleBrandChange}
+              />
+            </section>
+
+            {/* Price Ranges */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+              <PriceRanges
+                minPrice={minPrice}
+                maxPrice={maxPrice}
+                onPriceChange={handlePriceChange}
+              />
+            </section>
+
+            {/* Popular Features */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+              <PopularFeatures />
+            </section>
+
+            {/* Product List */}
+
+            <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.06)]">
+              <MobileList
+                search={search}
+                brands={brands}
+                minPrice={minPrice}
+                maxPrice={maxPrice}
+                displays={displays}
+                filterValues={filterValues}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                onBrandCountsChange={
+                  setBrandCounts
+                }
+              />
+            </section>
+          </main>
+        </div>
       </div>
     </div>
   );
 }
+

@@ -17,7 +17,7 @@ export default async function AdminProductsPage() {
   try {
     const response = await getProducts();
 
-    products = response.data;
+    products = response.data.products;
   } catch (err) {
     error =
       err instanceof Error

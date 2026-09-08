@@ -732,8 +732,7 @@ export default function MobileFilters({
         );
       },
     );
-
-    setShowAllAppliedFilters(false);
+    setShowAllAppliedGroups(false);
   };
 
   const removeAppliedFilter = (

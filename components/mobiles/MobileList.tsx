@@ -61,6 +61,10 @@ interface Product {
 
   specifications?: ProductSpecification[];
 
+   reviews?: {
+    rating: number;
+  }[];
+
   description?: string | null;
 
   createdAt?: string;
@@ -91,6 +95,7 @@ interface Mobile {
 
   score: number;
   rating: number;
+  reviewCount: number;
 
   image: string;
 
@@ -344,6 +349,21 @@ function calculateSpecScore(product: Product): number {
   );
 }
 
+function calculateRating(product: Product): number {
+  const reviews = product.reviews ?? [];
+
+  if (reviews.length === 0) {
+    return 0;
+  }
+
+  const total = reviews.reduce(
+    (sum, review) => sum + Number(review.rating || 0),
+    0,
+  );
+
+  return Number((total / reviews.length).toFixed(1));
+}
+
 
 function convertProduct(product: Product): Mobile {
   const lowestPrice =
@@ -362,8 +382,9 @@ function convertProduct(product: Product): Mobile {
         : null,
     ),
     score: calculateSpecScore(product),
-    rating: 0,
+    rating: calculateRating(product),
     image: getPrimaryImage(product),
+    reviewCount: product.reviews?.length ?? 0,
 
     // =========================
     // DISPLAY

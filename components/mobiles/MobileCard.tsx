@@ -99,36 +99,49 @@ export default function MobileCard({
                 </p>
               </div>
 
-              <div className="shrink-0 text-right">
-                <div className="text-[19px] font-black tracking-tight text-slate-900 sm:text-[21px]">
-                  {mobile.price}
-                </div>
+             <div className="flex items-end justify-between gap-3">
+  <div>
+    <div className="flex items-baseline gap-2">
+      <span className="text-xl font-extrabold text-gray-900">
+        {mobile.price}
+      </span>
 
-                <div className="mt-0.5 text-[10px] font-semibold text-emerald-600">
-                  Best Price
-                </div>
-              </div>
+      <span className="text-xs font-medium text-gray-500">
+        onwards
+      </span>
+    </div>
+
+    <p className="mt-1 text-xs text-gray-500">
+      Lowest price
+    </p>
+  </div>
+
+  <Link
+  href={`/mobiles/${mobile.slug}`}
+  className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-100"
+>
+  View Prices
+</Link>
+</div>
             </div>
 
             {/* Rating + Spec Score */}
 
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className="rounded-md bg-amber-400 px-1.5 py-1 text-[11px] font-black text-white">
-                  {Number(mobile.rating).toFixed(1)}
-                </span>
+            <div className="flex items-center gap-2">
+  <span className="text-sm font-bold text-gray-900">
+    {Number(mobile.rating).toFixed(1)}
+  </span>
 
-                <span className="text-[12px] font-bold tracking-tight text-amber-500">
-                  ★★★★★
-                </span>
-              </div>
+  <span className="text-yellow-500 text-sm">
+    ★★★★★
+  </span>
 
-              <span className="h-4 w-px bg-slate-200" />
-
-              <span className="rounded-md bg-gradient-to-r from-lime-500 to-emerald-500 px-2 py-1 text-[11px] font-bold text-white shadow-sm shadow-lime-100">
-                {mobile.score} Spec Score
-              </span>
-            </div>
+  {mobile.reviewCount > 0 && (
+    <span className="text-xs text-gray-500">
+      ({mobile.reviewCount})
+    </span>
+  )}
+</div>
 
             {/* =================================================
                 ACTION BAR

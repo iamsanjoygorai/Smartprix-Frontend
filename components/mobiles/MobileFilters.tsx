@@ -79,6 +79,7 @@ const maxPriceOptions = [
   { label: "₹3,00,000+", value: "30000+" },
 ];
 
+
 const filterGroups = [
   {
     key: "availability",
@@ -344,6 +345,28 @@ const filterGroups = [
   },
 ];
 
+function sortSelectedFirst(
+  options: string[],
+  selectedOptions: string[],
+) {
+  return [...options].sort((a, b) => {
+    const aIndex = selectedOptions.indexOf(a);
+    const bIndex = selectedOptions.indexOf(b);
+
+    // Both selected → preserve selection order
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+
+    // Selected comes first
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+
+    // Both unselected → keep existing order
+    return 0;
+  });
+}
+
 function getFilterIcon(key: string) {
   const group = filterGroups.find(
     (item) => item.key === key,
@@ -561,37 +584,44 @@ export default function MobileFilters({
   useState(false);
 
   const filteredBrands = useMemo(() => {
-    const query = brandSearch
-      .trim()
-      .toLowerCase();
+  const query = brandSearch.trim().toLowerCase();
 
-    let result = brands.filter((brand) =>
-      brand.toLowerCase().includes(query),
-    );
+  let result = brands.filter((brand) =>
+    brand.toLowerCase().includes(query),
+  );
 
-    if (brandSort === "popular") {
-      result = [...result].sort((a, b) => {
-        const countA = brandCounts[a] ?? 0;
-        const countB = brandCounts[b] ?? 0;
+  result = [...result].sort((a, b) => {
+    const aIndex = selectedBrands.indexOf(a);
+    const bIndex = selectedBrands.indexOf(b);
 
-        if (countB !== countA) {
-          return countB - countA;
-        }
-
-        return a.localeCompare(b);
-      });
-    } else {
-      result = [...result].sort((a, b) =>
-        a.localeCompare(b),
-      );
+    // Selected brands first, preserving selection order
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
     }
 
-    return result;
-  }, [
-    brandSearch,
-    brandCounts,
-    brandSort,
-  ]);
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+
+    // Unselected brands
+    if (brandSort === "popular") {
+      const countA = brandCounts[a] ?? 0;
+      const countB = brandCounts[b] ?? 0;
+
+      if (countB !== countA) {
+        return countB - countA;
+      }
+    }
+
+    return a.localeCompare(b);
+  });
+
+  return result;
+}, [
+  brandSearch,
+  brandCounts,
+  brandSort,
+  selectedBrands,
+]);
 
   const visibleBrands = showAllBrands
     ? filteredBrands
@@ -1134,15 +1164,6 @@ export default function MobileFilters({
   </div>
 </div>
 
-{/* PRICE */}
-<FilterSection
-  title="Price"
-  icon="₹"
-  accent="emerald"
->
-  ...
-</FilterSection>
-
       {/* PRICE */}
       <FilterSection
         title="Price"
@@ -1230,8 +1251,11 @@ export default function MobileFilters({
         badge={displays.length}
       >
         <div className="space-y-0.5">
-          {displayOptions.map(
-            (display) => (
+          {sortSelectedFirst(
+  displayOptions,
+  displays,
+).map(
+  (display) => (
               <FilterOption
                 key={display}
                 label={display}
@@ -1259,7 +1283,10 @@ export default function MobileFilters({
         }
       >
         <div className="space-y-0.5">
-          {stores.map((store) => (
+          {sortSelectedFirst(
+  stores,
+  filterValues.stores ?? [],
+).map((store) => (
             <FilterOption
               key={store}
               label={store}
@@ -1298,8 +1325,11 @@ export default function MobileFilters({
             badge={selectedCount}
           >
             <div className="space-y-0.5">
-              {group.options.map(
-                (option) => (
+              {sortSelectedFirst(
+  group.options,
+  filterValues[group.key] ?? [],
+).map(
+  (option) => (
                   <FilterOption
                     key={option}
                     label={option}

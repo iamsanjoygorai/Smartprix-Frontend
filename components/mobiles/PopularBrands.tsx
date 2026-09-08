@@ -1,7 +1,7 @@
 "use client";
 
 interface PopularBrandsProps {
-  selectedBrand: string;
+  selectedBrands: string[];
   onBrandChange: (brand: string) => void;
 }
 
@@ -69,7 +69,7 @@ const brands = [
 ];
 
 export default function PopularBrands({
-  selectedBrand,
+  selectedBrands,
   onBrandChange,
 }: PopularBrandsProps) {
   return (
@@ -98,7 +98,7 @@ export default function PopularBrands({
       {/* Brands */}
       <div className="grid grid-cols-5 gap-2 p-3 sm:grid-cols-5 sm:gap-3 sm:p-4 lg:grid-cols-10">
         {brands.map((brand) => {
-          const isSelected = selectedBrand === brand.slug;
+          const isSelected = selectedBrands.includes(brand.slug);
 
           return (
             <button

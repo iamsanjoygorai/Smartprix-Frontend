@@ -426,8 +426,9 @@ export default function MobilesPage() {
 
             {/* Popular Brands */}
             <PopularBrands
-              selectedBrand={brands[0] ?? ""}
-              onBrandChange={handleBrandChange}
+              selectedBrands={brands}
+  onBrandChange={handleBrandChange}
+
             />
 
             {/* Price Ranges */}

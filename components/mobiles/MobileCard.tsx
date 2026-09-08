@@ -12,18 +12,23 @@ interface Mobile {
   image: string;
 
   display: string;
+  displayType?: string | null;
+  refreshRate?: string | null;
+
   battery: string;
+  charging?: string | null;
+
   camera: string;
+  frontCamera?: string | null;
+
   storage: string;
   ram?: string | null;
 
   connectivity?: string | null;
   processor?: string | null;
-  charging?: string | null;
-  frontCamera?: string | null;
+
   memoryCard?: string | null;
   operatingSystem?: string | null;
-  displayType?: string | null;
 }
 
 export default function MobileCard({
@@ -31,6 +36,10 @@ export default function MobileCard({
 }: {
   mobile: Mobile;
 }) {
+  const hasMemoryCard =
+    mobile.memoryCard &&
+    !/not supported|no|none/i.test(mobile.memoryCard);
+
   return (
     <article className="group relative overflow-hidden border-b border-slate-200 bg-white transition-colors hover:bg-slate-50/40">
       <div className="p-4 sm:p-5 lg:p-6">
@@ -38,12 +47,12 @@ export default function MobileCard({
           {/* =====================================================
               PRODUCT IMAGE
           ====================================================== */}
+
           <div className="relative flex w-[105px] shrink-0 items-start justify-center sm:w-[135px]">
             <Link
               href={`/mobiles/${mobile.slug}`}
               className="relative flex h-[165px] w-[100px] items-center justify-center rounded-2xl bg-gradient-to-b from-slate-50 to-white transition-transform duration-300 group-hover:-translate-y-1 sm:h-[190px] sm:w-[120px]"
             >
-              {/* Image glow */}
               <div className="absolute inset-x-3 bottom-2 h-8 rounded-full bg-slate-300/30 blur-xl" />
 
               <img
@@ -54,6 +63,7 @@ export default function MobileCard({
             </Link>
 
             {/* Compare button */}
+
             <button
               type="button"
               aria-label={`Compare ${mobile.name}`}
@@ -69,8 +79,10 @@ export default function MobileCard({
           {/* =====================================================
               PRODUCT CONTENT
           ====================================================== */}
+
           <div className="min-w-0 flex-1">
             {/* Product name + price */}
+
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <Link
@@ -99,6 +111,7 @@ export default function MobileCard({
             </div>
 
             {/* Rating + Spec Score */}
+
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
                 <span className="rounded-md bg-amber-400 px-1.5 py-1 text-[11px] font-black text-white">
@@ -120,6 +133,7 @@ export default function MobileCard({
             {/* =================================================
                 ACTION BAR
             ================================================== */}
+
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-slate-100 py-2.5">
               <button
                 type="button"
@@ -148,7 +162,9 @@ export default function MobileCard({
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-50 text-[10px] text-amber-500">
                   ↗
                 </span>
+
                 View Details
+
                 <span className="transition-transform group-hover/action:translate-x-0.5">
                   →
                 </span>
@@ -158,15 +174,21 @@ export default function MobileCard({
             {/* =================================================
                 SPECIFICATIONS
             ================================================== */}
+
             <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2.5 text-[12px] leading-[18px] text-slate-600 sm:grid-cols-2">
-              {/* Left column */}
+              {/* LEFT COLUMN */}
+
               <div className="space-y-2.5">
                 <SpecItem>
-                  Dual Sim, 5G, VoLTE, Vo5G, Wi-Fi, IR Blaster
+                  {mobile.connectivity
+                    ? mobile.connectivity
+                    : "Connectivity information unavailable"}
                 </SpecItem>
 
                 <SpecItem>
-                  Snapdragon 7 Gen 4, Octa Core, 2.8 GHz Processor
+                  {mobile.processor
+                    ? mobile.processor
+                    : "Processor information unavailable"}
                 </SpecItem>
 
                 <SpecItem>
@@ -176,30 +198,64 @@ export default function MobileCard({
                 </SpecItem>
 
                 <SpecItem>
-                  {mobile.battery} mAh Battery with 90W Fast Charging
+                  {mobile.battery
+                    ? `${mobile.battery} Battery${
+                        mobile.charging
+                          ? ` with ${mobile.charging} Charging`
+                          : ""
+                      }`
+                    : "Battery information unavailable"}
                 </SpecItem>
               </div>
 
-              {/* Right column */}
+              {/* RIGHT COLUMN */}
+
               <div className="space-y-2.5">
                 <SpecItem>
-                  {mobile.display} Display with Punch Hole
+                  {mobile.display
+                    ? `${mobile.display}${
+                        mobile.displayType
+                          ? ` ${mobile.displayType}`
+                          : ""
+                      } Display${
+                        mobile.refreshRate
+                          ? `, ${mobile.refreshRate}`
+                          : ""
+                      }`
+                    : "Display information unavailable"}
                 </SpecItem>
 
                 <SpecItem>
-                  {mobile.camera} Rear & Front Camera
+                  {mobile.camera
+                    ? `${mobile.camera} Rear Camera${
+                        mobile.frontCamera
+                          ? `, ${mobile.frontCamera} Front Camera`
+                          : ""
+                      }`
+                    : "Camera information unavailable"}
                 </SpecItem>
 
-                <div className="flex items-start gap-2 text-red-500">
-                  <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-50 text-[9px] font-black">
-                    ×
-                  </span>
+                {hasMemoryCard ? (
+                  <SpecItem>
+                    Memory Card Supported
+                    {mobile.memoryCard
+                      ? `: ${mobile.memoryCard}`
+                      : ""}
+                  </SpecItem>
+                ) : (
+                  <div className="flex items-start gap-2 text-red-500">
+                    <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-50 text-[9px] font-black">
+                      ×
+                    </span>
 
-                  <span>Memory Card Not Supported</span>
-                </div>
+                    <span>Memory Card Not Supported</span>
+                  </div>
+                )}
 
                 <SpecItem>
-                  Android v15
+                  {mobile.operatingSystem
+                    ? mobile.operatingSystem
+                    : "Operating system information unavailable"}
                 </SpecItem>
               </div>
             </div>
@@ -208,6 +264,7 @@ export default function MobileCard({
       </div>
 
       {/* Bottom hover accent */}
+
       <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 group-hover:w-full" />
     </article>
   );
@@ -232,4 +289,3 @@ function SpecItem({
     </div>
   );
 }
-

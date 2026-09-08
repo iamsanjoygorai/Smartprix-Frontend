@@ -243,6 +243,108 @@ function formatPrice(
   )}`;
 }
 
+function calculateSpecScore(product: Product): number {
+  const specs = product.specifications ?? [];
+
+  if (specs.length === 0) {
+    return 0;
+  }
+
+  const getValue = (slugs: string[]) => {
+    const spec = specs.find((item) =>
+      slugs.includes(item.specification?.slug),
+    );
+
+    return spec?.customValue ?? spec?.value?.value ?? "";
+  };
+
+  const scores: number[] = [];
+
+  // Battery
+  const battery = parseInt(getValue(["battery", "battery-capacity"]));
+  if (battery) {
+    scores.push(
+      Math.min(100, Math.max(0, ((battery - 3000) / 3000) * 100)),
+    );
+  }
+
+  // RAM
+  const ram = parseInt(getValue(["ram"]));
+  if (ram) {
+    scores.push(
+      Math.min(100, Math.max(0, (ram / 16) * 100)),
+    );
+  }
+
+  // Storage
+  const storageText = getValue([
+    "internal-storage",
+    "inbuilt-memory",
+  ]);
+
+  const storage = parseInt(storageText);
+
+  if (storage) {
+    scores.push(
+      Math.min(100, Math.max(0, (storage / 1024) * 100)),
+    );
+  }
+
+  // Refresh rate
+  const refreshRate = parseInt(getValue(["refresh-rate"]));
+
+  if (refreshRate) {
+    scores.push(
+      Math.min(100, Math.max(0, (refreshRate / 144) * 100)),
+    );
+  }
+
+  // Charging
+  const charging = parseInt(
+    getValue(["charging-wattage", "fast-charging"]),
+  );
+
+  if (charging) {
+    scores.push(
+      Math.min(100, Math.max(0, (charging / 120) * 100)),
+    );
+  }
+
+  // Rear camera
+  const camera = parseInt(getValue(["rear-camera"]));
+
+  if (camera) {
+    scores.push(
+      Math.min(100, Math.max(0, (camera / 200) * 100)),
+    );
+  }
+
+  // Display type
+  const displayType = getValue(["display-type"]).toLowerCase();
+
+  if (displayType) {
+    if (
+      displayType.includes("amoled") ||
+      displayType.includes("oled")
+    ) {
+      scores.push(95);
+    } else if (displayType.includes("lcd")) {
+      scores.push(65);
+    } else {
+      scores.push(75);
+    }
+  }
+
+  if (scores.length === 0) {
+    return 0;
+  }
+
+  return Math.round(
+    scores.reduce((sum, value) => sum + value, 0) / scores.length,
+  );
+}
+
+
 function convertProduct(product: Product): Mobile {
   const lowestPrice =
     getLowestPrice(product);
@@ -259,11 +361,8 @@ function convertProduct(product: Product): Mobile {
         ? lowestPrice.amount
         : null,
     ),
-
-    score: 0,
-
+    score: calculateSpecScore(product),
     rating: 0,
-
     image: getPrimaryImage(product),
 
     // =========================

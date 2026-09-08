@@ -296,6 +296,27 @@ function SpecificationSection({
   );
 }
 
+function htmlToPlainText(html: string | null | undefined) {
+  if (!html) {
+    return "";
+  }
+
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<p[^>]*>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\n\s*\n+/g, "\n")
+    .trim();
+}
+
+
 export default async function ProductPage({
   params,
 }: ProductPageProps) {
@@ -312,6 +333,9 @@ export default async function ProductPage({
   ]);
 
   const product = productResponse.data;
+  const plainDescription = htmlToPlainText(
+  product.description,
+);
 
   const rawSpecifications =
     specificationsResponse.data ?? [];
@@ -402,11 +426,11 @@ export default async function ProductPage({
                 {product.name}
               </h1>
 
-              {product.description && (
-                <p className="mt-4 max-w-3xl text-[15px] leading-7 text-gray-600">
-                  {product.description}
-                </p>
-              )}
+              {plainDescription && (
+  <p className="mt-4 max-w-3xl whitespace-pre-line text-[15px] leading-7 text-gray-600">
+    {plainDescription}
+  </p>
+)}
 
               {/* Quick highlights */}
               <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">

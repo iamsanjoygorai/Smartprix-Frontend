@@ -80,14 +80,10 @@ export default function PopularBrands({
           <div className="flex items-center gap-2">
             <span className="h-5 w-1 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500" />
 
-            <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900 sm:text-[18px]">
+            <h2 className="text-[15px] font-bold tracking-tight text-slate-900 sm:text-[18px]">
               Popular Brands
             </h2>
           </div>
-
-          <p className="mt-1 pl-3 text-[11px] font-medium text-slate-400">
-            Explore smartphones from popular brands
-          </p>
         </div>
 
         <span className="hidden rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:block">

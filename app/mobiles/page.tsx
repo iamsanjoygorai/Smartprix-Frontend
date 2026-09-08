@@ -422,7 +422,7 @@ export default function MobilesPage() {
 
           <main className="min-w-0 space-y-4">
             {/* Page Header */}
-            <MobilePageHeader />
+            {/* <MobilePageHeader /> */}
 
             {/* Popular Brands */}
             <PopularBrands

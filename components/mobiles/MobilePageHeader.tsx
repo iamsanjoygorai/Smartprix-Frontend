@@ -6,6 +6,7 @@ export default function MobilePageHeader() {
   const [expanded, setExpanded] = useState(false);
 
   return (
+    <>
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Main header */}
       <div className="relative overflow-hidden px-5 py-5 sm:px-6 sm:py-6">
@@ -89,5 +90,8 @@ export default function MobilePageHeader() {
         </div>
       </div>
     </section>
+
+    </>
+
   );
 }

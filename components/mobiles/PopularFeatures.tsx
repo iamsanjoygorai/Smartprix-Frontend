@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  Smartphone,
+  MonitorSmartphone,
+  HardDrive,
+  FoldVertical,
+  Camera,
+  CalendarClock,
+  Sparkles,
+} from "lucide-react";
+
 interface PopularFeaturesProps {
   onFeatureChange?: (feature: string) => void;
 }
@@ -7,52 +17,31 @@ interface PopularFeaturesProps {
 const features = [
   {
     name: "5G Mobiles",
-    icon: "5G",
-    style: "from-indigo-500 to-blue-500",
-    bg: "bg-indigo-50",
-    text: "text-indigo-600",
+    icon: Smartphone,
   },
   {
     name: "Android Phones",
-    icon: "A",
-    style: "from-emerald-500 to-green-500",
-    bg: "bg-emerald-50",
-    text: "text-emerald-600",
+    icon: MonitorSmartphone,
   },
   {
     name: "256GB Storage",
-    icon: "GB",
-    style: "from-violet-500 to-purple-500",
-    bg: "bg-violet-50",
-    text: "text-violet-600",
+    icon: HardDrive,
   },
   {
     name: "Foldable Phones",
-    icon: "▯",
-    style: "from-pink-500 to-rose-500",
-    bg: "bg-pink-50",
-    text: "text-pink-600",
+    icon: FoldVertical,
   },
   {
     name: "Best Camera",
-    icon: "◎",
-    style: "from-amber-500 to-orange-500",
-    bg: "bg-amber-50",
-    text: "text-amber-600",
+    icon: Camera,
   },
   {
     name: "Upcoming Mobiles",
-    icon: "↗",
-    style: "from-cyan-500 to-sky-500",
-    bg: "bg-cyan-50",
-    text: "text-cyan-600",
+    icon: CalendarClock,
   },
   {
     name: "Latest Mobiles",
-    icon: "★",
-    style: "from-red-500 to-orange-500",
-    bg: "bg-red-50",
-    text: "text-red-600",
+    icon: Sparkles,
   },
 ];
 
@@ -62,66 +51,52 @@ export default function PopularFeatures({
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="h-5 w-1 rounded-full bg-gradient-to-b from-pink-500 to-rose-500" />
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5 sm:px-5">
+        <div className="flex items-center gap-2">
+          <span className="h-4 w-1 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500" />
 
-            <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900 sm:text-[18px]">
-              Most Searched Features
-            </h2>
-          </div>
-
-          <p className="mt-1 pl-3 text-[11px] font-medium text-slate-400">
-            Quickly explore popular smartphone categories
-          </p>
+          <h2 className="text-[16px] font-extrabold tracking-tight text-slate-900 sm:text-[17px]">
+            Most Searched Features
+          </h2>
         </div>
 
-        <span className="hidden rounded-full bg-pink-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-pink-500 sm:block">
+        <span className="hidden rounded-full bg-violet-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-violet-600 sm:block">
           Explore
         </span>
       </div>
 
       {/* Features */}
-      <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-4 sm:gap-3 sm:p-4 lg:grid-cols-7">
-        {features.map((feature) => (
-          <button
-            key={feature.name}
-            type="button"
-            onClick={() => onFeatureChange?.(feature.name)}
-            className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-          >
-            {/* Icon */}
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${feature.style} text-[11px] font-black text-white shadow-sm transition-transform duration-200 group-hover:scale-105`}
+      <div className="grid grid-cols-2 gap-2 p-2.5 sm:grid-cols-4 sm:gap-2.5 sm:p-3 lg:grid-cols-7">
+        {features.map((feature) => {
+          const Icon = feature.icon;
+
+          return (
+            <button
+              key={feature.name}
+              type="button"
+              onClick={() =>
+                onFeatureChange?.(feature.name)
+              }
+              className="group flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50/40 hover:shadow-md"
             >
-              {feature.icon}
-            </div>
-
-            {/* Text */}
-            <div className="mt-3">
-              <span className="block text-[12px] font-extrabold leading-4 text-slate-800">
-                {feature.name}
+              {/* Icon */}
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 transition-colors group-hover:bg-violet-100">
+                <Icon className="h-4 w-4" strokeWidth={2.2} />
               </span>
 
-              <span
-                className={`mt-1 block text-[10px] font-semibold ${feature.text}`}
-              >
-                Explore →
+              {/* Text */}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[10px] font-bold leading-tight text-slate-800 sm:text-[11px]">
+                  {feature.name}
+                </span>
+
+                <span className="mt-0.5 block text-[9px] font-semibold text-violet-600">
+                  Explore →
+                </span>
               </span>
-            </div>
-
-            {/* Decorative background */}
-            <span
-              className={`absolute -bottom-5 -right-5 h-16 w-16 rounded-full ${feature.bg} opacity-70 transition-transform duration-300 group-hover:scale-125`}
-            />
-
-            {/* Bottom indicator */}
-            <span
-              className={`absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r ${feature.style} transition-all duration-300 group-hover:w-full`}
-            />
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

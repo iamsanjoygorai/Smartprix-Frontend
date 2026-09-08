@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import MobileCard from "./MobileCard";
-
-import { apiFetch } from "@/lib/api/api";
 
 interface ProductSpecification {
   specification: {
@@ -12,83 +10,150 @@ interface ProductSpecification {
     slug: string;
     unit?: string | null;
   };
+
   value?: {
     value: string;
   } | null;
+
   customValue?: string | null;
 }
 
 interface ProductImage {
+  id: string;
   url: string;
   altText?: string | null;
   isPrimary?: boolean;
 }
 
 interface ProductPrice {
-  amount: string | number;
-  seller?: {
-    name: string;
-    slug: string;
+  id: string;
+  amount: number | string;
+  currency?: string;
+
+  store?: {
+    id?: string;
+    name?: string;
   } | null;
 }
 
 interface ProductVariant {
-  storage?: string | null;
+  id: string;
   ram?: string | null;
+  storage?: string | null;
 }
 
 interface Product {
   id: string;
-  name: string;
   slug: string;
+  name: string;
+
   brand?: {
+    id: string;
     name: string;
     slug: string;
   } | null;
-  images: ProductImage[];
-  prices: ProductPrice[];
+
+  images?: ProductImage[];
+
+  prices?: ProductPrice[];
+
   variants?: ProductVariant[];
+
   specifications?: ProductSpecification[];
+
+  description?: string | null;
+
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ProductsResponse {
   success: boolean;
   data: {
     products: Product[];
-    pagination: {
+    pagination?: {
       page: number;
       limit: number;
       total: number;
       totalPages: number;
-      hasNextPage: boolean;
-      hasPreviousPage: boolean;
+      hasNextPage?: boolean;
+      hasPreviousPage?: boolean;
     };
-    brandCounts: Record<string, number>;
+    brandCounts?: Record<string, number>;
   };
 }
 
-interface MobileListProps {
-  search: string;
-  brands: string[];
-  minPrice: string;
-  maxPrice: string;
-  displays: string[];
-  filterValues: Record<string, string[]>;
-  sortBy: string;
-  onSortChange: (value: string) => void;
-  onBrandCountsChange: (
-    counts: Record<string, number>,
-  ) => void;
+interface Mobile {
+  id: string;
+  slug: string;
+  name: string;
+  price: string;
+
+  score: number;
+  rating: number;
+
+  image: string;
+
+  // Display
+  display: string;
+  displayType?: string | null;
+  refreshRate?: string | null;
+
+  // Battery
+  battery: string;
+  charging?: string | null;
+
+  // Camera
+  camera: string;
+  frontCamera?: string | null;
+
+  // Memory
+  storage: string;
+  ram?: string | null;
+
+  // Processor
+  processor?: string | null;
+
+  // Connectivity
+  connectivity?: string | null;
+  wifi?: string | null;
+  bluetooth?: string | null;
+
+  // Other specifications
+  memoryCard?: string | null;
+  operatingSystem?: string | null;
+  reverseWirelessCharging?: string | null;
 }
+
+interface MobileListProps {
+  search?: string;
+  brands?: string[];
+  minPrice?: string;
+  maxPrice?: string;
+  displays?: string[];
+  filterValues?: Record<string, string[]>;
+  sortBy?: string;
+}
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
+const BACKEND_URL = API_URL.replace(
+  /\/api\/?$/,
+  "",
+);
 
 function getSpecification(
   product: Product,
   slugs: string[],
-) {
-  const specification = product.specifications?.find(
-    (item) =>
-      slugs.includes(item.specification.slug),
-  );
+): string | null {
+  const specification =
+    product.specifications?.find((item) =>
+      slugs.includes(
+        item.specification.slug,
+      ),
+    );
 
   if (!specification) {
     return null;
@@ -101,88 +166,112 @@ function getSpecification(
   );
 }
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:5000/api";
-
-const BACKEND_URL = API_URL.replace(
-  /\/api\/?$/,
-  "",
-);
-
-function getPrimaryImage(product: Product): string {
-  const image =
+function getPrimaryImage(
+  product: Product,
+): string {
+  const primaryImage =
     product.images?.find(
-      (item) => item.isPrimary,
-    )?.url ??
-    product.images?.[0]?.url ??
-    "";
+      (image) => image.isPrimary,
+    ) ?? product.images?.[0];
 
-  if (!image) {
-    return "";
+  if (!primaryImage?.url) {
+    return "/images/mobile-placeholder.png";
   }
+
+  const url = primaryImage.url;
 
   if (
-    image.startsWith("http://") ||
-    image.startsWith("https://")
+    url.startsWith("http://") ||
+    url.startsWith("https://")
   ) {
-    return image;
+    return url;
   }
 
-  if (image.startsWith("/")) {
-    return `${BACKEND_URL}${image}`;
+  if (url.startsWith("/")) {
+    return `${BACKEND_URL}${url}`;
   }
 
-  return `${BACKEND_URL}/${image}`;
+  return `${BACKEND_URL}/${url}`;
 }
 
-function getLowestPrice(product: Product) {
-  if (!product.prices?.length) {
+function getLowestPrice(
+  product: Product,
+): ProductPrice | null {
+  if (
+    !product.prices ||
+    product.prices.length === 0
+  ) {
     return null;
   }
 
   return product.prices.reduce(
-    (lowest, current) =>
-      Number(current.amount) <
-      Number(lowest.amount)
+    (lowest, current) => {
+      const lowestAmount = Number(
+        lowest.amount,
+      );
+
+      const currentAmount = Number(
+        current.amount,
+      );
+
+      return currentAmount < lowestAmount
         ? current
-        : lowest,
+        : lowest;
+    },
   );
 }
 
 function formatPrice(
-  amount: string | number | null,
-) {
-  if (amount === null) {
+  amount: number | string | null,
+): string {
+  if (
+    amount === null ||
+    amount === undefined ||
+    amount === ""
+  ) {
     return "Price unavailable";
   }
 
-  return `₹${Number(amount).toLocaleString(
+  const numericAmount = Number(amount);
+
+  if (Number.isNaN(numericAmount)) {
+    return "Price unavailable";
+  }
+
+  return `₹${numericAmount.toLocaleString(
     "en-IN",
   )}`;
 }
 
-function convertProduct(product: Product) {
-  const lowestPrice = getLowestPrice(product);
+function convertProduct(product: Product): Mobile {
+  const lowestPrice =
+    getLowestPrice(product);
 
   return {
     id: product.id,
+
     slug: product.slug,
+
     name: product.name,
 
     price: formatPrice(
-      lowestPrice ? lowestPrice.amount : null,
+      lowestPrice
+        ? lowestPrice.amount
+        : null,
     ),
 
     score: 0,
+
     rating: 0,
 
     image: getPrimaryImage(product),
 
+    // =========================
+    // DISPLAY
+    // =========================
+
     display:
       getSpecification(product, [
-        "display",
-        "display-type",
         "screen-size",
       ]) ??
       "Display information unavailable",
@@ -190,34 +279,50 @@ function convertProduct(product: Product) {
     displayType:
       getSpecification(product, [
         "display-type",
-      ]),
+      ]) ?? null,
+
+    refreshRate:
+      getSpecification(product, [
+        "refresh-rate",
+      ]) ?? null,
+
+    // =========================
+    // BATTERY
+    // =========================
 
     battery:
       getSpecification(product, [
-        "battery",
         "battery-capacity",
       ]) ??
       "Battery information unavailable",
 
+    charging:
+      getSpecification(product, [
+        "charging-wattage",
+      ]) ?? null,
+
+    // =========================
+    // CAMERA
+    // =========================
+
     camera:
       getSpecification(product, [
-        "camera",
         "rear-camera",
-        "main-camera",
       ]) ??
       "Camera information unavailable",
 
     frontCamera:
       getSpecification(product, [
         "front-camera",
-        "selfie-camera",
-      ]),
+      ]) ?? null,
+
+    // =========================
+    // MEMORY
+    // =========================
 
     storage:
       getSpecification(product, [
-        "storage",
         "internal-storage",
-        "inbuilt-memory",
       ]) ??
       product.variants?.[0]?.storage ??
       "Storage information unavailable",
@@ -229,70 +334,253 @@ function convertProduct(product: Product) {
       product.variants?.[0]?.ram ??
       null,
 
+    // =========================
+    // PROCESSOR
+    // =========================
+
     processor:
       getSpecification(product, [
-        "cpu",
         "processor",
-        "chipset",
-      ]),
+      ]) ?? null,
+
+    // =========================
+    // CONNECTIVITY
+    // =========================
 
     connectivity:
       getSpecification(product, [
-        "connectivity",
-      ]),
+        "network",
+      ]) ?? null,
 
-    charging:
+    wifi:
       getSpecification(product, [
-        "charging",
-        "fast-charging",
-        "charging-speed",
-      ]),
+        "wifi-version",
+      ]) ?? null,
+
+    bluetooth:
+      getSpecification(product, [
+        "bluetooth",
+      ]) ?? null,
+
+    // =========================
+    // OTHER
+    // =========================
 
     memoryCard:
       getSpecification(product, [
         "memory-card",
-        "expandable-storage",
-        "card-slot",
-      ]),
+      ]) ?? null,
 
     operatingSystem:
       getSpecification(product, [
         "operating-system",
-        "os",
-      ]),
+      ]) ?? null,
+
+    reverseWirelessCharging:
+      getSpecification(product, [
+        "reverse-wireless-charging",
+      ]) ?? null,
   };
 }
 
 export default function MobileList({
-  search,
-  brands,
-  minPrice,
-  maxPrice,
-  displays,
-  filterValues,
-  sortBy,
-  onSortChange,
-  onBrandCountsChange,
+  search = "",
+  brands = [],
+  minPrice = "",
+  maxPrice = "",
+  displays = [],
+  filterValues = {},
+  sortBy = "popular",
 }: MobileListProps) {
   const [products, setProducts] =
-    useState<Product[]>([]);
-
-  const [pagination, setPagination] =
-    useState<
-      ProductsResponse["data"]["pagination"] | null
-    >(null);
-
-  const [page, setPage] = useState(1);
+    useState<Mobile[]>([]);
 
   const [loading, setLoading] =
     useState(true);
 
   const [error, setError] =
-    useState("");
+    useState<string | null>(null);
 
-  // ─────────────────────────────────────────────
-  // RESET PAGE WHEN FILTERS CHANGE
-  // ─────────────────────────────────────────────
+  const [page, setPage] =
+    useState(1);
+
+  const [totalPages, setTotalPages] =
+    useState(1);
+
+  const limit = 20;
+
+  // =========================
+  // FETCH PRODUCTS
+  // =========================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchProducts() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params =
+          new URLSearchParams();
+
+        params.set(
+          "page",
+          String(page),
+        );
+
+        params.set(
+          "limit",
+          String(limit),
+        );
+
+        if (search.trim()) {
+          params.set(
+            "search",
+            search.trim(),
+          );
+        }
+
+        if (brands.length > 0) {
+          params.set(
+            "brands",
+            brands.join(","),
+          );
+        }
+
+        if (minPrice) {
+          params.set(
+            "minPrice",
+            minPrice,
+          );
+        }
+
+        if (maxPrice) {
+          params.set(
+            "maxPrice",
+            maxPrice,
+          );
+        }
+
+        if (displays.length > 0) {
+          params.set(
+            "displays",
+            displays.join(","),
+          );
+        }
+
+        Object.entries(
+          filterValues,
+        ).forEach(
+          ([group, values]) => {
+            if (
+              values &&
+              values.length > 0
+            ) {
+              params.set(
+                group,
+                values.join(","),
+              );
+            }
+          },
+        );
+
+        if (sortBy) {
+          params.set(
+            "sortBy",
+            sortBy,
+          );
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/products?${params.toString()}`,
+            {
+              cache: "no-store",
+            },
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch products (${response.status})`,
+          );
+        }
+
+        const result: ProductsResponse =
+          await response.json();
+  
+
+        if (!result.success) {
+          throw new Error(
+            "Failed to load products",
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const convertedProducts = (
+  result.data?.products ?? []
+).map((product) => convertProduct(product));
+
+setProducts(convertedProducts);
+
+setTotalPages(
+  result.data?.pagination?.totalPages ?? 1,
+);
+
+        setProducts(
+          convertedProducts,
+        );
+
+        setTotalPages(
+          result.pagination
+            ?.totalPages ?? 1,
+        );
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Mobile products fetch error:",
+          err,
+        );
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load mobiles",
+        );
+
+        setProducts([]);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    search,
+    brands,
+    minPrice,
+    maxPrice,
+    displays,
+    filterValues,
+    sortBy,
+    page,
+  ]);
+
+  // =========================
+  // RESET PAGE
+  // =========================
 
   useEffect(() => {
     setPage(1);
@@ -306,539 +594,222 @@ export default function MobileList({
     sortBy,
   ]);
 
-  // ─────────────────────────────────────────────
-  // FETCH PRODUCTS
-  // ─────────────────────────────────────────────
+  // =========================
+  // LOCAL SORTING
+  // =========================
 
-  useEffect(() => {
-    let cancelled = false;
+  const sortedProducts =
+    useMemo(() => {
+      const result = [
+        ...products,
+      ];
 
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError("");
+      switch (sortBy) {
+        case "price-low":
+          return result.sort(
+            (a, b) => {
+              const priceA =
+                Number(
+                  a.price.replace(
+                    /[^\d]/g,
+                    "",
+                  ),
+                ) || 0;
 
-        const params =
-          new URLSearchParams();
+              const priceB =
+                Number(
+                  b.price.replace(
+                    /[^\d]/g,
+                    "",
+                  ),
+                ) || 0;
 
-        // CATEGORY
-        params.set(
-          "category",
-          "mobiles",
-        );
-
-        // PAGINATION
-        params.set(
-          "page",
-          String(page),
-        );
-
-        params.set(
-          "limit",
-          "20",
-        );
-
-        // SEARCH
-        const trimmedSearch =
-          search.trim();
-
-        if (trimmedSearch) {
-          params.set(
-            "search",
-            trimmedSearch,
-          );
-        }
-
-        // BRANDS
-        if (brands.length > 0) {
-          params.set(
-            "brands",
-            brands.join(","),
-          );
-        }
-
-        // MIN PRICE
-        if (minPrice) {
-          params.set(
-            "minPrice",
-            minPrice,
-          );
-        }
-
-        // MAX PRICE
-        if (
-          maxPrice &&
-          maxPrice !== "30000+"
-        ) {
-          params.set(
-            "maxPrice",
-            maxPrice,
-          );
-        }
-
-        // DISPLAY
-        if (displays.length > 0) {
-          params.set(
-            "displays",
-            displays.join(","),
-          );
-        }
-
-        // OTHER FILTERS
-        Object.entries(
-          filterValues,
-        ).forEach(
-          ([key, values]) => {
-            if (values.length > 0) {
-              params.set(
-                key,
-                values.join(","),
-              );
-            }
-          },
-        );
-
-        // SORT
-        if (sortBy) {
-          params.set(
-            "sort",
-            sortBy,
-          );
-        }
-
-        const response =
-          await apiFetch<ProductsResponse>(
-            `/products?${params.toString()}`,
+              return priceA - priceB;
+            },
           );
 
-        if (cancelled) {
-          return;
-        }
+        case "price-high":
+          return result.sort(
+            (a, b) => {
+              const priceA =
+                Number(
+                  a.price.replace(
+                    /[^\d]/g,
+                    "",
+                  ),
+                ) || 0;
 
-        const data =
-          response.data;
+              const priceB =
+                Number(
+                  b.price.replace(
+                    /[^\d]/g,
+                    "",
+                  ),
+                ) || 0;
 
-        setProducts(
-          data.products ?? [],
-        );
-
-        setPagination(
-          data.pagination ?? null,
-        );
-
-        if (data.brandCounts) {
-          onBrandCountsChange(
-            data.brandCounts,
+              return priceB - priceA;
+            },
           );
-        }
-      } catch (err) {
-        if (cancelled) {
-          return;
-        }
 
-        console.error(
-          "Failed to fetch mobile products:",
-          err,
-        );
+        case "rating":
+          return result.sort(
+            (a, b) =>
+              b.rating - a.rating,
+          );
 
-        setError(
-          "Failed to load mobile phones.",
-        );
+        case "score":
+          return result.sort(
+            (a, b) =>
+              b.score - a.score,
+          );
 
-        setProducts([]);
-        setPagination(null);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        default:
+          return result;
       }
-    };
+    }, [
+      products,
+      sortBy,
+    ]);
 
-    const timeout = setTimeout(
-      fetchProducts,
-      300,
-    );
+  // =========================
+  // LOADING STATE
+  // =========================
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [
-    search,
-    brands,
-    minPrice,
-    maxPrice,
-    displays,
-    filterValues,
-    sortBy,
-    page,
-    onBrandCountsChange,
-  ]);
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({
+          length: 6,
+        }).map((_, index) => (
+          <div
+            key={index}
+            className="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex gap-4">
+              <div className="h-40 w-32 rounded-xl bg-slate-200" />
 
-  // ─────────────────────────────────────────────
-  // ACTIVE FILTER COUNT
-  // ─────────────────────────────────────────────
+              <div className="flex-1 space-y-3">
+                <div className="h-5 w-3/4 rounded bg-slate-200" />
 
-  const activeFilterCount =
-    brands.length +
-    displays.length +
-    Object.values(filterValues).reduce(
-      (total, values) =>
-        total + values.length,
-      0,
-    ) +
-    (minPrice ? 1 : 0) +
-    (maxPrice &&
-    maxPrice !== "30000+"
-      ? 1
-      : 0);
+                <div className="h-4 w-1/2 rounded bg-slate-200" />
 
-  // ─────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────
+                <div className="h-4 w-2/3 rounded bg-slate-200" />
 
-  return (
-    <section className="overflow-hidden bg-white">
-      {/* =====================================================
-          LIST HEADER
-      ====================================================== */}
-
-      <div className="border-b border-slate-200 bg-gradient-to-r from-white via-white to-indigo-50/30 px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* RESULT INFORMATION */}
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[17px] font-black tracking-tight text-slate-900 sm:text-[19px]">
-                {loading
-                  ? "Loading Mobile Phones..."
-                  : `${pagination?.total ?? 0} Mobile Phones`}
-              </h2>
-
-              {!loading &&
-                activeFilterCount > 0 && (
-                  <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-600">
-                    {activeFilterCount} filter
-                    {activeFilterCount !== 1
-                      ? "s"
-                      : ""}{" "}
-                    applied
-                  </span>
-                )}
-            </div>
-
-            <p className="mt-1 text-[11px] font-medium text-slate-400">
-              {search.trim()
-                ? `Showing results for "${search.trim()}"`
-                : "Compare smartphones, prices and specifications"}
-            </p>
-          </div>
-
-          {/* SORT */}
-
-          <div className="flex items-center gap-2">
-            <span className="hidden text-[11px] font-bold uppercase tracking-wider text-slate-400 sm:block">
-              Sort by
-            </span>
-
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={(event) => {
-                  onSortChange(
-                    event.target.value,
-                  );
-                  setPage(1);
-                }}
-                className="h-10 min-w-[155px] appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 text-[12px] font-bold text-slate-700 outline-none transition-all hover:border-indigo-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
-              >
-                <option value="relevance">
-                  Relevance
-                </option>
-
-                <option value="newest">
-                  Newest
-                </option>
-
-                <option value="oldest">
-                  Oldest
-                </option>
-
-                <option value="name_asc">
-                  Name: A to Z
-                </option>
-
-                <option value="name_desc">
-                  Name: Z to A
-                </option>
-
-                <option value="price_asc">
-                  Price: Low to High
-                </option>
-
-                <option value="price_desc">
-                  Price: High to Low
-                </option>
-
-                <option value="rating_desc">
-                  Rating: High to Low
-                </option>
-              </select>
-
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================
-          LOADING
-      ====================================================== */}
-
-      {loading && (
-        <div className="divide-y divide-slate-100">
-          {[1, 2, 3].map((item) => (
-            <div
-              key={item}
-              className="flex gap-5 p-5"
-            >
-              <div className="h-[180px] w-[120px] shrink-0 animate-pulse rounded-2xl bg-slate-100" />
-
-              <div className="flex-1 space-y-4 py-2">
-                <div className="h-5 w-2/3 animate-pulse rounded-lg bg-slate-100" />
-
-                <div className="h-4 w-1/3 animate-pulse rounded-lg bg-slate-100" />
-
-                <div className="h-8 w-1/2 animate-pulse rounded-lg bg-slate-100" />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="h-4 animate-pulse rounded bg-slate-100" />
-                  <div className="h-4 animate-pulse rounded bg-slate-100" />
-                  <div className="h-4 animate-pulse rounded bg-slate-100" />
-                  <div className="h-4 animate-pulse rounded bg-slate-100" />
-                </div>
+                <div className="h-4 w-1/3 rounded bg-slate-200" />
               </div>
             </div>
-          ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // =========================
+  // ERROR STATE
+  // =========================
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+        <p className="text-sm font-semibold text-red-600">
+          Unable to load mobiles
+        </p>
+
+        <p className="mt-1 text-sm text-red-500">
+          {error}
+        </p>
+      </div>
+    );
+  }
+
+  // =========================
+  // EMPTY STATE
+  // =========================
+
+  if (
+    !loading &&
+    sortedProducts.length === 0
+  ) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
+          📱
         </div>
+
+        <h3 className="mt-4 text-lg font-bold text-slate-900">
+          No mobiles found
+        </h3>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Try changing your filters or
+          search for another mobile.
+        </p>
+      </div>
+    );
+  }
+
+  // =========================
+  // PRODUCT LIST
+  // =========================
+
+  return (
+    <div className="space-y-5">
+      {sortedProducts.map(
+        (mobile) => (
+          <MobileCard
+            key={mobile.id}
+            mobile={mobile}
+          />
+        ),
       )}
 
-      {/* =====================================================
-          ERROR
-      ====================================================== */}
+      // =========================
+      // PAGINATION
+      // =========================
 
-      {!loading && error && (
-        <div className="px-5 py-16 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="9"
-              />
-              <path d="M12 8v4" />
-              <path d="M12 16h.01" />
-            </svg>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() =>
+              setPage(
+                (current) =>
+                  Math.max(
+                    1,
+                    current - 1,
+                  ),
+              )
+            }
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+
+          <div className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+            {page} / {totalPages}
           </div>
-
-          <p className="mt-4 text-[14px] font-bold text-slate-800">
-            Something went wrong
-          </p>
-
-          <p className="mt-1 text-[12px] text-slate-400">
-            {error}
-          </p>
 
           <button
             type="button"
-            onClick={() =>
-              window.location.reload()
+            disabled={
+              page >= totalPages
             }
-            className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-[12px] font-bold text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700 hover:shadow-indigo-200"
+            onClick={() =>
+              setPage(
+                (current) =>
+                  Math.min(
+                    totalPages,
+                    current + 1,
+                  ),
+              )
+            }
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Try Again
+            Next
           </button>
         </div>
       )}
-
-      {/* =====================================================
-          EMPTY STATE
-      ====================================================== */}
-
-      {!loading &&
-        !error &&
-        products.length === 0 && (
-          <div className="px-5 py-16 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect
-                  x="7"
-                  y="2"
-                  width="10"
-                  height="20"
-                  rx="2"
-                />
-                <path d="M11 18h2" />
-              </svg>
-            </div>
-
-            <h3 className="mt-4 text-[16px] font-black text-slate-800">
-              No mobile phones found
-            </h3>
-
-            <p className="mx-auto mt-1 max-w-md text-[12px] leading-5 text-slate-400">
-              {search.trim()
-                ? `We couldn't find any mobile phones matching "${search.trim()}". Try another search or adjust your filters.`
-                : "Try changing your filters to see more mobile phones."}
-            </p>
-          </div>
-        )}
-
-      {/* =====================================================
-          PRODUCTS
-      ====================================================== */}
-
-      {!loading &&
-        !error &&
-        products.length > 0 && (
-          <div className="divide-y divide-slate-100">
-            {products.map((product) => (
-              <MobileCard
-                key={product.id}
-                mobile={convertProduct(
-                  product,
-                )}
-              />
-            ))}
-          </div>
-        )}
-
-      {/* =====================================================
-          PAGINATION
-      ====================================================== */}
-
-      {!loading &&
-        !error &&
-        pagination &&
-        pagination.totalPages > 1 && (
-          <div className="border-t border-slate-200 bg-slate-50/50 px-4 py-4 sm:px-5">
-            <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-              {/* PAGE INFO */}
-
-              <p className="text-[11px] font-semibold text-slate-400">
-                Page{" "}
-                <span className="font-black text-slate-700">
-                  {pagination.page}
-                </span>{" "}
-                of{" "}
-                <span className="font-black text-slate-700">
-                  {pagination.totalPages}
-                </span>
-              </p>
-
-              {/* BUTTONS */}
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={
-                    !pagination.hasPreviousPage
-                  }
-                  onClick={() =>
-                    setPage(
-                      (current) =>
-                        Math.max(
-                          1,
-                          current - 1,
-                        ),
-                    )
-                  }
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-
-                  Previous
-                </button>
-
-                <div className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-indigo-600 px-3 text-[11px] font-black text-white shadow-md shadow-indigo-100">
-                  {pagination.page}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={
-                    !pagination.hasNextPage
-                  }
-                  onClick={() =>
-                    setPage(
-                      (current) =>
-                        current + 1,
-                    )
-                  }
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next
-
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-    </section>
+    </div>
   );
 }
-

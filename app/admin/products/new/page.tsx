@@ -2,39 +2,27 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 import ProductEditor from "@/components/admin/products/ProductEditor";
 import MobileSpecifications from "@/components/admin/products/MobileSpecifications";
 
-import {
-  createProduct,
-  type CreateProductInput,
-} from "@/lib/api/products";
+import { apiFetch } from "@/lib/api/client";
+import { getCategories } from "@/lib/api/categories";
+import { getBrands } from "@/lib/api/brands";
+import { getSellers } from "@/lib/api/sellers";
+import { updateProduct } from "@/lib/api/adminProducts";
 
-import {
-  getBrands,
-  type AdminBrand,
-} from "@/lib/api/brands";
+import type { ApiResponse } from "@/types/api";
+import type { Product } from "@/types/product";
+import type { AdminCategory } from "@/lib/api/categories";
+import type { AdminBrand } from "@/lib/api/brands";
+import type { AdminSeller } from "@/lib/api/sellers";
 
-import {
-  getCategories,
-  type AdminCategory,
-} from "@/lib/api/categories";
-
-import {
-  getSellers,
-  type AdminSeller,
-} from "@/lib/api/sellers";
-
-import AdminPermissionGuard from "@/components/admin/AdminPermissionGuard";
-
-interface ProductForm {
-  name: string;
-  description: string;
-  brandSlug: string;
-  categorySlug: string;
-  price: string;
-  sellerSlug: string;
+interface FormOptions {
+  categories: AdminCategory[];
+  brands: AdminBrand[];
+  sellers: AdminSeller[];
 }
 
 const API_URL =
@@ -60,19 +48,20 @@ const getFullImageUrl = (url: string) => {
   return `${backendUrl}/${url}`;
 };
 
-export default function NewProductPage() {
-  const [form, setForm] = useState<ProductForm>({
-    name: "",
-    description: "",
-    brandSlug: "",
-    categorySlug: "",
-    price: "",
-    sellerSlug: "",
-  });
+export default function EditProductPage() {
+  const params = useParams();
+  const router = useRouter();
 
-  const [brands, setBrands] = useState<AdminBrand[]>([]);
-  const [categories, setCategories] = useState<AdminCategory[]>([]);
-  const [sellers, setSellers] = useState<AdminSeller[]>([]);
+  const productId = String(params.id);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const [brandSlug, setBrandSlug] = useState("");
+  const [categorySlug, setCategorySlug] = useState("");
+  const [sellerSlug, setSellerSlug] = useState("");
+
+  const [price, setPrice] = useState("");
 
   const [images, setImages] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
@@ -80,84 +69,127 @@ export default function NewProductPage() {
   const [specifications, setSpecifications] =
     useState<Record<string, string>>({});
 
-  const [loadingOptions, setLoadingOptions] = useState(true);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [options, setOptions] = useState<FormOptions>({
+    categories: [],
+    brands: [],
+    sellers: [],
+  });
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] =
+    useState(false);
+
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    const loadOptions = async () => {
+    async function loadProduct() {
       try {
-        setLoadingOptions(true);
+        setLoading(true);
         setError("");
 
         const [
-          brandsResponse,
+          productResponse,
           categoriesResponse,
+          brandsResponse,
           sellersResponse,
         ] = await Promise.all([
-          getBrands(),
+          apiFetch<ApiResponse<Product>>(
+            `/admin/products/${productId}`,
+          ),
           getCategories(),
+          getBrands(),
           getSellers(),
         ]);
 
-        setBrands(
-          Array.isArray(brandsResponse.data)
-            ? brandsResponse.data
-            : [],
+        const product = productResponse.data;
+
+        setName(product.name);
+        setDescription(product.description ?? "");
+
+        setBrandSlug(product.brand.slug);
+        setCategorySlug(product.category.slug);
+
+        setPrice(product.prices[0]?.amount ?? "");
+
+        setSellerSlug(
+          product.prices[0]?.seller?.slug ?? "",
         );
 
-        setCategories(
-          Array.isArray(categoriesResponse.data)
-            ? categoriesResponse.data
-            : [],
+        setImages(
+          (product.images ?? [])
+            .map((item) =>
+              getFullImageUrl(item.url),
+            )
+            .filter(Boolean),
         );
 
-        setSellers(
-          Array.isArray(sellersResponse.data)
-            ? sellersResponse.data
-            : [],
-        );
+        setOptions({
+          categories: categoriesResponse.data,
+          brands: brandsResponse.data,
+          sellers: sellersResponse.data,
+        });
+
+        const specificationResponse =
+          await apiFetch<
+            ApiResponse<
+              Array<{
+                id: string;
+                key: string;
+                value: {
+                  id: string;
+                  specificationId: string;
+                  value: string;
+                  createdAt: string;
+                } | null;
+              }>
+            >
+          >(
+            `/products/${productId}/specifications`,
+          );
+
+        const specificationMap: Record<
+          string,
+          string
+        > = {};
+
+        for (const specification of specificationResponse.data) {
+          if (!specification.value) continue;
+
+          specificationMap[specification.key] =
+            specification.value.value;
+        }
+
+        setSpecifications(specificationMap);
       } catch (err) {
         console.error(
-          "Failed to load product options:",
+          "Failed to load product:",
           err,
         );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Failed to load brands, categories and sellers.",
+            : "Failed to load product.",
         );
       } finally {
-        setLoadingOptions(false);
+        setLoading(false);
       }
-    };
+    }
 
-    loadOptions();
-  }, []);
-
-  const updateForm = (
-    field: keyof ProductForm,
-    value: string,
-  ) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  };
+    loadProduct();
+  }, [productId]);
 
   const addImageUrl = () => {
     const trimmed = imageUrl.trim();
 
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
 
     if (images.length >= 10) {
-      setError("Maximum 10 product images are allowed.");
+      setError(
+        "Maximum 10 product images are allowed.",
+      );
       return;
     }
 
@@ -173,7 +205,8 @@ export default function NewProductPage() {
   const removeImage = (index: number) => {
     setImages((current) =>
       current.filter(
-        (_, imageIndex) => imageIndex !== index,
+        (_, imageIndex) =>
+          imageIndex !== index,
       ),
     );
   };
@@ -214,12 +247,13 @@ export default function NewProductPage() {
   ) => {
     const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     if (images.length >= 10) {
-      setError("Maximum 10 product images are allowed.");
+      setError(
+        "Maximum 10 product images are allowed.",
+      );
+
       event.target.value = "";
       return;
     }
@@ -229,7 +263,9 @@ export default function NewProductPage() {
       setError("");
 
       const token =
-        localStorage.getItem("smartprix_token");
+        localStorage.getItem(
+          "smartprix_token",
+        );
 
       const formData = new FormData();
 
@@ -292,127 +328,254 @@ export default function NewProductPage() {
   ) => {
     event.preventDefault();
 
+    setMessage("");
     setError("");
-    setSuccess("");
 
-    const productName = form.name.trim();
-    const price = Number(form.price);
+    const trimmedName = name.trim();
+    const numericPrice = Number(price);
 
-    if (!productName) {
-      setError("Product name is required.");
+    if (!trimmedName) {
+      setError(
+        "Product name is required.",
+      );
       return;
     }
 
-    if (!form.brandSlug) {
-      setError("Please select a brand.");
+    if (!brandSlug) {
+      setError(
+        "Please select a brand.",
+      );
       return;
     }
 
-    if (!form.categorySlug) {
-      setError("Please select a category.");
+    if (!categorySlug) {
+      setError(
+        "Please select a category.",
+      );
       return;
     }
 
-    if (!form.sellerSlug) {
-      setError("Please select a seller.");
+    if (!sellerSlug) {
+      setError(
+        "Please select a seller.",
+      );
       return;
     }
 
-    if (!form.price || !Number.isFinite(price)) {
-      setError("Please enter a valid price.");
+    if (
+      !price ||
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0
+    ) {
+      setError(
+        "Please enter a valid price.",
+      );
       return;
     }
 
-    if (price <= 0) {
-      setError("Price must be greater than 0.");
-      return;
-    }
+    setSaving(true);
 
     try {
-      setSaving(true);
+      const response =
+        await updateProduct(
+          productId,
+          {
+            name: trimmedName,
+            description:
+              description.trim(),
+            brandSlug,
+            categorySlug,
 
-      const payload: CreateProductInput = {
-        name: productName,
-        description: form.description,
-        brandSlug: form.brandSlug,
-        categorySlug: form.categorySlug,
-        images,
-        price,
-        sellerSlug: form.sellerSlug,
-        specifications,
-      };
+            /*
+             * The current backend update API
+             * accepts a single image field.
+             *
+             * The first image is treated as
+             * the primary image for now.
+             */
+            image:
+              images[0]?.trim() ||
+              undefined,
 
-      const response = await createProduct(
-        payload,
-      );
+            price: numericPrice,
+            sellerSlug,
+            specifications,
+          },
+        );
 
       if (!response.success) {
         throw new Error(
           response.message ||
-            "Failed to create product.",
+            "Failed to update product.",
         );
       }
 
-      setSuccess(
-        "Product created successfully.",
+      setMessage(
+        response.message ??
+          "Product updated successfully.",
       );
 
-      const createdProduct = response.data;
-
-      if (createdProduct?.slug) {
-        window.location.href = `/admin/products`;
-        return;
-      }
+      setTimeout(() => {
+        router.push(
+          "/admin/products",
+        );
+      }, 900);
     } catch (err) {
       console.error(
-        "Failed to create product:",
+        "Failed to update product:",
         err,
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to create product.",
+          : "Failed to update product.",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  return (
-    <AdminPermissionGuard permission="products.create">
-      <div className="mx-auto max-w-7xl pb-12">
-        {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/50">
+        <div className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
+          <div className="animate-pulse overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-xl">
+            <div className="h-52 bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200" />
+
+            <div className="space-y-6 p-8">
+              <div className="h-8 w-64 rounded-xl bg-slate-200" />
+              <div className="h-14 rounded-2xl bg-slate-100" />
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="h-14 rounded-2xl bg-slate-100" />
+                <div className="h-14 rounded-2xl bg-slate-100" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !name) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-red-50/50">
+        <div className="mx-auto max-w-4xl px-4 py-12">
+          <div className="rounded-3xl border border-red-200 bg-white p-8 shadow-xl">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-2xl">
+              ⚠️
+            </div>
+
+            <h2 className="mt-5 text-2xl font-black text-slate-900">
+              Unable to load product
+            </h2>
+
+            <p className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+
             <Link
               href="/admin/products"
-              className="mb-3 inline-flex text-sm font-medium text-gray-500 hover:text-gray-900"
+              className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+            >
+              ← Back to Products
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/50 pb-28">
+      <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+
+        {/* HERO */}
+        <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-6 shadow-2xl shadow-indigo-200/40 sm:p-8">
+          <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -bottom-32 left-1/3 h-96 w-96 rounded-full bg-pink-300/20 blur-3xl" />
+
+          <div className="relative">
+            <Link
+              href="/admin/products"
+              className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur transition hover:bg-white/25"
             >
               ← Back to Products
             </Link>
 
-            <h1 className="text-3xl font-bold text-gray-900">
-              Add Product
-            </h1>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur">
+                  <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                  Product Catalogue
+                </div>
 
-            <p className="mt-2 text-sm text-gray-600">
-              Create a new product with images,
-              description, pricing and specifications.
-            </p>
+                <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  Edit Product
+                </h1>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-base">
+                  Update product information, pricing,
+                  images, description and specifications.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 text-white backdrop-blur">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-100">
+                  Product Images
+                </p>
+
+                <p className="mt-1 text-2xl font-black">
+                  {images.length}
+                  <span className="text-sm font-medium text-indigo-200">
+                    {" "}
+                    / 10
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Messages */}
+        {/* MESSAGES */}
         {error && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+          <div className="mb-6 rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-4 shadow-sm">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-100 font-black text-red-600">
+                !
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-red-800">
+                  Something went wrong
+                </p>
+
+                <p className="mt-1 text-xs text-red-600">
+                  {error}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
-        {success && (
-          <div className="mb-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {success}
+        {message && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-4 shadow-sm">
+            <div className="flex gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 font-black text-emerald-600">
+                ✓
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-emerald-800">
+                  Product updated
+                </p>
+
+                <p className="mt-1 text-xs text-emerald-600">
+                  {message}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -420,71 +583,87 @@ export default function NewProductPage() {
           onSubmit={handleSubmit}
           className="space-y-6"
         >
-          {/* Basic Information */}
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Basic Information
-              </h2>
 
-              <p className="mt-1 text-sm text-gray-500">
-                Enter the basic product information.
-              </p>
+          {/* BASIC INFORMATION */}
+          <section className="overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-sm transition hover:shadow-md">
+            <div className="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-purple-50 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xl text-white shadow-lg shadow-indigo-200">
+                  ✦
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    Basic Information
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Update the identity and classification
+                    of your product.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-5 p-5 md:grid-cols-2">
-              {/* Product Name */}
+            <div className="grid gap-5 p-5 sm:p-7 md:grid-cols-2">
+
+              {/* NAME */}
               <div className="md:col-span-2">
                 <label
                   htmlFor="product-name"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-wider text-slate-600"
                 >
-                  Product Name
+                  <span>
+                    Product Name
+                    <span className="ml-1 text-rose-500">
+                      *
+                    </span>
+                  </span>
+
+                  <span className="font-medium normal-case tracking-normal text-slate-400">
+                    {name.length}/150
+                  </span>
                 </label>
 
                 <input
                   id="product-name"
                   type="text"
-                  value={form.name}
+                  maxLength={150}
+                  value={name}
                   onChange={(event) =>
-                    updateForm(
-                      "name",
-                      event.target.value,
-                    )
+                    setName(event.target.value)
                   }
-                  placeholder="e.g. Realme 15 Pro 5G"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                  required
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-indigo-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 />
               </div>
 
-              {/* Brand */}
+              {/* BRAND */}
               <div>
                 <label
                   htmlFor="brand"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600"
                 >
                   Brand
+                  <span className="ml-1 text-rose-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   id="brand"
-                  value={form.brandSlug}
+                  value={brandSlug}
                   onChange={(event) =>
-                    updateForm(
-                      "brandSlug",
-                      event.target.value,
-                    )
+                    setBrandSlug(event.target.value)
                   }
-                  disabled={loadingOptions}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-100"
+                  required
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-700 outline-none transition hover:border-indigo-200 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 >
                   <option value="">
-                    {loadingOptions
-                      ? "Loading brands..."
-                      : "Select brand"}
+                    Select brand
                   </option>
 
-                  {brands.map((brand) => (
+                  {options.brands.map((brand) => (
                     <option
                       key={brand.id}
                       value={brand.slug}
@@ -495,108 +674,121 @@ export default function NewProductPage() {
                 </select>
               </div>
 
-              {/* Category */}
+              {/* CATEGORY */}
               <div>
                 <label
                   htmlFor="category"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600"
                 >
                   Category
+                  <span className="ml-1 text-rose-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   id="category"
-                  value={form.categorySlug}
+                  value={categorySlug}
                   onChange={(event) =>
-                    updateForm(
-                      "categorySlug",
-                      event.target.value,
-                    )
+                    setCategorySlug(event.target.value)
                   }
-                  disabled={loadingOptions}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-100"
+                  required
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-700 outline-none transition hover:border-purple-200 focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-100"
                 >
                   <option value="">
-                    {loadingOptions
-                      ? "Loading categories..."
-                      : "Select category"}
+                    Select category
                   </option>
 
-                  {categories.map((category) => (
-                    <option
-                      key={category.id}
-                      value={category.slug}
-                    >
-                      {category.name}
-                    </option>
-                  ))}
+                  {options.categories.map(
+                    (category) => (
+                      <option
+                        key={category.id}
+                        value={category.slug}
+                      >
+                        {category.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
             </div>
           </section>
 
-          {/* Pricing */}
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Pricing
-              </h2>
+          {/* PRICING */}
+          <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm transition hover:shadow-md">
+            <div className="border-b border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-xl font-black text-white shadow-lg shadow-emerald-200">
+                  ₹
+                </div>
 
-              <p className="mt-1 text-sm text-gray-500">
-                Set the initial seller and product price.
-              </p>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    Pricing & Seller
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Update the current selling price and
+                    marketplace seller.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-5 p-5 md:grid-cols-2">
-              {/* Seller */}
+            <div className="grid gap-5 p-5 sm:p-7 md:grid-cols-2">
+
+              {/* SELLER */}
               <div>
                 <label
                   htmlFor="seller"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600"
                 >
                   Seller
+                  <span className="ml-1 text-rose-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   id="seller"
-                  value={form.sellerSlug}
+                  value={sellerSlug}
                   onChange={(event) =>
-                    updateForm(
-                      "sellerSlug",
-                      event.target.value,
-                    )
+                    setSellerSlug(event.target.value)
                   }
-                  disabled={loadingOptions}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:bg-gray-100"
+                  required
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-700 outline-none transition hover:border-emerald-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 >
                   <option value="">
-                    {loadingOptions
-                      ? "Loading sellers..."
-                      : "Select seller"}
+                    Select seller
                   </option>
 
-                  {sellers.map((seller) => (
-                    <option
-                      key={seller.id}
-                      value={seller.slug}
-                    >
-                      {seller.name}
-                    </option>
-                  ))}
+                  {options.sellers.map(
+                    (seller) => (
+                      <option
+                        key={seller.id}
+                        value={seller.slug}
+                      >
+                        {seller.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
 
-              {/* Price */}
+              {/* PRICE */}
               <div>
                 <label
                   htmlFor="price"
-                  className="mb-2 block text-sm font-medium text-gray-700"
+                  className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-600"
                 >
                   Price (INR)
+                  <span className="ml-1 text-rose-500">
+                    *
+                  </span>
                 </label>
 
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-emerald-600">
                     ₹
                   </span>
 
@@ -605,248 +797,367 @@ export default function NewProductPage() {
                     type="number"
                     min="1"
                     step="0.01"
-                    value={form.price}
+                    value={price}
                     onChange={(event) =>
-                      updateForm(
-                        "price",
-                        event.target.value,
-                      )
+                      setPrice(event.target.value)
                     }
-                    placeholder="e.g. 34999"
-                    className="w-full rounded-lg border border-gray-300 py-3 pl-9 pr-4 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black"
+                    required
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-10 pr-4 text-sm font-bold text-slate-900 outline-none transition hover:border-emerald-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Images */}
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Product Images
-              </h2>
+          {/* IMAGES */}
+          <section className="overflow-hidden rounded-3xl border border-pink-100 bg-white shadow-sm transition hover:shadow-md">
+            <div className="border-b border-pink-100 bg-gradient-to-r from-pink-50 via-white to-rose-50 px-5 py-5 sm:px-7">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 text-xl text-white shadow-lg shadow-pink-200">
+                    🖼
+                  </div>
 
-              <p className="mt-1 text-sm text-gray-500">
-                Add up to 10 product images. The first image
-                becomes the primary image.
-              </p>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">
+                      Product Images
+                    </h2>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      The first image is treated as the
+                      primary image.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-pink-100 px-3 py-2 text-xs font-black text-pink-700">
+                  {images.length}/10
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-5 p-5">
-              {/* Upload */}
-              <div>
-                <label
-                  htmlFor="product-image-upload"
-                  className={`inline-flex cursor-pointer items-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 ${
-                    uploadingImage
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }`}
-                >
-                  {uploadingImage
-                    ? "Uploading..."
-                    : "Upload Image"}
-                </label>
+            <div className="space-y-6 p-5 sm:p-7">
 
-                <input
-                  id="product-image-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
-                  onChange={uploadImage}
-                  className="hidden"
-                  disabled={
-                    uploadingImage ||
-                    images.length >= 10
-                  }
-                />
-              </div>
+              {/* UPLOAD / URL */}
+              <div className="grid gap-4 md:grid-cols-2">
 
-              {/* URL */}
-              <div>
-                <label
-                  htmlFor="image-url"
-                  className="mb-2 block text-sm font-medium text-gray-700"
-                >
-                  Or add image URL
-                </label>
+                {/* UPLOAD */}
+                <div className="rounded-2xl border border-dashed border-pink-200 bg-gradient-to-br from-pink-50/70 to-white p-5">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-600">
+                    Upload from device
+                  </p>
 
-                <div className="flex gap-2">
+                  <p className="mt-1 text-xs text-slate-400">
+                    Add a new product image.
+                  </p>
+
+                  <label
+                    htmlFor="product-image-upload"
+                    className={`mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-pink-200 transition hover:-translate-y-0.5 hover:shadow-xl ${
+                      uploadingImage
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }`}
+                  >
+                    <span>＋</span>
+
+                    {uploadingImage
+                      ? "Uploading..."
+                      : "Choose Image"}
+                  </label>
+
                   <input
-                    id="image-url"
-                    type="text"
-                    value={imageUrl}
-                    onChange={(event) =>
-                      setImageUrl(
-                        event.target.value,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        addImageUrl();
-                      }
-                    }}
-                    placeholder="https://example.com/product-image.jpg"
-                    className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={addImageUrl}
+                    id="product-image-upload"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+                    onChange={uploadImage}
+                    className="hidden"
                     disabled={
+                      uploadingImage ||
                       images.length >= 10
                     }
-                    className="rounded-lg bg-gray-900 px-5 py-3 text-sm font-medium text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Add
-                  </button>
+                  />
+                </div>
+
+                {/* URL */}
+                <div className="rounded-2xl border border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/70 to-white p-5">
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-600">
+                    Add image URL
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-400">
+                    Use a publicly accessible image URL.
+                  </p>
+
+                  <div className="mt-4 flex gap-2">
+                    <input
+                      type="text"
+                      value={imageUrl}
+                      onChange={(event) =>
+                        setImageUrl(
+                          event.target.value,
+                        )
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          event.preventDefault();
+                          addImageUrl();
+                        }
+                      }}
+                      placeholder="https://example.com/image.jpg"
+                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={addImageUrl}
+                      disabled={
+                        images.length >= 10
+                      }
+                      className="rounded-xl bg-slate-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Image Preview */}
-              {images.length > 0 && (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {images.map((image, index) => (
-                    <div
-                      key={`${image}-${index}`}
-                      className="group relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
-                    >
-                      <div className="aspect-square">
-                        <img
-                          src={image}
-                          alt={`Product image ${
-                            index + 1
-                          }`}
-                          className="h-full w-full object-contain p-3"
-                        />
-                      </div>
+              {/* GALLERY */}
+              {images.length > 0 ? (
+                <div>
+                  <div className="mb-4">
+                    <h3 className="text-sm font-black text-slate-800">
+                      Image Gallery
+                    </h3>
 
-                      {index === 0 && (
-                        <div className="absolute left-2 top-2 rounded-md bg-black px-2 py-1 text-[10px] font-semibold text-white">
-                          PRIMARY
+                    <p className="mt-1 text-xs text-slate-400">
+                      Reorder images using the arrows.
+                      The first image is primary.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                    {images.map(
+                      (image, index) => (
+                        <div
+                          key={`${image}-${index}`}
+                          className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-pink-200 hover:shadow-xl"
+                        >
+                          <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 to-pink-50">
+                            <img
+                              src={image}
+                              alt={`${name} product image ${
+                                index + 1
+                              }`}
+                              className="h-full w-full object-contain p-4 transition duration-300 group-hover:scale-105"
+                              onError={(
+                                event,
+                              ) => {
+                                event.currentTarget.style.opacity =
+                                  "0.25";
+                              }}
+                            />
+
+                            {index === 0 && (
+                              <div className="absolute left-2 top-2 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-2.5 py-1 text-[9px] font-black tracking-wider text-white shadow-lg">
+                                PRIMARY
+                              </div>
+                            )}
+
+                            <div className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-black text-slate-600 shadow-sm backdrop-blur">
+                              #{index + 1}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1 border-t border-slate-100 bg-white p-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                moveImage(
+                                  index,
+                                  "up",
+                                )
+                              }
+                              disabled={
+                                index === 0
+                              }
+                              title="Move left"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-sm font-bold text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-25"
+                            >
+                              ←
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                moveImage(
+                                  index,
+                                  "down",
+                                )
+                              }
+                              disabled={
+                                index ===
+                                images.length -
+                                  1
+                              }
+                              title="Move right"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-sm font-bold text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-25"
+                            >
+                              →
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeImage(
+                                  index,
+                                )
+                              }
+                              className="flex h-8 flex-1 items-center justify-center rounded-lg bg-rose-50 text-[10px] font-bold text-rose-600 transition hover:bg-rose-100"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                      )}
-
-                      <div className="flex items-center justify-between border-t bg-white p-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            moveImage(
-                              index,
-                              "up",
-                            )
-                          }
-                          disabled={index === 0}
-                          className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-30"
-                        >
-                          ←
-                        </button>
-
-                        <span className="text-xs text-gray-400">
-                          {index + 1}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            moveImage(
-                              index,
-                              "down",
-                            )
-                          }
-                          disabled={
-                            index ===
-                            images.length - 1
-                          }
-                          className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-30"
-                        >
-                          →
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeImage(index)
-                          }
-                          className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      ),
+                    )}
+                  </div>
                 </div>
-              )}
+              ) : (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-indigo-50/40 px-5 py-14 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-3xl shadow-sm">
+                    🖼️
+                  </div>
 
-              {images.length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-10 text-center">
-                  <p className="text-sm font-medium text-gray-600">
-                    No product images added
-                  </p>
+                  <h3 className="mt-4 text-sm font-black text-slate-700">
+                    No product images
+                  </h3>
 
-                  <p className="mt-1 text-xs text-gray-400">
-                    Upload an image or add an image URL above.
+                  <p className="mx-auto mt-1 max-w-md text-xs text-slate-400">
+                    Upload an image or add an image URL.
+                    You can add up to 10 images.
                   </p>
                 </div>
               )}
             </div>
           </section>
 
-          {/* Description */}
-          <ProductEditor
-            value={form.description}
-            onChange={(value) =>
-              updateForm(
-                "description",
-                value,
-              )
-            }
-          />
+          {/* DESCRIPTION */}
+          <section className="overflow-hidden rounded-3xl border border-amber-100 bg-white shadow-sm">
+            <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-xl text-white shadow-lg shadow-amber-200">
+                  ✎
+                </div>
 
-          {/* Specifications */}
-          <MobileSpecifications
-  value={specifications ?? {}}
-  onChange={setSpecifications}
-/>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    Product Description
+                  </h2>
 
-          {/* Submit */}
-          <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                Ready to create this product?
-              </p>
-
-              <p className="text-xs text-gray-500">
-                The product will be added to your catalog.
-              </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Edit detailed product content.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="flex gap-3">
-              <Link
-                href="/admin/products"
-                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </Link>
+            <div className="p-5 sm:p-7">
+              <ProductEditor
+                value={description}
+                onChange={setDescription}
+              />
+            </div>
+          </section>
 
-              <button
-                type="submit"
-                disabled={
-                  saving ||
-                  loadingOptions ||
-                  uploadingImage
+          {/* SPECIFICATIONS */}
+          <section className="overflow-hidden rounded-3xl border border-purple-100 bg-white shadow-sm">
+            <div className="border-b border-purple-100 bg-gradient-to-r from-purple-50 via-white to-fuchsia-50 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-600 text-xl text-white shadow-lg shadow-purple-200">
+                  ⚙
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    Specifications
+                  </h2>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Edit the technical specifications.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7">
+              <MobileSpecifications
+                value={specifications}
+                onChange={
+                  setSpecifications
                 }
-                className="rounded-lg bg-black px-6 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving
-                  ? "Creating Product..."
-                  : "Create Product"}
-              </button>
+              />
+            </div>
+          </section>
+
+          {/* SUBMIT BAR */}
+          <div className="sticky bottom-4 z-30 overflow-hidden rounded-3xl border border-indigo-100 bg-white/95 shadow-2xl shadow-slate-300/40 backdrop-blur-xl">
+            <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+
+              <div className="flex items-center gap-3">
+                <div className="hidden h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-lg text-white shadow-lg shadow-indigo-200 sm:flex">
+                  ✓
+                </div>
+
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    Ready to save your changes?
+                  </p>
+
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Your first image will remain the primary
+                    image.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <Link
+                  href="/admin/products"
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Cancel
+                </Link>
+
+                <button
+                  type="submit"
+                  disabled={
+                    saving ||
+                    uploadingImage
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                >
+                  {saving ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Saving Changes...
+                    </>
+                  ) : (
+                    <>
+                      Save Changes
+                      <span>→</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </form>
       </div>
-    </AdminPermissionGuard>
+    </div>
   );
 }
+

@@ -24,6 +24,34 @@ export default function AdminProductsPage() {
   );
   const [category, setCategory] = useState("all");
 
+  const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000/api";
+
+function getFullImageUrl(url?: string | null) {
+  if (!url) return "";
+
+  // Already absolute
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://")
+  ) {
+    return url;
+  }
+
+  // Remove /api because uploaded images are served
+  // from http://localhost:5000/uploads/...
+  const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+
+  if (url.startsWith("/")) {
+    return `${API_ORIGIN}${url}`;
+  }
+
+  return `${API_ORIGIN}/${url}`;
+}
+
+
+
   useEffect(() => {
     async function loadProducts() {
       try {
@@ -468,8 +496,9 @@ export default function AdminProductsPage() {
                 <div className="divide-y divide-slate-100">
                   {filteredProducts.map(
                     (product) => {
-                      const primaryImage =
-                        product.images?.[0]?.url;
+                      const primaryImage = getFullImageUrl(
+  product.images?.[0]?.url,
+);
 
                       const inStock =
                         product.prices?.some(

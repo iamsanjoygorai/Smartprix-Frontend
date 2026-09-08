@@ -7,7 +7,7 @@ export interface UpdateProductInput {
   description?: string;
   brandSlug?: string;
   categorySlug?: string;
-  image?: string;
+  images?: string[];
   price?: number;
   sellerSlug?: string;
   specifications?: Record<string, string>;

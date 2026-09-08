@@ -37,6 +37,9 @@ export default function MobilesPage() {
 
   const [hydrated, setHydrated] = useState(false);
 
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] =
+  useState(false);
+
   // ─────────────────────────────────────────────
   // SEARCH → BRAND MATCHING
   // ─────────────────────────────────────────────
@@ -341,123 +344,281 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#f3f5f9]">
-      <div className="mx-auto w-full max-w-[1320px] px-2 py-3 sm:px-4 lg:px-5">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[275px_minmax(0,1fr)]">
-          {/* ═══════════════════════════════════════
-              LEFT FILTER SIDEBAR
-          ═══════════════════════════════════════ */}
+  <div className="min-h-screen bg-[#f3f5f9]">
+    <div className="mx-auto w-full max-w-[1320px] px-2 py-3 sm:px-4 lg:px-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[275px_minmax(0,1fr)]">
 
-          <aside className="hidden lg:block">
-            <div className="sticky top-4">
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
-                {/* Sidebar heading */}
-                <div className="border-b border-slate-100 bg-gradient-to-r from-white via-white to-indigo-50/40 px-5 py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500">
-                        Refine
-                      </p>
+        {/* ═══════════════════════════════════════
+            DESKTOP FILTER SIDEBAR
+        ═══════════════════════════════════════ */}
 
-                      <h2 className="mt-0.5 text-[18px] font-black tracking-tight text-slate-900">
-                        Filters
-                      </h2>
-                    </div>
+        <aside className="hidden lg:block">
+          <div className="sticky top-4">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
 
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                      <svg
-                        width="17"
-                        height="17"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M4 5h16" />
-                        <path d="M7 12h10" />
-                        <path d="M10 19h4" />
-                      </svg>
-                    </div>
+              {/* Sidebar heading */}
+              <div className="border-b border-slate-100 bg-gradient-to-r from-white via-white to-indigo-50/40 px-5 py-4">
+                <div className="flex items-center justify-between">
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500">
+                      Refine
+                    </p>
+
+                    <h2 className="mt-0.5 text-[18px] font-black tracking-tight text-slate-900">
+                      Filters
+                    </h2>
                   </div>
 
-                  {(brands.length > 0 ||
-                    minPrice ||
-                    displays.length > 0 ||
-                    Object.values(filterValues).some(
-                      (values) => values.length > 0,
-                    )) && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                      Filters applied
-                    </div>
-                  )}
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <svg
+                      width="17"
+                      height="17"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 5h16" />
+                      <path d="M7 12h10" />
+                      <path d="M10 19h4" />
+                    </svg>
+                  </div>
+
                 </div>
 
-                {/* Filters */}
-                <div className="p-2">
-                  <MobileFilters
-                    search={search}
-                    brands={brands}
-                    minPrice={minPrice}
-                    maxPrice={maxPrice}
-                    displays={displays}
-                    filterValues={filterValues}
-                    brandCounts={brandCounts}
-                    onSearchChange={handleSearchChange}
-                    onBrandChange={handleBrandChange}
-                    onDisplayChange={handleDisplayChange}
-                    onPriceChange={handlePriceChange}
-                    onFilterChange={handleFilterChange}
-                  />
-                </div>
+                {(brands.length > 0 ||
+                  minPrice ||
+                  displays.length > 0 ||
+                  Object.values(filterValues).some(
+                    (values) => values.length > 0,
+                  )) && (
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                    Filters applied
+                  </div>
+                )}
               </div>
+
+              {/* Filters */}
+              <div className="p-2">
+                <MobileFilters
+                  search={search}
+                  brands={brands}
+                  minPrice={minPrice}
+                  maxPrice={maxPrice}
+                  displays={displays}
+                  filterValues={filterValues}
+                  brandCounts={brandCounts}
+                  onSearchChange={handleSearchChange}
+                  onBrandChange={handleBrandChange}
+                  onDisplayChange={handleDisplayChange}
+                  onPriceChange={handlePriceChange}
+                  onFilterChange={handleFilterChange}
+                />
+              </div>
+
             </div>
-          </aside>
+          </div>
+        </aside>
 
-          {/* ═══════════════════════════════════════
-              MAIN CONTENT
-          ═══════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════
+            MAIN CONTENT
+        ═══════════════════════════════════════ */}
 
-          <main className="min-w-0 space-y-4">
-            {/* Page Header */}
-            {/* <MobilePageHeader /> */}
+        <main className="min-w-0 space-y-4">
 
-            {/* Popular Brands */}
-            <PopularBrands
-              selectedBrands={brands}
-  onBrandChange={handleBrandChange}
+          {/* MOBILE FILTER BUTTON */}
+          <div className="flex items-center justify-between gap-2 lg:hidden">
 
-            />
+            <button
+              type="button"
+              onClick={() => setIsMobileFiltersOpen(true)}
+              className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-extrabold text-slate-700 shadow-sm transition-all hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 5h16" />
+                <path d="M7 12h10" />
+                <path d="M10 19h4" />
+              </svg>
 
-            {/* Price Ranges */}
-            <PriceRanges
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              onPriceChange={handlePriceChange}
-            />
+              Filters
 
-            {/* Popular Features */}
-            <PopularFeatures
-              onFeatureChange={handleFeatureChange}
-            />
+              {(brands.length > 0 ||
+                minPrice ||
+                (maxPrice && maxPrice !== "30000+") ||
+                displays.length > 0 ||
+                Object.values(filterValues).reduce(
+                  (total, values) =>
+                    total + values.length,
+                  0,
+                ) > 0) && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[9px] font-black text-white">
+                  {brands.length +
+                    displays.length +
+                    (minPrice ? 1 : 0) +
+                    (maxPrice && maxPrice !== "30000+"
+                      ? 1
+                      : 0) +
+                    Object.values(filterValues).reduce(
+                      (total, values) =>
+                        total + values.length,
+                      0,
+                    )}
+                </span>
+              )}
+            </button>
 
-            {/* Product List */}
-            <MobileList
+            <span className="text-[10px] font-semibold text-slate-400">
+              Refine your results
+            </span>
+
+          </div>
+
+          {/* Page Header */}
+          {/* <MobilePageHeader /> */}
+
+          {/* Popular Brands */}
+          <PopularBrands
+            selectedBrands={brands}
+            onBrandChange={handleBrandChange}
+          />
+
+          {/* Price Ranges */}
+          <PriceRanges
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onPriceChange={handlePriceChange}
+          />
+
+          {/* Popular Features */}
+          <PopularFeatures
+            onFeatureChange={handleFeatureChange}
+          />
+
+          {/* Product List */}
+          <MobileList
+            search={search}
+            brands={brands}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            displays={displays}
+            filterValues={filterValues}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onBrandCountsChange={setBrandCounts}
+          />
+
+        </main>
+      </div>
+    </div>
+
+    {/* ═══════════════════════════════════════
+        MOBILE FILTER DRAWER
+    ═══════════════════════════════════════ */}
+
+    {isMobileFiltersOpen && (
+      <div className="fixed inset-0 z-[100] lg:hidden">
+
+        {/* Overlay */}
+        <button
+          type="button"
+          aria-label="Close filters"
+          onClick={() => setIsMobileFiltersOpen(false)}
+          className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]"
+        />
+
+        {/* Drawer */}
+        <div className="absolute inset-y-0 right-0 flex w-[92%] max-w-[420px] flex-col bg-white shadow-2xl">
+
+          {/* Drawer Header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-100">
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 5h16" />
+                  <path d="M7 12h10" />
+                  <path d="M10 19h4" />
+                </svg>
+              </div>
+
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500">
+                  Refine
+                </p>
+
+                <h2 className="text-[17px] font-black text-slate-900">
+                  Filters
+                </h2>
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileFiltersOpen(false)}
+              aria-label="Close filters"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-lg font-bold text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-500"
+            >
+              ×
+            </button>
+
+          </div>
+
+          {/* Drawer Content */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <MobileFilters
               search={search}
               brands={brands}
               minPrice={minPrice}
               maxPrice={maxPrice}
               displays={displays}
               filterValues={filterValues}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              onBrandCountsChange={setBrandCounts}
+              brandCounts={brandCounts}
+              onSearchChange={handleSearchChange}
+              onBrandChange={handleBrandChange}
+              onDisplayChange={handleDisplayChange}
+              onPriceChange={handlePriceChange}
+              onFilterChange={handleFilterChange}
             />
-          </main>
+          </div>
+
+          {/* Drawer Bottom */}
+          <div className="shrink-0 border-t border-slate-200 bg-white p-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileFiltersOpen(false)}
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 text-xs font-black text-white shadow-lg shadow-indigo-100 transition-all hover:bg-indigo-700"
+            >
+              Show Results
+            </button>
+          </div>
+
         </div>
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 }

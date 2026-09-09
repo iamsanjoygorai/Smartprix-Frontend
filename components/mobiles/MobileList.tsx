@@ -138,8 +138,10 @@ interface MobileListProps {
   displays?: string[];
   filterValues?: Record<string, string[]>;
   sortBy?: string;
+
   page: number;
   onPageChange: (page: number) => void;
+  onSortChange: (sort: string) => void
 }
 
 const API_URL =
@@ -521,8 +523,18 @@ export default function MobileList({
   const [error, setError] = useState<string | null>(null);
  
 const [totalPages, setTotalPages] = useState(1);
+const [totalResults, setTotalResults] = useState(0);
 
 const limit = 5;
+const startResult =
+  totalResults === 0
+    ? 0
+    : (page - 1) * limit + 1;
+
+const endResult = Math.min(
+  page * limit,
+  totalResults,
+);
 
 // =========================
   // FETCH PRODUCTS
@@ -643,6 +655,10 @@ setProducts(convertedProducts);
 
 setTotalPages(
   result.data?.pagination?.totalPages ?? 1,
+);
+
+setTotalResults(
+  result.data?.pagination?.total ?? 0,
 );
       
       } catch (err) {
@@ -844,131 +860,267 @@ setTotalPages(
   // =========================
 
   return (
-    <div className="space-y-5">
-      {sortedProducts.map(
-        (mobile) => (
-          <MobileCard
-            key={mobile.id}
-            mobile={mobile}
-          />
-        ),
+  <div className="space-y-5">
+    {/* RESULTS + SORT BAR */}
+    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+
+      {/* Results */}
+      <div className="text-sm text-slate-600">
+        Showing{" "}
+        <span className="font-semibold text-slate-900">
+          {startResult} – {endResult}
+        </span>{" "}
+        of{" "}
+        <span className="font-semibold text-slate-900">
+          {totalResults.toLocaleString("en-IN")}
+        </span>{" "}
+        results
+        {search.trim() && (
+          <>
+            {" "}for{" "}
+            <span className="font-semibold text-slate-900">
+              "{search.trim()}"
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Sort */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-sm font-semibold text-slate-700">
+          Sort By
+        </span>
+
+        {[
+          {
+            value: "relevance",
+            label: "Relevance",
+          },
+          {
+            value: "score",
+            label: "Popularity",
+          },
+          {
+            value: "price-low",
+            label: "Price -- Low to High",
+          },
+          {
+            value: "price-high",
+            label: "Price -- High to Low",
+          },
+          {
+            value: "newest",
+            label: "Newest First",
+          },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() =>
+              onSortChange(option.value)
+            }
+            className={`
+              rounded-xl px-3 py-2 text-sm font-medium
+              transition-all duration-200
+              ${
+                sortBy === option.value ||
+                (!sortBy &&
+                  option.value === "relevance")
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                  : "border border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-sm"
+              }
+            `}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* PRODUCTS */}
+    {sortedProducts.map((mobile) => (
+      <MobileCard
+        key={mobile.id}
+        mobile={mobile}
+      />
+    ))}
+
+    {/* EMPTY STATE */}
+    {!loading &&
+      !error &&
+      sortedProducts.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+            <span className="text-2xl">📱</span>
+          </div>
+
+          <h3 className="text-lg font-semibold text-slate-900">
+            No mobiles found
+          </h3>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Try changing your search or filters.
+          </p>
+        </div>
       )}
 
-      {/* // =========================
-      // PAGINATION
-      // ========================= */}
+    {/* PAGINATION */}
+    {totalPages > 1 && (
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
 
-      {totalPages > 1 && (
-  <div className="flex items-center justify-center gap-2 pt-4">
-    {/* Previous */}
-  <button
-  type="button"
-  onClick={() => {
-    if (page < totalPages) {
-      onPageChange(page + 1);
-    }
-  }}
-  className="
-    inline-flex h-10 items-center gap-1.5 rounded-xl
-    border border-gray-200 bg-white px-3.5
-    text-sm font-medium text-gray-700
-    shadow-sm
-    transition-all duration-200
-    hover:-translate-y-0.5
-    hover:border-indigo-300
-    hover:bg-indigo-50
-    hover:text-indigo-600
-    hover:shadow-md
-    active:translate-y-0
-  "
->
-  <span className="hidden sm:inline">Next</span>
-  <span className="text-base">›</span>
-</button>
+        {/* PREVIOUS */}
+        <button
+          type="button"
+          onClick={() => {
+            if (page > 1) {
+              onPageChange(page - 1);
+            }
+          }}
+          disabled={page <= 1}
+          className="
+            inline-flex h-10 items-center gap-1.5
+            rounded-xl border border-gray-200
+            bg-white px-3.5
+            text-sm font-medium text-gray-700
+            shadow-sm
+            transition-all duration-200
+            hover:-translate-y-0.5
+            hover:border-indigo-300
+            hover:bg-indigo-50
+            hover:text-indigo-600
+            hover:shadow-md
+            active:translate-y-0
+            disabled:cursor-not-allowed
+            disabled:opacity-40
+            disabled:hover:translate-y-0
+            disabled:hover:border-gray-200
+            disabled:hover:bg-white
+            disabled:hover:text-gray-700
+            disabled:hover:shadow-sm
+          "
+        >
+          <span className="text-base">
+            ‹
+          </span>
 
-    {/* Page numbers */}
-    <div className="flex items-center gap-1">
-      {Array.from(
-        { length: totalPages },
-        (_, index) => index + 1,
-      )
-        .filter((pageNumber) => {
-          if (totalPages <= 7) return true;
+          <span className="hidden sm:inline">
+            Previous
+          </span>
+        </button>
 
-          return (
-            pageNumber === 1 ||
-            pageNumber === totalPages ||
-            Math.abs(pageNumber - page) <= 1
-          );
-        })
-        .map((pageNumber, index, visiblePages) => {
-          const previousPage =
-            visiblePages[index - 1];
+        {/* PAGE NUMBERS */}
+        {Array.from(
+          {
+            length: totalPages,
+          },
+          (_, index) => index + 1,
+        )
+          .filter((pageNumber) => {
+            if (totalPages <= 7) {
+              return true;
+            }
 
-          const showEllipsis =
-            previousPage &&
-            pageNumber - previousPage > 1;
+            return (
+              pageNumber === 1 ||
+              pageNumber === totalPages ||
+              Math.abs(pageNumber - page) <= 1
+            );
+          })
+          .map(
+            (
+              pageNumber,
+              index,
+              visiblePages,
+            ) => {
+              const previousPage =
+                visiblePages[index - 1];
 
-          return (
-            <span
-              key={pageNumber}
-              className="flex items-center"
-            >
-              {showEllipsis && (
-                <span className="px-2 text-sm font-bold text-slate-400">
-                  ...
+              const showEllipsis =
+                previousPage &&
+                pageNumber - previousPage > 1;
+
+              return (
+                <span
+                  key={pageNumber}
+                  className="flex items-center"
+                >
+                  {showEllipsis && (
+                    <span className="px-2 text-sm font-bold text-slate-400">
+                      ...
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPageChange(pageNumber)
+                    }
+                    aria-current={
+                      page === pageNumber
+                        ? "page"
+                        : undefined
+                    }
+                    className={`
+                      flex h-10 min-w-10
+                      items-center justify-center
+                      rounded-xl px-3
+                      text-sm font-semibold
+                      transition-all duration-200
+                      ${
+                        page === pageNumber
+                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                          : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md"
+                      }
+                    `}
+                  >
+                    {pageNumber}
+                  </button>
                 </span>
-              )}
+              );
+            },
+          )}
 
-              <button
-  type="button"
-  onClick={() => onPageChange(pageNumber)}
-  aria-current={page === pageNumber ? "page" : undefined}
-  className={`
-    flex h-10 min-w-10 items-center justify-center
-    rounded-xl px-3 text-sm font-semibold
-    transition-all duration-200
-    ${
-      page === pageNumber
-        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-        : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md"
-    }
-  `}
->
-  {pageNumber}
-</button>
-            </span>
-          );
-        })}
-    </div>
+        {/* NEXT */}
+        <button
+          type="button"
+          onClick={() => {
+            if (page < totalPages) {
+              onPageChange(page + 1);
+            }
+          }}
+          disabled={page >= totalPages}
+          className="
+            inline-flex h-10 items-center gap-1.5
+            rounded-xl border border-gray-200
+            bg-white px-3.5
+            text-sm font-medium text-gray-700
+            shadow-sm
+            transition-all duration-200
+            hover:-translate-y-0.5
+            hover:border-indigo-300
+            hover:bg-indigo-50
+            hover:text-indigo-600
+            hover:shadow-md
+            active:translate-y-0
+            disabled:cursor-not-allowed
+            disabled:opacity-40
+            disabled:hover:translate-y-0
+            disabled:hover:border-gray-200
+            disabled:hover:bg-white
+            disabled:hover:text-gray-700
+            disabled:hover:shadow-sm
+          "
+        >
+          <span className="hidden sm:inline">
+            Next
+          </span>
 
-    {/* Next */}
-    <button
-  type="button"
-  onClick={() => {
-    if (page > 1) {
-      onPageChange(page - 1);
-    }
-  }}
-  className="
-    inline-flex h-10 items-center gap-1.5 rounded-xl
-    border border-gray-200 bg-white px-3.5
-    text-sm font-medium text-gray-700
-    shadow-sm
-    transition-all duration-200
-    hover:-translate-y-0.5
-    hover:border-indigo-300
-    hover:bg-indigo-50
-    hover:text-indigo-600
-    hover:shadow-md
-    active:translate-y-0
-  "
->
-  <span className="text-base">‹</span>
-  <span className="hidden sm:inline">Previous</span>
-</button>
+          <span className="text-base">
+            ›
+          </span>
+        </button>
+      </div>
+    )}
   </div>
-)}
-    </div>
-  );
+);
 }

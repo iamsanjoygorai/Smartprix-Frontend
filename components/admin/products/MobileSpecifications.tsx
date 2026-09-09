@@ -347,11 +347,6 @@ const MOBILE_SPECIFICATION_GROUPS: SpecificationGroup[] = [
         placeholder: "e.g. Yes",
       },
       {
-        slug: "sim-type",
-        label: "SIM Type",
-        placeholder: "e.g. Nano SIM",
-      },
-      {
         slug: "wifi",
         label: "Wi-Fi",
         placeholder: "e.g. Wi-Fi 6 (802.11 a/b/g/n/ac/ax) 5GHz",

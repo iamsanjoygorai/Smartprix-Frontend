@@ -1,20 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import MobileCard from "./MobileCard";
 
 interface ProductSpecification {
-  specification: {
-    name: string;
-    slug: string;
+  specification?: {
+    name?: string;
+    slug?: string;
     unit?: string | null;
   };
-
   value?: {
-    value: string;
+    value?: string;
   } | null;
-
   customValue?: string | null;
 }
 
@@ -23,13 +20,23 @@ interface ProductImage {
   url: string;
   altText?: string | null;
   isPrimary?: boolean;
+  sortOrder?: number;
+}
+
+interface ProductSeller {
+  id?: string;
+  name?: string;
+  slug?: string;
+  websiteUrl?: string | null;
+  logoUrl?: string | null;
 }
 
 interface ProductPrice {
   id: string;
   amount: number | string;
   currency?: string;
-
+  inStock?: boolean;
+  seller?: ProductSeller | null;
   store?: {
     id?: string;
     name?: string;
@@ -40,6 +47,9 @@ interface ProductVariant {
   id: string;
   ram?: string | null;
   storage?: string | null;
+  name?: string | null;
+  sku?: string | null;
+  color?: string | null;
 }
 
 interface Product {
@@ -51,22 +61,28 @@ interface Product {
     id: string;
     name: string;
     slug: string;
+    logoUrl?: string | null;
+  } | null;
+
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
   } | null;
 
   images?: ProductImage[];
-
   prices?: ProductPrice[];
-
   variants?: ProductVariant[];
-
   specifications?: ProductSpecification[];
 
-   reviews?: {
+  reviews?: {
     rating: number;
   }[];
 
   description?: string | null;
+  shortDescription?: string | null;
 
+  releaseDate?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -75,6 +91,7 @@ interface ProductsResponse {
   success: boolean;
   data: {
     products: Product[];
+
     pagination?: {
       page: number;
       limit: number;
@@ -83,6 +100,7 @@ interface ProductsResponse {
       hasNextPage?: boolean;
       hasPreviousPage?: boolean;
     };
+
     brandCounts?: Record<string, number>;
   };
 }
@@ -91,43 +109,43 @@ interface Mobile {
   id: string;
   slug: string;
   name: string;
-  price: string;
 
+  brand?: string | null;
+  category?: string | null;
+
+  price: string;
   score: number;
   rating: number;
   reviewCount: number;
 
   image: string;
 
-  // Display
   display: string;
   displayType?: string | null;
   refreshRate?: string | null;
 
-  // Battery
   battery: string;
   charging?: string | null;
 
-  // Camera
   camera: string;
   frontCamera?: string | null;
 
-  // Memory
   storage: string;
   ram?: string | null;
 
-  // Processor
   processor?: string | null;
 
-  // Connectivity
   connectivity?: string | null;
   wifi?: string | null;
   bluetooth?: string | null;
 
-  // Other specifications
   memoryCard?: string | null;
   operatingSystem?: string | null;
   reverseWirelessCharging?: string | null;
+
+  seller?: string | null;
+  description?: string | null;
+  specifications?: Record<string, string>;
 }
 
 interface MobileListProps {
@@ -138,6 +156,7 @@ interface MobileListProps {
   displays?: string[];
   filterValues?: Record<string, string[]>;
   sortBy?: string;
+
   page: number;
   onPageChange: (page: number) => void;
   onSortChange: (sort: string) => void;
@@ -147,32 +166,408 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:5000/api";
 
-const BACKEND_URL = API_URL.replace(
-  /\/api\/?$/,
-  "",
-);
+const BACKEND_URL = API_URL.replace(/\/api\/?$/, "");
+
+/* =========================================================
+   BASIC HELPERS
+========================================================= */
+
+function cleanText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function getSpecification(
   product: Product,
   slugs: string[],
 ): string | null {
-  const specification =
-    product.specifications?.find((item) =>
-      slugs.includes(
-        item.specification.slug,
-      ),
+  const normalizedSlugs = (slugs ?? []).map((slug) =>
+    slug.toLowerCase().trim(),
+  );
+
+  const specifications = product.specifications;
+
+  // API returned specifications as an array
+  if (Array.isArray(specifications)) {
+    const specification = specifications.find(
+      (item) => {
+        const slug =
+          item.specification?.slug
+            ?.toLowerCase()
+            .trim();
+
+        return Boolean(
+          slug && normalizedSlugs.includes(slug),
+        );
+      },
     );
 
-  if (!specification) {
+    if (!specification) {
+      return null;
+    }
+
+    const value =
+      specification.customValue ??
+      specification.value?.value ??
+      null;
+
+    return value ? cleanText(value) : null;
+  }
+
+  // API returned specifications as an object/map
+  if (
+    specifications &&
+    typeof specifications === "object"
+  ) {
+    const specificationMap =
+      specifications as unknown as Record<
+        string,
+        unknown
+      >;
+
+    for (const slug of normalizedSlugs) {
+      const matchingKey =
+        Object.keys(specificationMap).find(
+          (key) =>
+            key.toLowerCase().trim() === slug,
+        );
+
+      if (!matchingKey) {
+        continue;
+      }
+
+      const rawValue =
+        specificationMap[matchingKey];
+
+      if (
+        typeof rawValue === "string" ||
+        typeof rawValue === "number"
+      ) {
+        return cleanText(String(rawValue));
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === "object"
+      ) {
+        const obj =
+          rawValue as Record<string, unknown>;
+
+        const value =
+          obj.value ??
+          obj.customValue ??
+          null;
+
+        if (
+          typeof value === "string" ||
+          typeof value === "number"
+        ) {
+          return cleanText(String(value));
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/* =========================================================
+   DESCRIPTION FALLBACKS
+========================================================= */
+
+function getDescription(product: Product): string {
+  return cleanText(
+    product.shortDescription ??
+      product.description ??
+      "",
+  );
+}
+
+function getDescriptionValue(
+  product: Product,
+  patterns: RegExp[],
+): string | null {
+  const description = getDescription(product);
+
+  if (!description) {
     return null;
   }
 
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+
+    if (match?.[1]) {
+      return cleanText(match[1]);
+    }
+  }
+
+  return null;
+}
+
+function getDisplay(product: Product): string | null {
   return (
-    specification.customValue ??
-    specification.value?.value ??
-    null
+    getSpecification(product, [
+      "screen-size",
+      "display-size",
+      "screen",
+    ]) ??
+    getDescriptionValue(product, [
+      /(\d+(?:\.\d+)?)\s*(?:inches|inch|")\s*(?:oled|amoled|lcd|display|screen)?/i,
+    ])
   );
 }
+
+function getDisplayType(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "display-type",
+      "screen-type",
+      "panel-type",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(AMOLED|OLED|Super AMOLED|LTPO AMOLED|P-OLED|POLED|LCD|IPS LCD|TFT LCD)\b/i,
+    ])
+  );
+}
+
+function getRefreshRate(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "refresh-rate",
+      "display-refresh-rate",
+    ]) ??
+    getDescriptionValue(product, [
+      /(\d+(?:\.\d+)?)\s*Hz\s*(?:refresh rate)?/i,
+    ])
+  );
+}
+
+function getBattery(product: Product): string | null {
+  return (
+    getSpecification(product, [
+      "battery-capacity",
+      "battery",
+      "battery-size",
+    ]) ??
+    getDescriptionValue(product, [
+      /(\d+(?:,\d+)?|\d+(?:\.\d+)?)\s*mAh\s*Battery/i,
+      /(\d+(?:,\d+)?|\d+(?:\.\d+)?)\s*mAh/i,
+    ])
+  );
+}
+
+function getCharging(product: Product): string | null {
+  return (
+    getSpecification(product, [
+      "charging-wattage",
+      "fast-charging",
+      "charging",
+      "charging-speed",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(Fast Charging|Super Fast Charging|Turbo Charging|HyperCharge|Dash Charge|Warp Charge|VOOC Charging|SUPERVOOC|Wireless Charging)\b/i,
+    ])
+  );
+}
+
+function getRearCamera(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "rear-camera",
+      "main-camera",
+      "primary-camera",
+    ]) ??
+    getDescriptionValue(product, [
+      /features\s+(.*?)(?:\s+rear camera)/i,
+      /(\d+\s*MP(?:\s*\+\s*\d+\s*MP)*(?:\s+[A-Za-z]+)?)\s+rear camera/i,
+    ])
+  );
+}
+
+function getFrontCamera(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "front-camera",
+      "selfie-camera",
+    ]) ??
+    getDescriptionValue(product, [
+      /(?:and\s+a\s+)?(\d+\s*MP)\s+front camera/i,
+      /(\d+\s*MP)\s+selfie camera/i,
+    ])
+  );
+}
+
+function getProcessor(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "processor",
+      "cpu",
+      "chipset",
+      "soc",
+    ]) ??
+    getDescriptionValue(product, [
+      /powered by\s+([^.,]+?)(?:\s+with|\s+and|\.)/i,
+      /(?:powered by|processor|chipset)\s+([A-Za-z0-9 .-]+)/i,
+    ])
+  );
+}
+
+function getRam(product: Product): string | null {
+  return (
+    getSpecification(product, [
+      "ram",
+      "memory",
+    ]) ??
+    product.variants?.[0]?.ram ??
+    getDescriptionValue(product, [
+      /with\s+(\d+(?:\.\d+)?\s*(?:GB|MB))\s*RAM/i,
+      /(\d+(?:\.\d+)?\s*GB)\s+RAM/i,
+    ])
+  );
+}
+
+function getStorage(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "internal-storage",
+      "inbuilt-memory",
+      "storage",
+      "rom",
+    ]) ??
+    product.variants?.[0]?.storage ??
+    getDescriptionValue(product, [
+      /(\d+(?:\.\d+)?\s*(?:GB|TB))\s+storage/i,
+      /(\d+(?:\.\d+)?\s*(?:GB|TB))\s+inbuilt storage/i,
+    ])
+  );
+}
+
+function getConnectivity(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "network",
+      "connectivity",
+      "network-type",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(5G|4G|4G LTE|3G)\b/i,
+    ])
+  );
+}
+
+function getWifi(product: Product): string | null {
+  return (
+    getSpecification(product, [
+      "wifi-version",
+      "wifi",
+      "wi-fi",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(Wi-Fi\s*\d+(?:\.\d+)?|Wi-Fi\s*[a-z0-9-]+)\b/i,
+    ])
+  );
+}
+
+function getBluetooth(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "bluetooth",
+      "bluetooth-version",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(Bluetooth\s*\d+(?:\.\d+)?)\b/i,
+    ])
+  );
+}
+
+function getMemoryCard(
+  product: Product,
+): string | null {
+  return getSpecification(product, [
+    "memory-card",
+    "expandable-storage",
+    "card-slot",
+  ]);
+}
+
+function getOperatingSystem(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "operating-system",
+      "os",
+      "software",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(iOS\s*\d+(?:\.\d+)?|Android\s*\d+(?:\.\d+)?|Android)\b/i,
+    ])
+  );
+}
+
+function getReverseWirelessCharging(
+  product: Product,
+): string | null {
+  return (
+    getSpecification(product, [
+      "reverse-wireless-charging",
+      "reverse-charging",
+    ]) ??
+    getDescriptionValue(product, [
+      /\b(Reverse Wireless Charging)\b/i,
+    ])
+  );
+}
+
+function getAllSpecifications(
+  product: Product,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const item of product.specifications ?? []) {
+    const slug = item.specification?.slug?.trim().toLowerCase();
+
+    if (!slug) continue;
+
+    const value =
+      item.customValue ??
+      item.value?.value ??
+      "";
+
+    const cleanedValue = cleanText(value);
+
+    if (!cleanedValue) continue;
+
+    result[slug] = cleanedValue;
+  }
+
+  return result;
+}
+
+
+/* =========================================================
+   IMAGE
+========================================================= */
 
 function getPrimaryImage(
   product: Product,
@@ -180,7 +575,12 @@ function getPrimaryImage(
   const primaryImage =
     product.images?.find(
       (image) => image.isPrimary,
-    ) ?? product.images?.[0];
+    ) ??
+    [...(product.images ?? [])].sort(
+      (a, b) =>
+        (a.sortOrder ?? 0) -
+        (b.sortOrder ?? 0),
+    )[0];
 
   if (!primaryImage?.url) {
     return "/images/mobile-placeholder.png";
@@ -202,17 +602,29 @@ function getPrimaryImage(
   return `${BACKEND_URL}/${url}`;
 }
 
+/* =========================================================
+   PRICE
+========================================================= */
+
 function getLowestPrice(
   product: Product,
 ): ProductPrice | null {
-  if (
-    !product.prices ||
-    product.prices.length === 0
-  ) {
+  const prices = product.prices ?? [];
+
+  if (prices.length === 0) {
     return null;
   }
 
-  return product.prices.reduce(
+  const inStockPrices = prices.filter(
+    (price) => price.inStock !== false,
+  );
+
+  const usablePrices =
+    inStockPrices.length > 0
+      ? inStockPrices
+      : prices;
+
+  return usablePrices.reduce(
     (lowest, current) => {
       const lowestAmount = Number(
         lowest.amount,
@@ -221,6 +633,18 @@ function getLowestPrice(
       const currentAmount = Number(
         current.amount,
       );
+
+      if (
+        !Number.isFinite(currentAmount)
+      ) {
+        return lowest;
+      }
+
+      if (
+        !Number.isFinite(lowestAmount)
+      ) {
+        return current;
+      }
 
       return currentAmount < lowestAmount
         ? current
@@ -242,7 +666,7 @@ function formatPrice(
 
   const numericAmount = Number(amount);
 
-  if (Number.isNaN(numericAmount)) {
+  if (!Number.isFinite(numericAmount)) {
     return "Price unavailable";
   }
 
@@ -251,260 +675,312 @@ function formatPrice(
   )}`;
 }
 
-function calculateSpecScore(product: Product): number {
-  const specs = product.specifications ?? [];
+/* =========================================================
+   RATING / SCORE
+========================================================= */
 
-  if (specs.length === 0) {
-    return 0;
-  }
-
-  const getValue = (slugs: string[]) => {
-    const spec = specs.find((item) =>
-      slugs.includes(item.specification?.slug),
-    );
-
-    return spec?.customValue ?? spec?.value?.value ?? "";
-  };
-
-  const scores: number[] = [];
-
-  // Battery
-  const battery = parseInt(getValue(["battery", "battery-capacity"]));
-  if (battery) {
-    scores.push(
-      Math.min(100, Math.max(0, ((battery - 3000) / 3000) * 100)),
-    );
-  }
-
-  // RAM
-  const ram = parseInt(getValue(["ram"]));
-  if (ram) {
-    scores.push(
-      Math.min(100, Math.max(0, (ram / 16) * 100)),
-    );
-  }
-
-  // Storage
-  const storageText = getValue([
-    "internal-storage",
-    "inbuilt-memory",
-  ]);
-
-  const storage = parseInt(storageText);
-
-  if (storage) {
-    scores.push(
-      Math.min(100, Math.max(0, (storage / 1024) * 100)),
-    );
-  }
-
-  // Refresh rate
-  const refreshRate = parseInt(getValue(["refresh-rate"]));
-
-  if (refreshRate) {
-    scores.push(
-      Math.min(100, Math.max(0, (refreshRate / 144) * 100)),
-    );
-  }
-
-  // Charging
-  const charging = parseInt(
-    getValue(["charging-wattage", "fast-charging"]),
-  );
-
-  if (charging) {
-    scores.push(
-      Math.min(100, Math.max(0, (charging / 120) * 100)),
-    );
-  }
-
-  // Rear camera
-  const camera = parseInt(getValue(["rear-camera"]));
-
-  if (camera) {
-    scores.push(
-      Math.min(100, Math.max(0, (camera / 200) * 100)),
-    );
-  }
-
-  // Display type
-  const displayType = getValue(["display-type"]).toLowerCase();
-
-  if (displayType) {
-    if (
-      displayType.includes("amoled") ||
-      displayType.includes("oled")
-    ) {
-      scores.push(95);
-    } else if (displayType.includes("lcd")) {
-      scores.push(65);
-    } else {
-      scores.push(75);
-    }
-  }
-
-  if (scores.length === 0) {
-    return 0;
-  }
-
-  return Math.round(
-    scores.reduce((sum, value) => sum + value, 0) / scores.length,
-  );
-}
-
-function calculateRating(product: Product): number {
+function calculateRating(
+  product: Product,
+): number {
   const reviews = product.reviews ?? [];
 
   if (reviews.length === 0) {
     return 0;
   }
 
-  const total = reviews.reduce(
-    (sum, review) => sum + Number(review.rating || 0),
+  const validRatings = reviews
+    .map((review) => Number(review.rating))
+    .filter((rating) =>
+      Number.isFinite(rating),
+    );
+
+  if (validRatings.length === 0) {
+    return 0;
+  }
+
+  const total = validRatings.reduce(
+    (sum, rating) => sum + rating,
     0,
   );
 
-  return Number((total / reviews.length).toFixed(1));
+  return Number(
+    (total / validRatings.length).toFixed(1),
+  );
 }
 
+function calculateSpecScore(
+  product: Product,
+): number {
+  const scores: number[] = [];
 
-function convertProduct(product: Product): Mobile {
-  const lowestPrice =
-    getLowestPrice(product);
+  // Display size
+  const displayText = getSpecification(product, [
+    "screen-size",
+    "display-size",
+    "screen",
+  ]);
+
+  const display = parseFloat(displayText ?? "");
+
+  if (Number.isFinite(display)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (display / 7) * 100,
+        ),
+      ),
+    );
+  }
+
+  // Refresh rate
+  const refreshText = getSpecification(product, [
+    "refresh-rate",
+    "display-refresh-rate",
+  ]);
+
+  const refreshRate = parseFloat(
+    refreshText ?? "",
+  );
+
+  if (Number.isFinite(refreshRate)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (refreshRate / 165) * 100,
+        ),
+      ),
+    );
+  }
+
+  // Battery
+  const batteryText = getSpecification(product, [
+    "battery-capacity",
+    "battery",
+    "battery-size",
+  ]);
+
+  const battery = parseFloat(
+    batteryText?.replace(/,/g, "") ?? "",
+  );
+
+  if (Number.isFinite(battery)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (battery / 7000) * 100,
+        ),
+      ),
+    );
+  }
+
+  // RAM
+  const ramText = getSpecification(product, [
+    "ram",
+    "memory",
+  ]);
+
+  const ram = parseFloat(
+    ramText ?? "",
+  );
+
+  if (Number.isFinite(ram)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (ram / 24) * 100,
+        ),
+      ),
+    );
+  }
+
+  // Storage
+  const storageText = getSpecification(product, [
+    "storage",
+    "internal-storage",
+    "inbuilt-memory",
+    "rom",
+  ]);
+
+  const storage = parseFloat(
+    storageText ?? "",
+  );
+
+  if (Number.isFinite(storage)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (storage / 1024) * 100,
+        ),
+      ),
+    );
+  }
+
+  // Camera
+  const cameraText = getSpecification(product, [
+    "rear-camera",
+    "main-camera",
+    "primary-camera",
+    "camera",
+  ]);
+
+  const camera = parseFloat(
+    cameraText ?? "",
+  );
+
+  if (Number.isFinite(camera)) {
+    scores.push(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          (camera / 200) * 100,
+        ),
+      ),
+    );
+  }
+
+  if (scores.length === 0) {
+    return 0;
+  }
+
+  const average =
+    scores.reduce(
+      (sum, score) => sum + score,
+      0,
+    ) / scores.length;
+
+  return Math.round(
+    Math.min(
+      100,
+      Math.max(0, average),
+    ),
+  );
+}
+
+/* =========================================================
+   PRODUCT CONVERSION
+========================================================= */
+
+function convertProduct(
+  product: Product,
+): Mobile {
+  const lowestPrice = getLowestPrice(product);
+
+  const display = getDisplay(product);
+  const displayType = getDisplayType(product);
+  const refreshRate = getRefreshRate(product);
+  const battery = getBattery(product);
+  const charging = getCharging(product);
+  const rearCamera = getRearCamera(product);
+  const frontCamera = getFrontCamera(product);
+  const processor = getProcessor(product);
+  const ram = getRam(product);
+  const storage = getStorage(product);
+  const connectivity = getConnectivity(product);
+  const wifi = getWifi(product);
+  const bluetooth = getBluetooth(product);
+  const memoryCard = getMemoryCard(product);
+  const operatingSystem = getOperatingSystem(product);
+  const reverseWirelessCharging =
+    getReverseWirelessCharging(product);
+
+  // Complete structured specification map
+  const specifications = getAllSpecifications(product);
 
   return {
     id: product.id,
-
     slug: product.slug,
-
     name: product.name,
+
+    brand: product.brand?.name ?? null,
+    category: product.category?.name ?? null,
 
     price: formatPrice(
       lowestPrice
         ? lowestPrice.amount
         : null,
     ),
-    score: calculateSpecScore(product),
-    rating: calculateRating(product),
-    image: getPrimaryImage(product),
-    reviewCount: product.reviews?.length ?? 0,
 
-    // =========================
-    // DISPLAY
-    // =========================
+    score: calculateSpecScore(product),
+
+    rating: calculateRating(product),
+
+    reviewCount:
+      product.reviews?.length ?? 0,
+
+    image: getPrimaryImage(product),
 
     display:
-      getSpecification(product, [
-        "screen-size",
-      ]) ??
+      display ??
       "Display information unavailable",
 
-    displayType:
-      getSpecification(product, [
-        "display-type",
-      ]) ?? null,
+    displayType,
 
-    refreshRate:
-      getSpecification(product, [
-        "refresh-rate",
-      ]) ?? null,
-
-    // =========================
-    // BATTERY
-    // =========================
+    refreshRate,
 
     battery:
-      getSpecification(product, [
-        "battery-capacity",
-      ]) ??
+      battery ??
       "Battery information unavailable",
 
-    charging:
-      getSpecification(product, [
-        "charging-wattage",
-      ]) ?? null,
-
-    // =========================
-    // CAMERA
-    // =========================
+    charging,
 
     camera:
-      getSpecification(product, [
-        "rear-camera",
-      ]) ??
+      rearCamera ??
       "Camera information unavailable",
 
-    frontCamera:
-      getSpecification(product, [
-        "front-camera",
-      ]) ?? null,
-
-    // =========================
-    // MEMORY
-    // =========================
+    frontCamera,
 
     storage:
-      getSpecification(product, [
-        "internal-storage",
-      ]) ??
-      product.variants?.[0]?.storage ??
+      storage ??
       "Storage information unavailable",
 
-    ram:
-      getSpecification(product, [
-        "ram",
-      ]) ??
-      product.variants?.[0]?.ram ??
+    ram,
+
+    processor,
+
+    connectivity,
+
+    wifi,
+
+    bluetooth,
+
+    memoryCard,
+
+    operatingSystem,
+
+    reverseWirelessCharging,
+
+    // IMPORTANT:
+    // Pass every structured specification
+    // to MobileCard.
+    specifications,
+
+    seller:
+      lowestPrice?.seller?.name ??
+      lowestPrice?.store?.name ??
       null,
 
-    // =========================
-    // PROCESSOR
-    // =========================
-
-    processor:
-      getSpecification(product, [
-        "processor",
-      ]) ?? null,
-
-    // =========================
-    // CONNECTIVITY
-    // =========================
-
-    connectivity:
-      getSpecification(product, [
-        "network",
-      ]) ?? null,
-
-    wifi:
-      getSpecification(product, [
-        "wifi-version",
-      ]) ?? null,
-
-    bluetooth:
-      getSpecification(product, [
-        "bluetooth",
-      ]) ?? null,
-
-    // =========================
-    // OTHER
-    // =========================
-
-    memoryCard:
-      getSpecification(product, [
-        "memory-card",
-      ]) ?? null,
-
-    operatingSystem:
-      getSpecification(product, [
-        "operating-system",
-      ]) ?? null,
-
-    reverseWirelessCharging:
-      getSpecification(product, [
-        "reverse-wireless-charging",
-      ]) ?? null,
+    description:
+      product.shortDescription ??
+      product.description ??
+      null,
   };
 }
+
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export default function MobileList({
   search = "",
@@ -518,27 +994,36 @@ export default function MobileList({
   onPageChange,
   onSortChange,
 }: MobileListProps) {
-  const [products, setProducts] = useState<Mobile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
- 
-const [totalPages, setTotalPages] = useState(1);
-const [totalResults, setTotalResults] = useState(0);
+  const [products, setProducts] =
+    useState<Mobile[]>([]);
 
-const limit = 10;
-const startResult =
-  totalResults === 0
-    ? 0
-    : (page - 1) * limit + 1;
+  const [loading, setLoading] =
+    useState(true);
 
-const endResult = Math.min(
-  page * limit,
-  totalResults,
-);
+  const [error, setError] =
+    useState<string | null>(null);
 
-// =========================
-  // FETCH PRODUCTS
-  // =========================
+  const [totalPages, setTotalPages] =
+    useState(1);
+
+  const [totalResults, setTotalResults] =
+    useState(0);
+
+  const limit = 10;
+
+  const startResult =
+    totalResults === 0
+      ? 0
+      : (page - 1) * limit + 1;
+
+  const endResult = Math.min(
+    page * limit,
+    totalResults,
+  );
+
+  /* =======================================================
+     FETCH PRODUCTS
+  ======================================================= */
 
   useEffect(() => {
     let cancelled = false;
@@ -635,7 +1120,6 @@ const endResult = Math.min(
 
         const result: ProductsResponse =
           await response.json();
-  
 
         if (!result.success) {
           throw new Error(
@@ -647,20 +1131,25 @@ const endResult = Math.min(
           return;
         }
 
-       const convertedProducts = (
-  result.data?.products ?? []
-).map((product) => convertProduct(product));
+        const convertedProducts =
+          (
+            result.data?.products ??
+            []
+          ).map(convertProduct);
 
-setProducts(convertedProducts);
+        setProducts(
+          convertedProducts,
+        );
 
-setTotalPages(
-  result.data?.pagination?.totalPages ?? 1,
-);
+        setTotalPages(
+          result.data?.pagination
+            ?.totalPages ?? 1,
+        );
 
-setTotalResults(
-  result.data?.pagination?.total ?? 0,
-);
-      
+        setTotalResults(
+          result.data?.pagination
+            ?.total ?? 0,
+        );
       } catch (err) {
         if (cancelled) {
           return;
@@ -701,15 +1190,9 @@ setTotalResults(
     page,
   ]);
 
-  // =========================
-  // LOCAL SORTING
-  // =========================
-
-
-
-  // =========================
-  // LOADING STATE
-  // =========================
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
   if (loading) {
     return (
@@ -726,11 +1209,8 @@ setTotalResults(
 
               <div className="flex-1 space-y-3">
                 <div className="h-5 w-3/4 rounded bg-slate-200" />
-
                 <div className="h-4 w-1/2 rounded bg-slate-200" />
-
                 <div className="h-4 w-2/3 rounded bg-slate-200" />
-
                 <div className="h-4 w-1/3 rounded bg-slate-200" />
               </div>
             </div>
@@ -740,9 +1220,9 @@ setTotalResults(
     );
   }
 
-  // =========================
-  // ERROR STATE
-  // =========================
+  /* =======================================================
+     ERROR
+  ======================================================= */
 
   if (error) {
     return (
@@ -758,14 +1238,11 @@ setTotalResults(
     );
   }
 
-  // =========================
-  // EMPTY STATE
-  // =========================
+  /* =======================================================
+     EMPTY
+  ======================================================= */
 
-  if (
-    !loading &&
-    products.length === 0
-  ) {
+  if (products.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">
@@ -784,272 +1261,261 @@ setTotalResults(
     );
   }
 
-  // =========================
-  // PRODUCT LIST
-  // =========================
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-  <div className="space-y-5">
-    {/* RESULTS + SORT BAR */}
-    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5">
+      {/* RESULTS + SORT */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-slate-600">
+          Showing{" "}
+          <span className="font-semibold text-slate-900">
+            {startResult} – {endResult}
+          </span>{" "}
+          of{" "}
+          <span className="font-semibold text-slate-900">
+            {totalResults.toLocaleString(
+              "en-IN",
+            )}
+          </span>{" "}
+          results
 
-      {/* Results */}
-      <div className="text-sm text-slate-600">
-        Showing{" "}
-        <span className="font-semibold text-slate-900">
-          {startResult} – {endResult}
-        </span>{" "}
-        of{" "}
-        <span className="font-semibold text-slate-900">
-          {totalResults.toLocaleString("en-IN")}
-        </span>{" "}
-        results
-        {search.trim() && (
-          <>
-            {" "}for{" "}
-            <span className="font-semibold text-slate-900">
-              "{search.trim()}"
-            </span>
-          </>
-        )}
-      </div>
+          {search.trim() && (
+            <>
+              {" "}
+              for{" "}
+              <span className="font-semibold text-slate-900">
+                "{search.trim()}"
+              </span>
+            </>
+          )}
+        </div>
 
-      {/* Sort */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm font-semibold text-slate-700">
-          Sort By
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm font-semibold text-slate-700">
+            Sort By
+          </span>
 
-        {[
-          {
-            value: "relevance",
-            label: "Relevance",
-          },
-          {
-            value: "score",
-            label: "Popularity",
-          },
-          {
-            value: "price-low",
-            label: "Price -- Low to High",
-          },
-          {
-            value: "price-high",
-            label: "Price -- High to Low",
-          },
-          {
-            value: "newest",
-            label: "Newest First",
-          },
-        ].map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() =>
-              onSortChange(option.value)
-            }
-            className={`
-              rounded-xl px-3 py-2 text-sm font-medium
-              transition-all duration-200
-              ${
-                sortBy === option.value ||
-                (!sortBy &&
-                  option.value === "relevance")
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-                  : "border border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-sm"
+          {[
+            {
+              value: "relevance",
+              label: "Relevance",
+            },
+            {
+              value: "score",
+              label: "Popularity",
+            },
+            {
+              value: "price-low",
+              label: "Price -- Low to High",
+            },
+            {
+              value: "price-high",
+              label: "Price -- High to Low",
+            },
+            {
+              value: "newest",
+              label: "Newest First",
+            },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() =>
+                onSortChange(
+                  option.value,
+                )
               }
-            `}
-          >
-            {option.label}
-          </button>
-        ))}
+              className={`
+                rounded-xl px-3 py-2 text-sm font-medium
+                transition-all duration-200
+                ${
+                  sortBy ===
+                    option.value ||
+                  (!sortBy &&
+                    option.value ===
+                      "relevance")
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                    : "border border-slate-200 bg-white text-slate-600 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-sm"
+                }
+              `}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
 
-    {/* PRODUCTS */}
-    {products.map((mobile) => (
-      <MobileCard
-        key={mobile.id}
-        mobile={mobile}
-      />
-    ))}
+      {/* PRODUCTS */}
+      {products.map((mobile) => {
+  const cameraText = getSpecification(mobile, [
+    "rear-camera",
+    "main-camera",
+    "primary-camera",
+    "camera",
+  ]);
 
-    {/* EMPTY STATE */}
-    {!loading &&
-      !error &&
-      products.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-            <span className="text-2xl">📱</span>
-          </div>
+  const storageText = getSpecification(mobile, [
+    "storage",
+    "internal-storage",
+    "inbuilt-memory",
+  ]);
 
-          <h3 className="text-lg font-semibold text-slate-900">
-            No mobiles found
-          </h3>
+  return (
+    <MobileCard
+      key={mobile.id}
+      mobile={mobile}
+      cameraText={cameraText}
+      storageText={storageText}
+    />
+  );
+})}
 
-          <p className="mt-1 text-sm text-slate-500">
-            Try changing your search or filters.
-          </p>
+      {/* PAGINATION */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
+          {/* PREVIOUS */}
+          <button
+            type="button"
+            onClick={() => {
+              if (page > 1) {
+                onPageChange(
+                  page - 1,
+                );
+              }
+            }}
+            disabled={page <= 1}
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-base">
+              ‹
+            </span>
+
+            <span className="hidden sm:inline">
+              Previous
+            </span>
+          </button>
+
+          {/* PAGE NUMBERS */}
+          {Array.from(
+            {
+              length: totalPages,
+            },
+            (_, index) =>
+              index + 1,
+          )
+            .filter(
+              (pageNumber) => {
+                if (
+                  totalPages <= 7
+                ) {
+                  return true;
+                }
+
+                return (
+                  pageNumber === 1 ||
+                  pageNumber ===
+                    totalPages ||
+                  Math.abs(
+                    pageNumber - page,
+                  ) <= 1
+                );
+              },
+            )
+            .map(
+              (
+                pageNumber,
+                index,
+                visiblePages,
+              ) => {
+                const previousPage =
+                  visiblePages[
+                    index - 1
+                  ];
+
+                const showEllipsis =
+                  previousPage &&
+                  pageNumber -
+                    previousPage >
+                    1;
+
+                return (
+                  <span
+                    key={
+                      pageNumber
+                    }
+                    className="flex items-center"
+                  >
+                    {showEllipsis && (
+                      <span className="px-2 text-sm font-bold text-slate-400">
+                        ...
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onPageChange(
+                          pageNumber,
+                        )
+                      }
+                      aria-current={
+                        page ===
+                        pageNumber
+                          ? "page"
+                          : undefined
+                      }
+                      className={`
+                        flex h-10 min-w-10
+                        items-center justify-center
+                        rounded-xl px-3
+                        text-sm font-semibold
+                        transition-all duration-200
+                        ${
+                          page ===
+                          pageNumber
+                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                            : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md"
+                        }
+                      `}
+                    >
+                      {pageNumber}
+                    </button>
+                  </span>
+                );
+              },
+            )}
+
+          {/* NEXT */}
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                page <
+                totalPages
+              ) {
+                onPageChange(
+                  page + 1,
+                );
+              }
+            }}
+            disabled={
+              page >= totalPages
+            }
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="hidden sm:inline">
+              Next
+            </span>
+
+            <span className="text-base">
+              ›
+            </span>
+          </button>
         </div>
       )}
-
-    {/* PAGINATION */}
-    {totalPages > 1 && (
-      <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
-
-        {/* PREVIOUS */}
-        <button
-          type="button"
-          onClick={() => {
-            if (page > 1) {
-              onPageChange(page - 1);
-            }
-          }}
-          disabled={page <= 1}
-          className="
-            inline-flex h-10 items-center gap-1.5
-            rounded-xl border border-gray-200
-            bg-white px-3.5
-            text-sm font-medium text-gray-700
-            shadow-sm
-            transition-all duration-200
-            hover:-translate-y-0.5
-            hover:border-indigo-300
-            hover:bg-indigo-50
-            hover:text-indigo-600
-            hover:shadow-md
-            active:translate-y-0
-            disabled:cursor-not-allowed
-            disabled:opacity-40
-            disabled:hover:translate-y-0
-            disabled:hover:border-gray-200
-            disabled:hover:bg-white
-            disabled:hover:text-gray-700
-            disabled:hover:shadow-sm
-          "
-        >
-          <span className="text-base">
-            ‹
-          </span>
-
-          <span className="hidden sm:inline">
-            Previous
-          </span>
-        </button>
-
-        {/* PAGE NUMBERS */}
-        {Array.from(
-          {
-            length: totalPages,
-          },
-          (_, index) => index + 1,
-        )
-          .filter((pageNumber) => {
-            if (totalPages <= 7) {
-              return true;
-            }
-
-            return (
-              pageNumber === 1 ||
-              pageNumber === totalPages ||
-              Math.abs(pageNumber - page) <= 1
-            );
-          })
-          .map(
-            (
-              pageNumber,
-              index,
-              visiblePages,
-            ) => {
-              const previousPage =
-                visiblePages[index - 1];
-
-              const showEllipsis =
-                previousPage &&
-                pageNumber - previousPage > 1;
-
-              return (
-                <span
-                  key={pageNumber}
-                  className="flex items-center"
-                >
-                  {showEllipsis && (
-                    <span className="px-2 text-sm font-bold text-slate-400">
-                      ...
-                    </span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onPageChange(pageNumber)
-                    }
-                    aria-current={
-                      page === pageNumber
-                        ? "page"
-                        : undefined
-                    }
-                    className={`
-                      flex h-10 min-w-10
-                      items-center justify-center
-                      rounded-xl px-3
-                      text-sm font-semibold
-                      transition-all duration-200
-                      ${
-                        page === pageNumber
-                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-                          : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md"
-                      }
-                    `}
-                  >
-                    {pageNumber}
-                  </button>
-                </span>
-              );
-            },
-          )}
-
-        {/* NEXT */}
-        <button
-          type="button"
-          onClick={() => {
-            if (page < totalPages) {
-              onPageChange(page + 1);
-            }
-          }}
-          disabled={page >= totalPages}
-          className="
-            inline-flex h-10 items-center gap-1.5
-            rounded-xl border border-gray-200
-            bg-white px-3.5
-            text-sm font-medium text-gray-700
-            shadow-sm
-            transition-all duration-200
-            hover:-translate-y-0.5
-            hover:border-indigo-300
-            hover:bg-indigo-50
-            hover:text-indigo-600
-            hover:shadow-md
-            active:translate-y-0
-            disabled:cursor-not-allowed
-            disabled:opacity-40
-            disabled:hover:translate-y-0
-            disabled:hover:border-gray-200
-            disabled:hover:bg-white
-            disabled:hover:text-gray-700
-            disabled:hover:shadow-sm
-          "
-        >
-          <span className="hidden sm:inline">
-            Next
-          </span>
-
-          <span className="text-base">
-            ›
-          </span>
-        </button>
-      </div>
-    )}
-  </div>
-);
+    </div>
+  );
 }

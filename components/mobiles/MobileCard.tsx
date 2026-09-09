@@ -44,37 +44,37 @@ export default function MobileCard({
     <article className="group relative overflow-hidden border-b border-slate-200 bg-white transition-colors hover:bg-slate-50/40">
       <div className="p-4 sm:p-5 lg:p-6">
         <div className="flex gap-4 sm:gap-6">
+         
           {/* =====================================================
-              PRODUCT IMAGE
+          PRODUCT IMAGE
           ====================================================== */}
+<div className="relative flex w-[135px] shrink-0 items-start justify-center sm:w-[170px] lg:w-[190px]">
+  <Link
+    href={`/mobiles/${mobile.slug}`}
+    
+    className="relative flex h-[185px] w-[125px] items-center justify-center rounded-lg bg-gradient-to-b from-slate-50 to-white to-white group-hover:-translate-y-1 sm:h-[205px] sm:w-[145px] lg:h-[220px] lg:w-[165px]"
+  >
+    <div className="absolute inset-x-3 bottom-2 h-8 rounded-full bg-slate-300/30 blur-xl" />
 
-          <div className="relative flex w-[105px] shrink-0 items-start justify-center sm:w-[135px]">
-            <Link
-              href={`/mobiles/${mobile.slug}`}
-              className="relative flex h-[165px] w-[100px] items-center justify-center rounded-2xl bg-gradient-to-b from-slate-50 to-white transition-transform duration-300 group-hover:-translate-y-1 sm:h-[190px] sm:w-[120px]"
-            >
-              <div className="absolute inset-x-3 bottom-2 h-8 rounded-full bg-slate-300/30 blur-xl" />
+    <img
+      src={mobile.image}
+      alt={mobile.name}
+      className="relative z-10 h-[155px] w-[125px] object-contain drop-shadow-[0_10px_12px_rgba(15,23,42,0.14)] transition-transform duration-300 group-hover:scale-[1.04] sm:h-[175px] sm:w-[145px] lg:h-[190px] lg:w-[166px]"
+    />
+  </Link>
 
-              <img
-                src={mobile.image}
-                alt={mobile.name}
-                className="relative z-10 h-[155px] w-[92px] object-contain drop-shadow-[0_8px_10px_rgba(15,23,42,0.12)] transition-transform duration-300 group-hover:scale-[1.04] sm:h-[180px] sm:w-[110px]"
-              />
-            </Link>
-
-            {/* Compare button */}
-
-            <button
-              type="button"
-              aria-label={`Compare ${mobile.name}`}
-              className="absolute -bottom-1 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
-            >
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[11px] font-black text-white">
-                +
-              </span>
-              Compare
-            </button>
-          </div>
+  {/* Compare button */}
+  <button
+    type="button"
+    aria-label={`Compare ${mobile.name}`}
+    className="absolute -bottom-1 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+  >
+    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[11px] font-black text-white">
+      +
+    </span>
+    Compare
+  </button>
+</div>
 
           {/* =====================================================
               PRODUCT CONTENT

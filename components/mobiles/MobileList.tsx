@@ -640,7 +640,7 @@ export default function MobileList({
           return;
         }
 
-        const convertedProducts = (
+       const convertedProducts = (
   result.data?.products ?? []
 ).map((product) => convertProduct(product));
 
@@ -649,15 +649,7 @@ setProducts(convertedProducts);
 setTotalPages(
   result.data?.pagination?.totalPages ?? 1,
 );
-
-        setProducts(
-          convertedProducts,
-        );
-
-        setTotalPages(
-          result.pagination
-            ?.totalPages ?? 1,
-        );
+      
       } catch (err) {
         if (cancelled) {
           return;
@@ -888,48 +880,86 @@ setTotalPages(
       // =========================
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() =>
-              setPage(
-                (current) =>
-                  Math.max(
-                    1,
-                    current - 1,
-                  ),
-              )
-            }
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Previous
-          </button>
+  <div className="flex items-center justify-center gap-2 pt-4">
+    {/* Previous */}
+    <button
+      type="button"
+      disabled={page <= 1}
+      onClick={() =>
+        setPage((current) => Math.max(1, current - 1))
+      }
+      className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <span>←</span>
+      Previous
+    </button>
 
-          <div className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
-            {page} / {totalPages}
-          </div>
+    {/* Page numbers */}
+    <div className="flex items-center gap-1">
+      {Array.from(
+        { length: totalPages },
+        (_, index) => index + 1,
+      )
+        .filter((pageNumber) => {
+          if (totalPages <= 7) return true;
 
-          <button
-            type="button"
-            disabled={
-              page >= totalPages
-            }
-            onClick={() =>
-              setPage(
-                (current) =>
-                  Math.min(
-                    totalPages,
-                    current + 1,
-                  ),
-              )
-            }
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      )}
+          return (
+            pageNumber === 1 ||
+            pageNumber === totalPages ||
+            Math.abs(pageNumber - page) <= 1
+          );
+        })
+        .map((pageNumber, index, visiblePages) => {
+          const previousPage =
+            visiblePages[index - 1];
+
+          const showEllipsis =
+            previousPage &&
+            pageNumber - previousPage > 1;
+
+          return (
+            <span
+              key={pageNumber}
+              className="flex items-center"
+            >
+              {showEllipsis && (
+                <span className="px-2 text-sm font-bold text-slate-400">
+                  ...
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setPage(pageNumber)}
+                className={`flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-bold transition-all ${
+                  page === pageNumber
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                    : "border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                }`}
+              >
+                {pageNumber}
+              </button>
+            </span>
+          );
+        })}
+    </div>
+
+    {/* Next */}
+    <button
+      type="button"
+      disabled={page >= totalPages}
+      onClick={() =>
+        setPage((current) =>
+          Math.min(totalPages, current + 1),
+        )
+      }
+      className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      Next
+      <span>→</span>
+    </button>
+  </div>
+)}
     </div>
   );
 }

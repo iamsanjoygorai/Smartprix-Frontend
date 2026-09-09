@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -384,6 +386,85 @@ const filterGroups = [
   },
 ];
 
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function getMatchScore(text: string, query: string) {
+  const originalText = text.trim().toLowerCase();
+  const originalQuery = query.trim().toLowerCase();
+
+  if (!originalQuery) return 0;
+
+  const textNormalized = normalizeSearchText(text);
+  const queryNormalized = normalizeSearchText(query);
+
+  // Exact text match
+  if (originalText === originalQuery) {
+    return 1000;
+  }
+
+  // Exact match after removing spaces/symbols
+  // Example: "8 GB" === "8gb"
+  if (textNormalized === queryNormalized) {
+    return 980;
+  }
+
+  // Text starts with query
+  if (originalText.startsWith(originalQuery)) {
+    return 900;
+  }
+
+  // Normalized text starts with query
+  if (textNormalized.startsWith(queryNormalized)) {
+    return 880;
+  }
+
+  // Complete query exists inside text
+  if (originalText.includes(originalQuery)) {
+    return 800;
+  }
+
+  // Normalized query exists inside text
+  if (textNormalized.includes(queryNormalized)) {
+    return 780;
+  }
+
+  // Word-by-word matching
+  const queryWords = originalQuery.split(/\s+/).filter(Boolean);
+  const textWords = originalText.split(/\s+/).filter(Boolean);
+
+  let score = 0;
+  let matchedWords = 0;
+
+  for (const queryWord of queryWords) {
+    let bestWordScore = 0;
+
+    for (const textWord of textWords) {
+      if (textWord === queryWord) {
+        bestWordScore = Math.max(bestWordScore, 700);
+      } else if (textWord.startsWith(queryWord)) {
+        bestWordScore = Math.max(bestWordScore, 600);
+      } else if (textWord.includes(queryWord)) {
+        bestWordScore = Math.max(bestWordScore, 500);
+      }
+    }
+
+    if (bestWordScore > 0) {
+      matchedWords++;
+      score += bestWordScore;
+    }
+  }
+
+  if (matchedWords === queryWords.length) {
+    score += 300;
+  }
+
+  return score;
+}
+
 function sortSelectedFirst(
   options: string[],
   selectedOptions: string[],
@@ -449,14 +530,35 @@ function FilterSection({
   accent = "indigo",
   badge,
   children,
+  defaultOpen = true,
+  forceOpen = false,
+  searchOpen = false,
 }: {
   title: string;
   icon: string;
   accent?: string;
   badge?: number;
   children: ReactNode;
+  defaultOpen?: boolean;
+  forceOpen?: boolean;
+  searchOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const previousForceOpen = useRef(forceOpen);
+
+  // Automatically open when a filter becomes selected.
+  // Do NOT automatically close when it becomes unselected.
+  useEffect(() => {
+    if (forceOpen && !previousForceOpen.current) {
+      setIsOpen(true);
+    }
+
+    previousForceOpen.current = forceOpen;
+  }, [forceOpen]);
+
+  // Search opening is temporary.
+  const visibleOpen = isOpen || searchOpen;
 
   const accentClasses: Record<string, string> = {
     indigo: "bg-indigo-50 text-indigo-600",
@@ -487,8 +589,7 @@ function FilterSection({
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
-              accentClasses[accent] ??
-              accentClasses.indigo
+              accentClasses[accent] ?? accentClasses.indigo
             }`}
           >
             {icon}
@@ -506,15 +607,23 @@ function FilterSection({
         </div>
 
         <span
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-500 transition-transform ${
-            isOpen ? "rotate-180" : ""
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-all duration-200 ${
+            visibleOpen
+              ? "bg-slate-100 text-slate-700"
+              : "bg-transparent text-slate-400"
           }`}
         >
-          ↓
+          <span
+            className={`text-[15px] leading-none transition-transform duration-200 ${
+              visibleOpen ? "rotate-90" : ""
+            }`}
+          >
+            ›
+          </span>
         </span>
       </button>
 
-      {isOpen && (
+      {visibleOpen && (
         <div className="px-4 pb-4">
           {children}
         </div>
@@ -668,6 +777,253 @@ const filteredBrands = useMemo(() => {
   brandSort,
   selectedBrands,
 ]);
+
+// ─────────────────────────────────────────────
+// FILTER SEARCH
+// ─────────────────────────────────────────────
+
+const filterSearchQuery = filterSearch.trim().toLowerCase();
+
+// ─────────────────────────────────────────────
+// BRANDS
+// ─────────────────────────────────────────────
+
+const filteredSidebarBrands = useMemo(() => {
+  if (!filterSearchQuery) {
+    return filteredBrands;
+  }
+
+  // Searching "brand" should show all brands
+  if (getMatchScore("Brand", filterSearchQuery) > 0) {
+    return [...filteredBrands];
+  }
+
+  return brands
+    .map((brand) => ({
+      brand,
+      score: getMatchScore(brand, filterSearchQuery),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      const aSelected = selectedBrands.includes(a.brand);
+      const bSelected = selectedBrands.includes(b.brand);
+
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      return a.brand.localeCompare(b.brand);
+    })
+    .map((item) => item.brand);
+}, [
+  filterSearchQuery,
+  filteredBrands,
+  selectedBrands,
+]);
+
+// ─────────────────────────────────────────────
+// DISPLAY
+// ─────────────────────────────────────────────
+
+const filteredDisplays = useMemo(() => {
+  if (!filterSearchQuery) {
+    return sortSelectedFirst(
+      displayOptions,
+      displays,
+    );
+  }
+
+  // Searching "display" should show all display options
+  if (getMatchScore("Display", filterSearchQuery) > 0) {
+    return sortSelectedFirst(
+      displayOptions,
+      displays,
+    );
+  }
+
+  return displayOptions
+    .map((display) => ({
+      display,
+      score: getMatchScore(
+        display,
+        filterSearchQuery,
+      ),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      const aSelected = displays.includes(a.display);
+      const bSelected = displays.includes(b.display);
+
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      return a.display.localeCompare(b.display);
+    })
+    .map((item) => item.display);
+}, [
+  filterSearchQuery,
+  displays,
+]);
+
+// ─────────────────────────────────────────────
+// STORES
+// ─────────────────────────────────────────────
+
+const filteredStores = useMemo(() => {
+  const selectedStores =
+    filterValues.stores ?? [];
+
+  if (!filterSearchQuery) {
+    return sortSelectedFirst(
+      stores,
+      selectedStores,
+    );
+  }
+
+  // Searching "store" or "stores"
+  if (
+    getMatchScore("Stores", filterSearchQuery) > 0 ||
+    getMatchScore("Store", filterSearchQuery) > 0
+  ) {
+    return sortSelectedFirst(
+      stores,
+      selectedStores,
+    );
+  }
+
+  return stores
+    .map((store) => ({
+      store,
+      score: getMatchScore(
+        store,
+        filterSearchQuery,
+      ),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      const aSelected = selectedStores.includes(
+        a.store,
+      );
+
+      const bSelected = selectedStores.includes(
+        b.store,
+      );
+
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      return a.store.localeCompare(b.store);
+    })
+    .map((item) => item.store);
+}, [
+  filterSearchQuery,
+  filterValues.stores,
+]);
+
+// ─────────────────────────────────────────────
+// PRICE
+// ─────────────────────────────────────────────
+
+const priceOptions = [
+  ["Under ₹5,000", "", "5000"],
+  ["₹5,000 - ₹10,000", "5000", "10000"],
+  ["₹10,000 - ₹15,000", "10000", "15000"],
+  ["₹15,000 - ₹20,000", "15000", "20000"],
+  ["₹20,000 - ₹30,000", "20000", "30000"],
+  ["Above ₹30,000", "30000", "30000+"],
+] as const;
+
+const filteredPriceOptions = useMemo(() => {
+  if (!filterSearchQuery) {
+    return priceOptions;
+  }
+
+  // Searching "price" should show all price options
+  if (
+    getMatchScore("Price", filterSearchQuery) > 0
+  ) {
+    return priceOptions;
+  }
+
+  return priceOptions
+    .map((item) => ({
+      item,
+      score: getMatchScore(
+        item[0],
+        filterSearchQuery,
+      ),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      return b.score - a.score;
+    })
+    .map((item) => item.item);
+}, [filterSearchQuery]);
+
+const priceFilterMatches =
+  !filterSearchQuery ||
+  getMatchScore("Price", filterSearchQuery) > 0 ||
+  filteredPriceOptions.length > 0;
+
+// ─────────────────────────────────────────────
+// OTHER FILTER GROUPS
+// ─────────────────────────────────────────────
+
+const filteredFilterGroups = useMemo(() => {
+  if (!filterSearchQuery) {
+    return filterGroups;
+  }
+
+  const query = filterSearchQuery.trim().toLowerCase();
+
+  return filterGroups
+    .map((group) => {
+      const groupTitleMatches =
+        group.title.toLowerCase().includes(query);
+
+      const matchingOptions =
+        group.options.filter((option) =>
+          option.toLowerCase().includes(query),
+        );
+
+      // Group title matched:
+      // show the entire group
+      if (groupTitleMatches) {
+        return {
+          ...group,
+          options: group.options,
+        };
+      }
+
+      // Option matched:
+      // show only matching options
+      if (matchingOptions.length > 0) {
+        return {
+          ...group,
+          options: matchingOptions,
+        };
+      }
+
+      return null;
+    })
+    .filter(
+      (
+        group,
+      ): group is (typeof filterGroups)[number] =>
+        group !== null,
+    );
+}, [filterSearchQuery]);
 
 
 // ─────────────────────────────────────────────
@@ -925,6 +1281,10 @@ const visibleAppliedGroups = showAllAppliedGroups
     maxPriceNumber !== null &&
     minPriceNumber > maxPriceNumber;
 
+    const lastFiveFilterKeys = filterGroups
+  .slice(-5)
+  .map((group) => group.key);
+
   return (
     <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
@@ -1067,50 +1427,51 @@ const visibleAppliedGroups = showAllAppliedGroups
 
 
 {/* PRICE */}
-<FilterSection
-  title="Price"
-  icon="₹"
-  accent="emerald"
-  badge={
-  minPrice || (maxPrice && maxPrice !== "30000+")
-    ? 1
-    : undefined
-}
->
-  <div className="grid grid-cols-2 gap-2">
-    {[
-      ["Under ₹5,000", "", "5000"],
-      ["₹5,000 - ₹10,000", "5000", "10000"],
-      ["₹10,000 - ₹15,000", "10000", "15000"],
-      ["₹15,000 - ₹20,000", "15000", "20000"],
-      ["₹20,000 - ₹30,000", "20000", "30000"],
-      ["Above ₹30,000", "30000", "30000+"],
-    ].map(([label, min, max]) => {
-      const isActive =
-        minPrice === min && maxPrice === max;
+{priceFilterMatches && (
+  <FilterSection
+    title="Price"
+    icon="₹"
+    accent="emerald"
+    badge={
+      minPrice ||
+      (maxPrice && maxPrice !== "30000+")
+        ? 1
+        : undefined
+    }
+  >
+    <div className="grid grid-cols-2 gap-2">
+      {filteredPriceOptions.map(
+        ([label, min, max]) => {
+          const isActive =
+            minPrice === min &&
+            maxPrice === max;
 
-      return (
-        <button
-          key={label}
-          type="button"
-          onClick={() =>
-            onPriceChange(min, max)
-          }
-          className={`rounded-xl border px-2 py-2.5 text-[10px] font-bold transition ${
-            isActive
-              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-              : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50"
-          }`}
-        >
-          {label}
-        </button>
-      );
-    })}
-  </div>
-</FilterSection>
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() =>
+                onPriceChange(min, max)
+              }
+              className={`cursor-pointer rounded-xl border px-2 py-2 text-[10px] font-bold transition ${
+                isActive
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        },
+      )}
+    </div>
+  </FilterSection>
+)}
 
 {/* BRAND */}
-<FilterSection
+{(!filterSearchQuery ||
+  filteredSidebarBrands.length > 0) && (
+  <FilterSection
   title="Brand"
   icon="B"
   accent="indigo"
@@ -1156,7 +1517,7 @@ const visibleAppliedGroups = showAllAppliedGroups
   {/* BRAND LIST */}
   <div className="max-h-[360px] overflow-y-auto pr-1">
     <div className="space-y-0.5">
-      {filteredBrands.map((brand) => (
+      {filteredSidebarBrands.map((brand) => (
         <FilterOption
           key={brand}
           label={
@@ -1174,118 +1535,110 @@ const visibleAppliedGroups = showAllAppliedGroups
   </div>
 </FilterSection>
 
-
+)}
   
       {/* DISPLAY */}
-      <FilterSection
-        title="Display"
-        icon="▣"
-        accent="sky"
-        badge={displays.length}
-      >
-        <div className="space-y-0.5">
-          {sortSelectedFirst(
-  displayOptions,
-  displays,
-).map(
-  (display) => (
-              <FilterOption
-                key={display}
-                label={display}
-                checked={displays.includes(
-                  display,
-                )}
-                onClick={() =>
-                  onDisplayChange(
-                    display,
-                  )
-                }
-              />
-            ),
-          )}
-        </div>
-      </FilterSection>
+      {(!filterSearchQuery || filteredDisplays.length > 0) && (
+  <FilterSection
+    title="Display"
+    icon="▣"
+    accent="sky"
+    badge={displays.length}
+  >
+    <div className="space-y-0.5">
+      {filteredDisplays.map((display) => (
+        <FilterOption
+          key={display}
+          label={display}
+          checked={displays.includes(display)}
+          onClick={() => onDisplayChange(display)}
+        />
+      ))}
+    </div>
+  </FilterSection>
+)}
 
       {/* STORES */}
-      <FilterSection
-        title="Stores"
-        icon="▤"
-        accent="amber"
-        badge={
-          filterValues.stores?.length ?? 0
-        }
-      >
-        <div className="space-y-0.5">
-          {sortSelectedFirst(
-  stores,
-  filterValues.stores ?? [],
-).map((store) => (
-            <FilterOption
-              key={store}
-              label={store}
-              checked={Boolean(
-                filterValues.stores?.includes(
-                  store,
-                ),
-              )}
-              onClick={() =>
-                onFilterChange(
-                  "stores",
-                  store,
-                )
-              }
-            />
-          ))}
-        </div>
-      </FilterSection>
+      {(!filterSearchQuery || filteredStores.length > 0) && (
+  <FilterSection
+    title="Stores"
+    icon="▤"
+    accent="amber"
+    badge={filterValues.stores?.length ?? 0}
+  >
+    <div className="space-y-0.5">
+      {filteredStores.map((store) => (
+        <FilterOption
+          key={store}
+          label={store}
+          checked={Boolean(
+            filterValues.stores?.includes(store)
+          )}
+          onClick={() =>
+            onFilterChange("stores", store)
+          }
+        />
+      ))}
+    </div>
+  </FilterSection>
+)}
 
       {/* OTHER FILTER GROUPS */}
-      {filterGroups.map((group) => {
-        const selectedCount =
-          filterValues[group.key]?.length ??
-          0;
+{/* OTHER FILTER GROUPS */}
+{filteredFilterGroups.map((group) => {
+  const selectedCount =
+    filterValues[group.key]?.length ?? 0;
 
-        return (
-          <FilterSection
-            key={group.key}
-            title={group.title}
-            icon={getFilterIcon(
-              group.key,
+  const isLastFive =
+    lastFiveFilterKeys.includes(group.key);
+
+  const groupTitleMatches =
+    filterSearchQuery.length > 0 &&
+    group.title
+      .toLowerCase()
+      .includes(filterSearchQuery);
+
+  const optionMatches = group.options.some(
+    (option) =>
+      option
+        .toLowerCase()
+        .includes(filterSearchQuery),
+  );
+
+  const searchMatches =
+    filterSearchQuery.length > 0 &&
+    (groupTitleMatches || optionMatches);
+
+  const hasSelectedFilters = selectedCount > 0;
+
+  return (
+    <FilterSection
+  key={group.key}
+  title={group.title}
+  icon={getFilterIcon(group.key)}
+  accent={getFilterAccent(group.key)}
+  badge={selectedCount}
+  defaultOpen={!isLastFive}
+  forceOpen={hasSelectedFilters}
+  searchOpen={searchMatches}
+  >
+      <div className="space-y-0.5">
+        {group.options.map((option) => (
+          <FilterOption
+            key={option}
+            label={option}
+            checked={Boolean(
+              filterValues[group.key]?.includes(option),
             )}
-            accent={getFilterAccent(
-              group.key,
-            )}
-            badge={selectedCount}
-          >
-            <div className="space-y-0.5">
-              {sortSelectedFirst(
-  group.options,
-  filterValues[group.key] ?? [],
-).map(
-  (option) => (
-                  <FilterOption
-                    key={option}
-                    label={option}
-                    checked={Boolean(
-                      filterValues[
-                        group.key
-                      ]?.includes(
-                        option,
-                      ),
-                    )}
-                    onClick={() =>
-                      onFilterChange(
-                        group.key,
-                        option,
-                      )
-                    }
-                  />
-                ),
-              )}
-            </div>
-          </FilterSection>
-        );
-      })}
+            onClick={() =>
+              onFilterChange(group.key, option)
+            }
+          />
+        ))}
+      </div>
+    </FilterSection>
+  );
+})}
 
       {/* BOTTOM CLEAR */}
       {hasAppliedFilters && (

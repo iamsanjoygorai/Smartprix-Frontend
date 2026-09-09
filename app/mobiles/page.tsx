@@ -218,6 +218,21 @@ export default function MobilesPage() {
     );
   }, [displays, hydrated]);
 
+
+  // ─────────────────────────────────────────────
+// SAVE OTHER FILTERS
+// ─────────────────────────────────────────────
+useEffect(() => {
+  if (!hydrated) {
+    return;
+  }
+
+  localStorage.setItem(
+    "mobiles-filter-values",
+    JSON.stringify(filterValues),
+  );
+}, [filterValues, hydrated]);
+
   // ─────────────────────────────────────────────
   // PRICE FILTER
   // ─────────────────────────────────────────────

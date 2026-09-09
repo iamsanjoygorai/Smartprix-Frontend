@@ -138,6 +138,8 @@ interface MobileListProps {
   displays?: string[];
   filterValues?: Record<string, string[]>;
   sortBy?: string;
+  page: number;
+  onPageChange: (page: number) => void;
 }
 
 const API_URL =
@@ -510,26 +512,19 @@ export default function MobileList({
   maxPrice = "",
   displays = [],
   filterValues = {},
-  sortBy = "popular",
+  sortBy = "",
+  page,
+  onPageChange,
 }: MobileListProps) {
-  const [products, setProducts] =
-    useState<Mobile[]>([]);
+  const [products, setProducts] = useState<Mobile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+ 
+const [totalPages, setTotalPages] = useState(1);
 
-  const [loading, setLoading] =
-    useState(true);
+const limit = 5;
 
-  const [error, setError] =
-    useState<string | null>(null);
-
-  const [page, setPage] =
-    useState(1);
-
-  const [totalPages, setTotalPages] =
-    useState(1);
-
-  const limit = 20;
-
-  // =========================
+// =========================
   // FETCH PRODUCTS
   // =========================
 
@@ -688,22 +683,6 @@ setTotalPages(
     filterValues,
     sortBy,
     page,
-  ]);
-
-  // =========================
-  // RESET PAGE
-  // =========================
-
-  useEffect(() => {
-    setPage(1);
-  }, [
-    search,
-    brands,
-    minPrice,
-    maxPrice,
-    displays,
-    filterValues,
-    sortBy,
   ]);
 
   // =========================
@@ -875,24 +854,37 @@ setTotalPages(
         ),
       )}
 
-      // =========================
+      {/* // =========================
       // PAGINATION
-      // =========================
+      // ========================= */}
 
       {totalPages > 1 && (
   <div className="flex items-center justify-center gap-2 pt-4">
     {/* Previous */}
-    <button
-      type="button"
-      disabled={page <= 1}
-      onClick={() =>
-        setPage((current) => Math.max(1, current - 1))
-      }
-      className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      <span>←</span>
-      Previous
-    </button>
+  <button
+  type="button"
+  onClick={() => {
+    if (page < totalPages) {
+      onPageChange(page + 1);
+    }
+  }}
+  className="
+    inline-flex h-10 items-center gap-1.5 rounded-xl
+    border border-gray-200 bg-white px-3.5
+    text-sm font-medium text-gray-700
+    shadow-sm
+    transition-all duration-200
+    hover:-translate-y-0.5
+    hover:border-indigo-300
+    hover:bg-indigo-50
+    hover:text-indigo-600
+    hover:shadow-md
+    active:translate-y-0
+  "
+>
+  <span className="hidden sm:inline">Next</span>
+  <span className="text-base">›</span>
+</button>
 
     {/* Page numbers */}
     <div className="flex items-center gap-1">
@@ -929,16 +921,22 @@ setTotalPages(
               )}
 
               <button
-                type="button"
-                onClick={() => setPage(pageNumber)}
-                className={`flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-bold transition-all ${
-                  page === pageNumber
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
-                    : "border border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
-                }`}
-              >
-                {pageNumber}
-              </button>
+  type="button"
+  onClick={() => onPageChange(pageNumber)}
+  aria-current={page === pageNumber ? "page" : undefined}
+  className={`
+    flex h-10 min-w-10 items-center justify-center
+    rounded-xl px-3 text-sm font-semibold
+    transition-all duration-200
+    ${
+      page === pageNumber
+        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+        : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 hover:shadow-md"
+    }
+  `}
+>
+  {pageNumber}
+</button>
             </span>
           );
         })}
@@ -946,18 +944,29 @@ setTotalPages(
 
     {/* Next */}
     <button
-      type="button"
-      disabled={page >= totalPages}
-      onClick={() =>
-        setPage((current) =>
-          Math.min(totalPages, current + 1),
-        )
-      }
-      className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40"
-    >
-      Next
-      <span>→</span>
-    </button>
+  type="button"
+  onClick={() => {
+    if (page > 1) {
+      onPageChange(page - 1);
+    }
+  }}
+  className="
+    inline-flex h-10 items-center gap-1.5 rounded-xl
+    border border-gray-200 bg-white px-3.5
+    text-sm font-medium text-gray-700
+    shadow-sm
+    transition-all duration-200
+    hover:-translate-y-0.5
+    hover:border-indigo-300
+    hover:bg-indigo-50
+    hover:text-indigo-600
+    hover:shadow-md
+    active:translate-y-0
+  "
+>
+  <span className="text-base">‹</span>
+  <span className="hidden sm:inline">Previous</span>
+</button>
   </div>
 )}
     </div>

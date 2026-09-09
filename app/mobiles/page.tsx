@@ -14,6 +14,10 @@ export default function MobilesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const currentPage = Math.max(1,
+  Number(searchParams.get("page") || "1")
+);
+
   // Search comes from the URL
   const urlSearch = searchParams.get("search") ?? "";
 
@@ -39,6 +43,7 @@ export default function MobilesPage() {
 
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] =
   useState(false);
+  
 
   // ─────────────────────────────────────────────
   // SEARCH → BRAND MATCHING
@@ -492,16 +497,35 @@ useEffect(() => {
 
           {/* Product List */}
           <MobileList
-            search={search}
-            brands={brands}
-            minPrice={minPrice}
-            maxPrice={maxPrice}
-            displays={displays}
-            filterValues={filterValues}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            onBrandCountsChange={setBrandCounts}
-          />
+  search={search}
+  brands={brands}
+  minPrice={minPrice}
+  maxPrice={maxPrice}
+  displays={displays}
+  filterValues={filterValues}
+  sortBy={sortBy}
+  page={currentPage}
+  onPageChange={(newPage) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (newPage > 1) {
+      params.set("page", String(newPage));
+    } else {
+      params.delete("page");
+    }
+
+    const queryString = params.toString();
+
+    router.push(
+      queryString
+        ? `/mobiles?${queryString}`
+        : "/mobiles",
+      {
+        scroll: false,
+      },
+    );
+  }}
+/>
 
         </main>
       </div>

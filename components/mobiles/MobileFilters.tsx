@@ -26,14 +26,53 @@ const brands = [
   "vivo",
   "samsung",
   "motorola",
-  "realme",
   "oppo",
-  "poco",
+  "realme",
   "xiaomi",
-  "oneplus",
+  "poco",
   "apple",
+  "oneplus",
+  "iqoo",
+  "infinix",
+  "tecno",
   "nothing",
+  "honor",
+  "nokia",
+  "mivi",
+  "google",
+  "lava",
   "boltt",
+  "huawei",
+  "itel",
+  "ai+",
+  "redmagic",
+  "sony",
+  "nubia",
+  "philips",
+  "hmd",
+  "jio",
+  "micromax",
+  "peace",
+  "cmf",
+  "asus",
+  "htc",
+  "ikall",
+  "karbonn",
+  "ringme",
+  "lg",
+  "tcl",
+  "coolpad",
+  "meizu",
+  "lenovo",
+  "intex",
+  "snexian",
+  "mtr",
+  "unihertz",
+  "blackberry",
+  "alcatel",
+  "bluefox",
+  "generic",
+  "doogee",
 ];
 
 const displayOptions = [
@@ -575,26 +614,32 @@ export default function MobileFilters({
   onFilterChange,
 }: MobileFiltersProps) {
   const [brandSearch, setBrandSearch] = useState("");
-  const [brandSort, setBrandSort] = useState<
-    "popular" | "name"
-  >("popular");
-  const [showAllBrands, setShowAllBrands] =
-    useState(false);
-  const [showAllAppliedGroups, setShowAllAppliedGroups] =
+
+const [brandSort, setBrandSort] =
+  useState<"popular" | "name">("popular");
+
+const [showAllAppliedGroups, setShowAllAppliedGroups] =
   useState(false);
 
-  const filteredBrands = useMemo(() => {
+const [filterSearch, setFilterSearch] = useState("");
+
+
+// ─────────────────────────────────────────────
+// FILTERED BRANDS
+// ─────────────────────────────────────────────
+
+const filteredBrands = useMemo(() => {
   const query = brandSearch.trim().toLowerCase();
 
   let result = brands.filter((brand) =>
-    brand.toLowerCase().includes(query),
+    brand.toLowerCase().includes(query)
   );
 
   result = [...result].sort((a, b) => {
     const aIndex = selectedBrands.indexOf(a);
     const bIndex = selectedBrands.indexOf(b);
 
-    // Selected brands first, preserving selection order
+    // Selected brands first
     if (aIndex !== -1 && bIndex !== -1) {
       return aIndex - bIndex;
     }
@@ -602,7 +647,7 @@ export default function MobileFilters({
     if (aIndex !== -1) return -1;
     if (bIndex !== -1) return 1;
 
-    // Unselected brands
+    // Sort by popularity
     if (brandSort === "popular") {
       const countA = brandCounts[a] ?? 0;
       const countB = brandCounts[b] ?? 0;
@@ -612,6 +657,7 @@ export default function MobileFilters({
       }
     }
 
+    // Alphabetical fallback
     return a.localeCompare(b);
   });
 
@@ -623,125 +669,137 @@ export default function MobileFilters({
   selectedBrands,
 ]);
 
-  const visibleBrands = showAllBrands
-    ? filteredBrands
-    : filteredBrands.slice(0, 7);
 
- const appliedFilterGroups = useMemo(() => {
-  const groups: Record<
-    string,
+// ─────────────────────────────────────────────
+// APPLIED FILTERS
+// ─────────────────────────────────────────────
+
+const appliedFilterGroups: Record<
+  string,
+  {
+    label: string;
+    value: string;
+    key: string;
+  }[]
+> = {};
+
+
+// Search
+if (search.trim()) {
+  appliedFilterGroups.Search = [
     {
-      label: string;
-      value: string;
-      key: string;
-    }[]
-  > = {};
-
-  const addToGroup = (
-    groupName: string,
-    item: {
-      label: string;
-      value: string;
-      key: string;
-    },
-  ) => {
-    if (!groups[groupName]) {
-      groups[groupName] = [];
-    }
-
-    groups[groupName].push(item);
-  };
-
-  if (search) {
-    addToGroup("Search", {
       label: "Search",
       value: search,
       key: "search",
-    });
-  }
-
-  selectedBrands.forEach((brand) => {
-    addToGroup("Brand", {
-      label: "Brand",
-      value:
-        brand.charAt(0).toUpperCase() +
-        brand.slice(1),
-      key: `brand:${brand}`,
-    });
-  });
-
-  displays.forEach((display) => {
-    addToGroup("Display", {
-      label: "Display",
-      value: display,
-      key: `display:${display}`,
-    });
-  });
-
-  if (minPrice) {
-    addToGroup("Price", {
-      label: "Minimum",
-      value: `₹${Number(
-        minPrice,
-      ).toLocaleString("en-IN")}`,
-      key: "price:min",
-    });
-  }
-
-  if (
-    maxPrice &&
-    maxPrice !== "30000+"
-  ) {
-    addToGroup("Price", {
-      label: "Maximum",
-      value: `₹${Number(
-        maxPrice,
-      ).toLocaleString("en-IN")}`,
-      key: "price:max",
-    });
-  }
-
-  Object.entries(filterValues).forEach(
-    ([groupKey, values]) => {
-      if (!values.length) return;
-
-      const group = filterGroups.find(
-        (item) => item.key === groupKey,
-      );
-
-      const groupName =
-        group?.title ?? groupKey;
-
-      values.forEach((value) => {
-        addToGroup(groupName, {
-          label: groupName,
-          value,
-          key: `${groupKey}:${value}`,
-        });
-      });
     },
+  ];
+}
+
+
+// Price
+const hasSelectedPrice =
+  (minPrice && minPrice !== "") ||
+  (maxPrice && maxPrice !== "" && maxPrice !== "30000+");
+
+if (hasSelectedPrice) {
+  let priceLabel = "";
+
+  if (minPrice && maxPrice && maxPrice !== "30000+") {
+    priceLabel = `₹${Number(minPrice).toLocaleString(
+      "en-IN"
+    )} - ₹${Number(maxPrice).toLocaleString("en-IN")}`;
+  } else if (minPrice && maxPrice === "30000+") {
+    priceLabel = `Above ₹${Number(minPrice).toLocaleString(
+      "en-IN"
+    )}`;
+  } else if (maxPrice && maxPrice !== "30000+") {
+    priceLabel = `Under ₹${Number(maxPrice).toLocaleString(
+      "en-IN"
+    )}`;
+  }
+
+  if (priceLabel) {
+    appliedFilterGroups.Price = [
+      {
+        label: "Price",
+        value: priceLabel,
+        key: "price",
+      },
+    ];
+  }
+}
+
+// Brands
+selectedBrands.forEach((brand) => {
+  appliedFilterGroups.Brand ??= [];
+
+  appliedFilterGroups.Brand.push({
+    label: "Brand",
+    value:
+      brand.charAt(0).toUpperCase() +
+      brand.slice(1),
+    key: `brand:${brand}`,
+  });
+});
+
+
+// Displays
+displays.forEach((display) => {
+  appliedFilterGroups.Display ??= [];
+
+  appliedFilterGroups.Display.push({
+    label: "Display",
+    value: display,
+    key: `display:${display}`,
+  });
+});
+
+
+// Other filter groups
+Object.entries(filterValues).forEach(
+  ([groupKey, values]) => {
+    if (!values.length) return;
+
+    const group = filterGroups.find(
+      (item) => item.key === groupKey
+    );
+
+    const groupName =
+      group?.title ?? groupKey;
+
+    appliedFilterGroups[groupName] ??= [];
+
+    values.forEach((value) => {
+      appliedFilterGroups[groupName].push({
+        label: groupName,
+        value,
+        key: `${groupKey}:${value}`,
+      });
+    });
+  }
+);
+
+
+// ─────────────────────────────────────────────
+// APPLIED FILTER TOTAL
+// ─────────────────────────────────────────────
+
+const appliedGroups =
+  Object.entries(appliedFilterGroups);
+
+const totalAppliedFilters =
+  appliedGroups.reduce(
+    (total, [, items]) =>
+      total + items.length,
+    0
   );
 
-  return groups;
-}, [
-  search,
-  selectedBrands,
-  displays,
-  minPrice,
-  maxPrice,
-  filterValues,
-]);
+const hasAppliedFilters =
+  totalAppliedFilters > 0;
 
-  const hasAppliedFilters =
-    Boolean(search) ||
-    selectedBrands.length > 0 ||
-    Boolean(minPrice) ||
-    (Boolean(maxPrice) &&
-      maxPrice !== "30000+") ||
-    displays.length > 0 ||
-    Object.values(filterValues).some(
-      (values) => values.length > 0,
-    );
+const visibleAppliedGroups = showAllAppliedGroups
+  ? appliedGroups
+  : appliedGroups.slice(0, 2);
 
   const clearAllFilters = () => {
     onSearchChange("");
@@ -765,40 +823,92 @@ export default function MobileFilters({
     setShowAllAppliedGroups(false);
   };
 
-  const removeAppliedFilter = (
-    item: {
-      key: string;
-      label: string;
-      value: string;
-    },
-  ) => {
-    if (item.key === "search") {
-      onSearchChange("");
-      return;
-    }
+  const removeAppliedFilter = (item: {
+  key: string;
+  label: string;
+  value: string;
+}) => {
+  // Search
+  if (item.key === "search") {
+    onSearchChange("");
+    return;
+  }
 
-    if (item.key === "brand") {
-      onBrandChange(item.value);
-      return;
-    }
+  // Individual Brand
+  if (item.key.startsWith("brand:")) {
+    const brand = item.key.slice("brand:".length);
+    onBrandChange(brand);
+    return;
+  }
 
-    if (item.key === "display") {
-      onDisplayChange(item.value);
-      return;
-    }
+  // Individual Display
+  if (item.key.startsWith("display:")) {
+    const display = item.key.slice("display:".length);
+    onDisplayChange(display);
+    return;
+  }
 
-    if (item.key === "price") {
-      if (item.label === "Min Price") {
-        onPriceChange("", maxPrice);
-      } else {
-        onPriceChange(minPrice, "30000+");
+  // Price
+  if (item.key === "price") {
+    onPriceChange("", "30000+");
+    return;
+  }
+
+  // Any other filter
+  const separatorIndex = item.key.indexOf(":");
+
+  if (separatorIndex !== -1) {
+    const groupKey = item.key.slice(0, separatorIndex);
+    const value = item.key.slice(separatorIndex + 1);
+
+    onFilterChange(groupKey, value);
+  }
+};
+  const clearAppliedGroup = (
+  groupName: string,
+  items: { key: string; label: string; value: string }[]
+) => {
+  if (groupName === "Search") {
+    onSearchChange("");
+    return;
+  }
+
+  if (groupName === "Price") {
+    onPriceChange("", "30000+");
+    return;
+  }
+
+  if (groupName === "Brand") {
+    items.forEach((item) => {
+      if (item.key.startsWith("brand:")) {
+        const brand = item.key.slice("brand:".length);
+        onBrandChange(brand);
       }
+    });
+    return;
+  }
 
-      return;
+  if (groupName === "Display") {
+    items.forEach((item) => {
+      if (item.key.startsWith("display:")) {
+        const display = item.key.slice("display:".length);
+        onDisplayChange(display);
+      }
+    });
+    return;
+  }
+
+  items.forEach((item) => {
+    const separatorIndex = item.key.indexOf(":");
+
+    if (separatorIndex !== -1) {
+      const groupKey = item.key.slice(0, separatorIndex);
+      const value = item.key.slice(separatorIndex + 1);
+
+      onFilterChange(groupKey, value);
     }
-
-    onFilterChange(item.key, item.value);
-  };
+  });
+};
 
   const minPriceNumber = minPrice
     ? Number(minPrice)
@@ -817,233 +927,11 @@ export default function MobileFilters({
 
   return (
     <aside className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* FILTER HEADER */}
-      <div className="border-b border-slate-200 bg-gradient-to-br from-white via-white to-indigo-50/40 px-4 py-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-100">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="h-5 w-5"
-              >
-                <path
-                  d="M4 6H20M7 12H17M10 18H14"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
 
-            <div className="min-w-0">
-              <h2 className="text-lg font-extrabold text-slate-900">
-                Filters
-              </h2>
-
-              <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                Search or select filters to refine your
-                results
-              </p>
-            </div>
-          </div>
-
-          {hasAppliedFilters && (
-            <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-black text-indigo-700">
-              {appliedFilterGroups.length}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* APPLIED FILTERS */}
-{hasAppliedFilters && (
-  <div className="border-b border-slate-100 bg-slate-50/60 p-4">
-    <div className="mb-3 flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-100 text-xs font-black text-emerald-600">
-          ✓
-        </span>
-
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-          Applied Filters
-        </span>
-      </div>
-
-      <button
-        type="button"
-        onClick={clearAllFilters}
-        className="text-[10px] font-bold text-rose-500 transition-colors hover:text-rose-600"
-      >
-        Clear All
-      </button>
-    </div>
-
-    <div className="space-y-3">
-      {Object.entries(appliedFilterGroups)
-        .slice(
-          0,
-          showAllAppliedGroups
-            ? undefined
-            : 2,
-        )
-        .map(
-          ([groupName, items]) => (
-            <div key={groupName}>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                  {groupName}
-                </span>
-
-                <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
-                  {items.length}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {items.map((item) => (
-                  <button
-                    type="button"
-                    key={item.key}
-                    onClick={() => {
-                      if (
-                        item.key ===
-                        "search"
-                      ) {
-                        onSearchChange("");
-                        return;
-                      }
-
-                      if (
-                        item.key.startsWith(
-                          "brand:",
-                        )
-                      ) {
-                        const brand =
-                          item.key.replace(
-                            "brand:",
-                            "",
-                          );
-
-                        onBrandChange(
-                          brand,
-                        );
-                        return;
-                      }
-
-                      if (
-                        item.key.startsWith(
-                          "display:",
-                        )
-                      ) {
-                        const display =
-                          item.key.replace(
-                            "display:",
-                            "",
-                          );
-
-                        onDisplayChange(
-                          display,
-                        );
-                        return;
-                      }
-
-                      if (
-                        item.key ===
-                        "price:min"
-                      ) {
-                        onPriceChange(
-                          "",
-                          maxPrice,
-                        );
-                        return;
-                      }
-
-                      if (
-                        item.key ===
-                        "price:max"
-                      ) {
-                        onPriceChange(
-                          minPrice,
-                          "30000+",
-                        );
-                        return;
-                      }
-
-                      const separatorIndex =
-                        item.key.indexOf(
-                          ":",
-                        );
-
-                      const groupKey =
-                        item.key.slice(
-                          0,
-                          separatorIndex,
-                        );
-
-                      const value =
-                        item.key.slice(
-                          separatorIndex + 1,
-                        );
-
-                      onFilterChange(
-                        groupKey,
-                        value,
-                      );
-                    }}
-                    className="group inline-flex max-w-full items-center gap-1.5 rounded-lg border border-indigo-100 bg-white px-2.5 py-1.5 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50"
-                  >
-                    <span className="max-w-[125px] truncate text-[10px] font-bold text-slate-600 group-hover:text-rose-600">
-                      {item.value}
-                    </span>
-
-                    <span className="text-[10px] font-black text-slate-400 group-hover:text-rose-500">
-                      ×
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ),
-        )}
-    </div>
-
-    {/* SHOW MORE / LESS */}
-    {Object.keys(appliedFilterGroups).length >
-      2 && (
-      <button
-        type="button"
-        onClick={() =>
-          setShowAllAppliedGroups(
-            (value) => !value,
-          )
-        }
-        className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-white py-2 text-[10px] font-extrabold text-indigo-600 shadow-sm transition-all hover:bg-indigo-50"
-      >
-        {showAllAppliedGroups ? (
-          <>
-            Show less
-            <span className="text-xs">
-              ↑
-            </span>
-          </>
-        ) : (
-          <>
-            Show more
-            <span className="text-xs">
-              ↓
-            </span>
-          </>
-        )}
-      </button>
-    )}
-  </div>
-)}
-
-    {/* SEARCH */}
+{/* SEARCH FOR FILTERS */}
 <div className="border-b border-slate-100 p-4">
   <label
-    htmlFor="mobile-filter-search"
+    htmlFor="filter-search"
     className="mb-2 block text-[11px] font-extrabold uppercase tracking-wider text-slate-600"
   >
     Search
@@ -1063,6 +951,7 @@ export default function MobileFilters({
           stroke="currentColor"
           strokeWidth="2"
         />
+
         <path
           d="M16 16L21 21"
           stroke="currentColor"
@@ -1073,176 +962,220 @@ export default function MobileFilters({
     </span>
 
     <input
-      id="mobile-filter-search"
-      value={search}
+      id="filter-search"
+      value={filterSearch}
       onChange={(event) =>
-        onSearchChange(event.target.value)
+        setFilterSearch(event.target.value)
       }
-      placeholder="Search mobiles..."
+      placeholder="Search for filters..."
       className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
     />
   </div>
 </div>
 
-      {/* BRAND */}
+  
+{/* FILTER STATUS */}
+<div className="border-b border-slate-100 bg-slate-50/60 p-4">
+  {!hasAppliedFilters ? (
+    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-4 text-center">
+      <p className="text-[11px] font-semibold leading-5 text-slate-500">
+        Search for filters or apply some filters from below
+      </p>
+    </div>
+  ) : (
+    <>
+      {/* Applied Filters - only appears after a filter is applied */}
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+            Applied Filters
+          </span>
+
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+            {totalAppliedFilters}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={clearAllFilters}
+          className="cursor-pointer text-xs font-semibold text-red-600 hover:text-red-700 hover:underline"
+        >
+          Clear All
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {visibleAppliedGroups.map(([groupName, items]) => (
+          <div key={groupName}>
+            <div className="mb-1.5 flex items-center justify-between">
+  <p className="text-[10px] font-bold text-slate-400">
+    {groupName}
+  </p>
+
+  <button
+    type="button"
+    onClick={() => clearAppliedGroup(groupName, items)}
+    className="cursor-pointer text-[13px] font-bold leading-none text-slate-400 transition hover:text-red-500"
+    title={`Clear ${groupName}`}
+  >
+    ×
+  </button>
+</div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {items.map((item) => (
+  <button
+    key={item.key}
+    type="button"
+    onClick={() => removeAppliedFilter(item)}
+    className="group inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1.5 text-[10px] font-bold text-indigo-700 transition hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+  >
+    <span className="max-w-[130px] truncate">
+      {item.value}
+    </span>
+
+    <span className="text-indigo-400 group-hover:text-red-400">
+      ×
+    </span>
+  </button>
+))}
+            </div>
+          </div>
+        ))}
+
+        {appliedGroups.length > 2 && (
+  <div className="flex justify-center pt-1">
+    <button
+      type="button"
+      onClick={() =>
+        setShowAllAppliedGroups((value) => !value)
+      }
+      className="cursor-pointer text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700"
+    >
+      {showAllAppliedGroups
+        ? "Show less"
+        : `Show ${appliedGroups.length - 2} more`}
+    </button>
+  </div>
+)}
+
+      </div>
+    </>
+  )}
+</div>
+
+
+{/* PRICE */}
+<FilterSection
+  title="Price"
+  icon="₹"
+  accent="emerald"
+  badge={
+  minPrice || (maxPrice && maxPrice !== "30000+")
+    ? 1
+    : undefined
+}
+>
+  <div className="grid grid-cols-2 gap-2">
+    {[
+      ["Under ₹5,000", "", "5000"],
+      ["₹5,000 - ₹10,000", "5000", "10000"],
+      ["₹10,000 - ₹15,000", "10000", "15000"],
+      ["₹15,000 - ₹20,000", "15000", "20000"],
+      ["₹20,000 - ₹30,000", "20000", "30000"],
+      ["Above ₹30,000", "30000", "30000+"],
+    ].map(([label, min, max]) => {
+      const isActive =
+        minPrice === min && maxPrice === max;
+
+      return (
+        <button
+          key={label}
+          type="button"
+          onClick={() =>
+            onPriceChange(min, max)
+          }
+          className={`rounded-xl border px-2 py-2.5 text-[10px] font-bold transition ${
+            isActive
+              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+              : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/50"
+          }`}
+        >
+          {label}
+        </button>
+      );
+    })}
+  </div>
+</FilterSection>
+
+{/* BRAND */}
 <FilterSection
   title="Brand"
   icon="B"
   accent="indigo"
   badge={selectedBrands.length}
 >
-  <div className="space-y-0.5">
-    {visibleBrands.map((brand) => (
-      <FilterOption
-        key={brand}
-        label={
-          brand.charAt(0).toUpperCase() +
-          brand.slice(1)
+  {/* BRAND SEARCH */}
+  <div className="mb-2">
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          className="h-4 w-4"
+        >
+          <circle
+            cx="11"
+            cy="11"
+            r="6.5"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+
+          <path
+            d="M16 16L21 21"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+
+      <input
+        value={brandSearch}
+        onChange={(event) =>
+          setBrandSearch(event.target.value)
         }
-        checked={selectedBrands.includes(
-          brand,
-        )}
-        count={brandCounts[brand]}
-        onClick={() =>
-          onBrandChange(brand)
-        }
+        placeholder="Search brands..."
+        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
       />
-    ))}
+    </div>
   </div>
 
-  {filteredBrands.length > 7 && (
-    <button
-      type="button"
-      onClick={() =>
-        setShowAllBrands(
-          (value) => !value,
-        )
-      }
-      className="mt-2 w-full rounded-lg bg-slate-50 py-2 text-[10px] font-extrabold text-indigo-600 transition-colors hover:bg-indigo-50"
-    >
-      {showAllBrands
-        ? "Show less"
-        : `Show all ${filteredBrands.length} brands`}
-    </button>
-  )}
+  {/* BRAND LIST */}
+  <div className="max-h-[360px] overflow-y-auto pr-1">
+    <div className="space-y-0.5">
+      {filteredBrands.map((brand) => (
+        <FilterOption
+          key={brand}
+          label={
+            brand.charAt(0).toUpperCase() +
+            brand.slice(1)
+          }
+          checked={selectedBrands.includes(brand)}
+          count={brandCounts[brand]}
+          onClick={() =>
+            onBrandChange(brand)
+          }
+        />
+      ))}
+    </div>
+  </div>
 </FilterSection>
 
-{/* SEARCH — BELOW BRAND */}
-<div className="border-b border-slate-100 p-4">
-  <div className="relative">
-    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        className="h-4 w-4"
-      >
-        <circle
-          cx="11"
-          cy="11"
-          r="6.5"
-          stroke="currentColor"
-          strokeWidth="2"
-        />
-        <path
-          d="M16 16L21 21"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    </span>
 
-    <input
-      id="mobile-filter-search"
-      value={search}
-      onChange={(event) =>
-        onSearchChange(event.target.value)
-      }
-      placeholder="Search mobiles..."
-      className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
-    />
-  </div>
-</div>
-
-      {/* PRICE */}
-      <FilterSection
-        title="Price"
-        icon="₹"
-        accent="emerald"
-        badge={
-          (minPrice ? 1 : 0) +
-          (maxPrice &&
-          maxPrice !== "30000+"
-            ? 1
-            : 0)
-        }
-      >
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-              Minimum
-            </label>
-
-            <select
-              value={minPrice}
-              onChange={(event) =>
-                onPriceChange(
-                  event.target.value,
-                  maxPrice,
-                )
-              }
-              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-600 outline-none transition-all focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-50"
-            >
-              {minPriceOptions.map(
-                (option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-              Maximum
-            </label>
-
-            <select
-              value={maxPrice}
-              onChange={(event) =>
-                onPriceChange(
-                  minPrice,
-                  event.target.value,
-                )
-              }
-              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 text-[11px] font-bold text-slate-600 outline-none transition-all focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-50"
-            >
-              {maxPriceOptions.map(
-                (option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-        </div>
-
-        {invalidPriceRange && (
-          <div className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-600">
-            Minimum price cannot be higher than maximum
-            price.
-          </div>
-        )}
-      </FilterSection>
-
+  
       {/* DISPLAY */}
       <FilterSection
         title="Display"

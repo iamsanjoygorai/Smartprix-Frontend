@@ -140,3 +140,15 @@ export async function deleteAdminSpecification(
     },
   );
 }
+
+
+/**
+ * Public: get product specifications
+ */
+export async function getProductSpecifications(
+  slug: string,
+): Promise<ApiResponse<unknown>> {
+  return apiFetch<ApiResponse<unknown>>(
+    `/products/${slug}/specifications`,
+  );
+}

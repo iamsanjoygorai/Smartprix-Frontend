@@ -100,9 +100,7 @@ export default function PopularBrands({
             <button
               key={brand.slug}
               type="button"
-              onClick={() =>
-                onBrandChange(isSelected ? "" : brand.slug)
-              }
+              onClick={() => onBrandChange(brand.slug)}
               aria-pressed={isSelected}
               className={`group relative flex min-w-0 flex-col items-center rounded-xl p-2.5 transition-all duration-200 ${
                 isSelected

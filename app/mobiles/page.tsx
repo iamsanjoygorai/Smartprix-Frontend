@@ -235,12 +235,27 @@ export default function MobilesPage() {
   // ─────────────────────────────────────────────
 
   const handleBrandChange = (brand: string) => {
-    setBrands((current) =>
-      current.includes(brand)
-        ? current.filter((item) => item !== brand)
-        : [...current, brand],
+  setBrands((current) => {
+    const normalizedBrand = brand.trim();
+
+    if (!normalizedBrand) {
+      return current;
+    }
+
+    const exists = current.some(
+      (item) => item.toLowerCase() === normalizedBrand.toLowerCase(),
     );
-  };
+
+    if (exists) {
+      return current.filter(
+        (item) =>
+          item.toLowerCase() !== normalizedBrand.toLowerCase(),
+      );
+    }
+
+    return [...current, normalizedBrand];
+  });
+};
 
   // ─────────────────────────────────────────────
   // DISPLAY FILTER
@@ -355,53 +370,6 @@ export default function MobilesPage() {
         <aside className="hidden lg:block">
           <div className="sticky top-4">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
-
-              {/* Sidebar heading */}
-              <div className="border-b border-slate-100 bg-gradient-to-r from-white via-white to-indigo-50/40 px-5 py-4">
-                <div className="flex items-center justify-between">
-
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-500">
-                      Refine
-                    </p>
-
-                    <h2 className="mt-0.5 text-[18px] font-black tracking-tight text-slate-900">
-                      Filters
-                    </h2>
-                  </div>
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <svg
-                      width="17"
-                      height="17"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M4 5h16" />
-                      <path d="M7 12h10" />
-                      <path d="M10 19h4" />
-                    </svg>
-                  </div>
-
-                </div>
-
-                {(brands.length > 0 ||
-                  minPrice ||
-                  displays.length > 0 ||
-                  Object.values(filterValues).some(
-                    (values) => values.length > 0,
-                  )) && (
-                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    Filters applied
-                  </div>
-                )}
-              </div>
-
               {/* Filters */}
               <div className="p-2">
                 <MobileFilters
@@ -564,15 +532,7 @@ export default function MobilesPage() {
                 </svg>
               </div>
 
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-indigo-500">
-                  Refine
-                </p>
-
-                <h2 className="text-[17px] font-black text-slate-900">
-                  Filters
-                </h2>
-              </div>
+        
 
             </div>
 

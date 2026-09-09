@@ -17,6 +17,9 @@ export default function MobilesPage() {
   const currentPage = Math.max(1,
   Number(searchParams.get("page") || "1")
 );
+const sortBy = searchParams.get("sortBy") ?? "relevance";
+
+// Search comes from the URL
 
   // Search comes from the URL
   const urlSearch = searchParams.get("search") ?? "";
@@ -33,7 +36,6 @@ export default function MobilesPage() {
   const [filterValues, setFilterValues] = useState<
     Record<string, string[]>
   >({});
-  const [sortBy, setSortBy] = useState("relevance");
 
   const [brandCounts, setBrandCounts] = useState<
     Record<string, number>
@@ -506,13 +508,42 @@ useEffect(() => {
   sortBy={sortBy}
   page={currentPage}
   onPageChange={(newPage) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(
+      searchParams.toString(),
+    );
 
     if (newPage > 1) {
       params.set("page", String(newPage));
     } else {
       params.delete("page");
     }
+
+    const queryString = params.toString();
+
+    router.push(
+      queryString
+        ? `/mobiles?${queryString}`
+        : "/mobiles",
+      {
+        scroll: false,
+      },
+    );
+  }}
+  onSortChange={(newSort) => {
+    const params = new URLSearchParams(
+      searchParams.toString(),
+    );
+
+    if (
+      newSort &&
+      newSort !== "relevance"
+    ) {
+      params.set("sortBy", newSort);
+    } else {
+      params.delete("sortBy");
+    }
+
+    params.delete("page");
 
     const queryString = params.toString();
 

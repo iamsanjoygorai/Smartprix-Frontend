@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import MobileCard from "./MobileCard";
 
@@ -138,10 +138,9 @@ interface MobileListProps {
   displays?: string[];
   filterValues?: Record<string, string[]>;
   sortBy?: string;
-
   page: number;
   onPageChange: (page: number) => void;
-  onSortChange: (sort: string) => void
+  onSortChange: (sort: string) => void;
 }
 
 const API_URL =
@@ -514,9 +513,10 @@ export default function MobileList({
   maxPrice = "",
   displays = [],
   filterValues = {},
-  sortBy = "",
+  sortBy = "relevance",
   page,
   onPageChange,
+  onSortChange,
 }: MobileListProps) {
   const [products, setProducts] = useState<Mobile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -525,7 +525,7 @@ export default function MobileList({
 const [totalPages, setTotalPages] = useState(1);
 const [totalResults, setTotalResults] = useState(0);
 
-const limit = 5;
+const limit = 10;
 const startResult =
   totalResults === 0
     ? 0
@@ -705,78 +705,7 @@ setTotalResults(
   // LOCAL SORTING
   // =========================
 
-  const sortedProducts =
-    useMemo(() => {
-      const result = [
-        ...products,
-      ];
 
-      switch (sortBy) {
-        case "price-low":
-          return result.sort(
-            (a, b) => {
-              const priceA =
-                Number(
-                  a.price.replace(
-                    /[^\d]/g,
-                    "",
-                  ),
-                ) || 0;
-
-              const priceB =
-                Number(
-                  b.price.replace(
-                    /[^\d]/g,
-                    "",
-                  ),
-                ) || 0;
-
-              return priceA - priceB;
-            },
-          );
-
-        case "price-high":
-          return result.sort(
-            (a, b) => {
-              const priceA =
-                Number(
-                  a.price.replace(
-                    /[^\d]/g,
-                    "",
-                  ),
-                ) || 0;
-
-              const priceB =
-                Number(
-                  b.price.replace(
-                    /[^\d]/g,
-                    "",
-                  ),
-                ) || 0;
-
-              return priceB - priceA;
-            },
-          );
-
-        case "rating":
-          return result.sort(
-            (a, b) =>
-              b.rating - a.rating,
-          );
-
-        case "score":
-          return result.sort(
-            (a, b) =>
-              b.score - a.score,
-          );
-
-        default:
-          return result;
-      }
-    }, [
-      products,
-      sortBy,
-    ]);
 
   // =========================
   // LOADING STATE
@@ -835,7 +764,7 @@ setTotalResults(
 
   if (
     !loading &&
-    sortedProducts.length === 0
+    products.length === 0
   ) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
@@ -938,7 +867,7 @@ setTotalResults(
     </div>
 
     {/* PRODUCTS */}
-    {sortedProducts.map((mobile) => (
+    {products.map((mobile) => (
       <MobileCard
         key={mobile.id}
         mobile={mobile}
@@ -948,7 +877,7 @@ setTotalResults(
     {/* EMPTY STATE */}
     {!loading &&
       !error &&
-      sortedProducts.length === 0 && (
+      products.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
             <span className="text-2xl">📱</span>

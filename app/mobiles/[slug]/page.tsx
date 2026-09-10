@@ -514,7 +514,7 @@ function SpecificationGroup({
   items,
 }: {
   title: string;
-  items: ProductSpecification[];
+  items?: ProductSpecification[] | null;
 }) {
   const groupIcons: Record<string, string> = {
     General: "◈",
@@ -529,76 +529,113 @@ function SpecificationGroup({
     Battery: "⚡",
   };
 
-  const sortedItems = [...items].sort(
-    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-  );
+  const sortedItems = Array.isArray(items)
+    ? [...items].sort(
+        (a, b) =>
+          (a.sortOrder ?? 0) -
+          (b.sortOrder ?? 0)
+      )
+    : [];
+
+  if (sortedItems.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* Group Header */}
-      <div className="flex items-center gap-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-lg font-bold text-indigo-600">
-          {groupIcons[title] ?? "✦"}
-        </div>
+    <div className="relative rounded-xl border border-slate-200 bg-white px-3 pb-3 pt-5 shadow-sm">
+      
+      {/* =========================================
+          GROUP TITLE ON BORDER
+      ========================================= */}
+      <div className="absolute -top-3 left-4 bg-white px-2">
+        <div className="flex items-center gap-1.5">
+          
+          <span className="text-[13px] text-blue-600">
+            {groupIcons[title] ?? "✦"}
+          </span>
 
-        <div>
-          <h3 className="text-[15px] font-extrabold text-slate-800">
+          <h3 className="text-[14px] font-extrabold text-slate-800">
             {title}
           </h3>
 
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Specifications
-          </p>
         </div>
       </div>
 
-      {/* Rows */}
-      <div>
-        {sortedItems.map((item) => {
+      {/* =========================================
+          SPECIFICATION TABLE
+      ========================================= */}
+      <div className="overflow-hidden rounded-lg border border-slate-100">
+        {sortedItems.map((item, index) => {
+          
           const name =
             item.name?.trim() ||
             item.slug
               ?.replace(/[-_]/g, " ")
-              .replace(/\b\w/g, (char) => char.toUpperCase()) ||
+              .replace(/\b\w/g, (char) =>
+                char.toUpperCase()
+              ) ||
             "Specification";
 
-          const value = getSpecValue(item);
+          const value =
+            getSpecValue(item);
 
           const unit =
-            item.unit && !value.toLowerCase().includes(item.unit.toLowerCase())
+            item.unit &&
+            value &&
+            !value
+              .toLowerCase()
+              .includes(
+                item.unit.toLowerCase()
+              )
               ? ` ${item.unit}`
               : "";
 
-          const displayValue = `${value}${unit}`.trim();
+          const displayValue =
+            `${value}${unit}`.trim();
 
-          const normalizedValue = value.trim().toLowerCase();
+          const normalizedValue =
+            value.trim().toLowerCase();
 
           const positive = [
             "yes",
             "true",
             "supported",
             "available",
-          ].includes(normalizedValue);
+          ].includes(
+            normalizedValue
+          );
 
           const negative = [
             "no",
             "false",
             "not supported",
             "not available",
-          ].includes(normalizedValue);
+          ].includes(
+            normalizedValue
+          );
 
           return (
             <div
-              key={item.id ?? item.slug ?? name}
-              className="grid grid-cols-[125px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0"
+              key={
+                item.id ??
+                `${item.slug ?? "spec"}-${index}`
+              }
+              className={`grid grid-cols-[125px_minmax(0,1fr)] ${
+                index !==
+                sortedItems.length - 1
+                  ? "border-b border-slate-100"
+                  : ""
+              }`}
             >
-              {/* Name */}
+
+              {/* SPEC NAME */}
               <div className="bg-slate-50/70 px-3 py-2.5 text-[12px] font-bold leading-5 text-slate-500">
                 {name}
               </div>
 
-              {/* Value */}
+              {/* SPEC VALUE */}
               <div className="px-3 py-2.5 text-[12px] font-semibold leading-5 text-slate-700">
+                
                 {positive && (
                   <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-600">
                     ✓
@@ -612,6 +649,7 @@ function SpecificationGroup({
                 )}
 
                 {displayValue || "—"}
+
               </div>
             </div>
           );

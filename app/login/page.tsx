@@ -149,7 +149,7 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: cleanIdentifier,
+          identifier: cleanIdentifier,
           password,
         }),
       });

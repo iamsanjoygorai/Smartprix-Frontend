@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+
+import {
+  addFavorite,
+  checkFavorite,
+  removeFavorite,
+} from "@/lib/api/favorites";
 
 interface Mobile {
   id: string;
@@ -47,7 +53,8 @@ function getSpec(
   mobile: Mobile,
   slugs: string[],
 ): string | null {
-  const specifications = mobile.specifications ?? {};
+  const specifications =
+    mobile.specifications ?? {};
 
   for (const slug of slugs) {
     const value = specifications[slug];
@@ -78,8 +85,10 @@ function formatRam(
   mobile: Mobile,
 ): string | null {
   const ram =
-    getSpec(mobile, ["ram", "memory"]) ??
-    mobile.ram;
+    getSpec(mobile, [
+      "ram",
+      "memory",
+    ]) ?? mobile.ram;
 
   if (!ram) return null;
 
@@ -168,7 +177,8 @@ function formatProcessor(
 function formatDisplay(
   mobile: Mobile,
 ): string | null {
-  const size = formatScreenSize(mobile);
+  const size =
+    formatScreenSize(mobile);
 
   const type =
     getSpec(mobile, [
@@ -215,14 +225,18 @@ function formatConnectivity(
 
   if (
     fiveG &&
-    !parts.some((part) => /5G/i.test(part))
+    !parts.some((part) =>
+      /5G/i.test(part),
+    )
   ) {
     parts.push("5G");
   }
 
   if (
     fourG &&
-    !parts.some((part) => /4G/i.test(part))
+    !parts.some((part) =>
+      /4G/i.test(part),
+    )
   ) {
     parts.push("4G");
   }
@@ -236,7 +250,10 @@ function getFeature(
   mobile: Mobile,
   slugs: string[],
 ): string | null {
-  const value = getSpec(mobile, slugs);
+  const value = getSpec(
+    mobile,
+    slugs,
+  );
 
   if (!value || isNegativeSpec(value)) {
     return null;
@@ -245,13 +262,41 @@ function getFeature(
   return value;
 }
 
-function stripHtml(value: string): string {
+function stripHtml(
+  value: string,
+): string {
   return value
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/* =========================================================
+   HEART ICON
+========================================================= */
+
+function HeartIcon({
+  filled = false,
+}: {
+  filled?: boolean;
+}) {
+  return (
+    <svg
+      width="19"
+      height="19"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
 }
 
 /* =========================================================
@@ -298,28 +343,175 @@ function SpecItem({
 export default function MobileCard({
   mobile,
 }: MobileCardProps) {
-  const rating = Number(mobile.rating) || 0;
+  const [isFavorite, setIsFavorite] =
+    useState(false);
+
+  const [favoriteLoading, setFavoriteLoading] =
+    useState(false);
+
+  const [favoriteReady, setFavoriteReady] =
+    useState(false);
+
+  const rating =
+    Number(mobile.rating) || 0;
 
   const ratingPercentage = Math.min(
     100,
-    Math.max(0, (rating / 5) * 100),
+    Math.max(
+      0,
+      (rating / 5) * 100,
+    ),
   );
+
+  /* =======================================================
+     CHECK FAVORITE STATUS
+  ======================================================= */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFavoriteStatus() {
+      try {
+        const token =
+          localStorage.getItem(
+            "smartprix_token",
+          );
+
+        /*
+         * Do not redirect here.
+         *
+         * Guests can browse the mobiles page.
+         * They are only asked to login when
+         * they actually press Like.
+         */
+        if (!token) {
+          if (mounted) {
+            setFavoriteReady(true);
+          }
+
+          return;
+        }
+
+        const result =
+          await checkFavorite(
+            mobile.id,
+          );
+
+        if (!mounted) {
+          return;
+        }
+
+        if (result.success) {
+          setIsFavorite(
+            result.data?.isFavorite ===
+              true,
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to check favorite:",
+          error,
+        );
+      } finally {
+        if (mounted) {
+          setFavoriteReady(true);
+        }
+      }
+    }
+
+    loadFavoriteStatus();
+
+    return () => {
+      mounted = false;
+    };
+  }, [mobile.id]);
+
+  /* =======================================================
+     FAVORITE TOGGLE
+  ======================================================= */
+
+  async function handleFavoriteClick() {
+    if (favoriteLoading) {
+      return;
+    }
+
+    const token =
+      localStorage.getItem(
+        "smartprix_token",
+      );
+
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setFavoriteLoading(true);
+
+    try {
+      if (isFavorite) {
+        const result =
+          await removeFavorite(
+            mobile.id,
+          );
+
+        if (!result.success) {
+          console.error(
+            "Failed to remove favorite:",
+            result.message,
+          );
+
+          return;
+        }
+
+        setIsFavorite(false);
+      } else {
+        const result =
+          await addFavorite(
+            mobile.id,
+          );
+
+        if (!result.success) {
+          console.error(
+            "Failed to add favorite:",
+            result.message,
+          );
+
+          return;
+        }
+
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error(
+        "Favorite action failed:",
+        error,
+      );
+    } finally {
+      setFavoriteLoading(false);
+    }
+  }
 
   /* =======================================================
      DATABASE SPECIFICATIONS
   ======================================================= */
 
-  const display = formatDisplay(mobile);
+  const display =
+    formatDisplay(mobile);
 
-  const processor = formatProcessor(mobile);
+  const processor =
+    formatProcessor(mobile);
 
-  const ram = formatRam(mobile);
+  const ram =
+    formatRam(mobile);
 
-  const storage = formatStorage(mobile);
+  const storage =
+    formatStorage(mobile);
 
-  const battery = formatBattery(mobile);
+  const battery =
+    formatBattery(mobile);
 
-  const camera = formatCamera(mobile);
+  const camera =
+    formatCamera(mobile);
 
   const frontCamera =
     getSpec(mobile, [
@@ -374,56 +566,70 @@ export default function MobileCard({
     ]) ??
     mobile.reverseWirelessCharging;
 
-  const nfc = getFeature(mobile, ["nfc"]);
+  const nfc =
+    getFeature(mobile, ["nfc"]);
 
-  const ipRating = getFeature(mobile, [
-    "ip-rating",
-  ]);
+  const ipRating =
+    getFeature(mobile, [
+      "ip-rating",
+    ]);
 
-  const usbOtg = getFeature(mobile, [
-    "usb-otg",
-  ]);
+  const usbOtg =
+    getFeature(mobile, [
+      "usb-otg",
+    ]);
 
-  const ois = getFeature(mobile, ["ois"]);
+  const ois =
+    getFeature(mobile, ["ois"]);
 
-  const autofocus = getFeature(mobile, [
-    "autofocus",
-  ]);
+  const autofocus =
+    getFeature(mobile, [
+      "autofocus",
+    ]);
 
-  const dualSim = getFeature(mobile, [
-    "dual-sim",
-  ]);
+  const dualSim =
+    getFeature(mobile, [
+      "dual-sim",
+    ]);
 
-  const numberOfSims = getFeature(mobile, [
-    "number-of-sims",
-  ]);
+  const numberOfSims =
+    getFeature(mobile, [
+      "number-of-sims",
+    ]);
 
-  const stereoSpeakers = getFeature(
-    mobile,
-    ["stereo-speakers"],
-  );
+  const stereoSpeakers =
+    getFeature(mobile, [
+      "stereo-speakers",
+    ]);
 
-  const dolbyAtmos = getFeature(mobile, [
-    "dolby-atmos",
-  ]);
+  const dolbyAtmos =
+    getFeature(mobile, [
+      "dolby-atmos",
+    ]);
 
-  const hdr = getFeature(mobile, [
-    "hdr",
-    "hdr10-plus",
-  ]);
+  const hdr =
+    getFeature(mobile, [
+      "hdr",
+      "hdr10-plus",
+    ]);
 
-  const wirelessCharging = getFeature(
-    mobile,
-    ["wireless-charging"],
-  );
+  const wirelessCharging =
+    getFeature(mobile, [
+      "wireless-charging",
+    ]);
 
   const hasMemoryCard =
     Boolean(memoryCard) &&
-    !isNegativeSpec(memoryCard);
+    !isNegativeSpec(
+      memoryCard,
+    );
 
-  const description = mobile.description
-    ? stripHtml(mobile.description)
-    : null;
+  const description =
+    mobile.description
+      ? stripHtml(
+          mobile.description,
+        )
+      : null;
 
   return (
     <article
@@ -437,37 +643,67 @@ export default function MobileCard({
     >
       <div className="p-4 sm:p-5 lg:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:gap-6">
+
           {/* =================================================
               IMAGE
           ================================================= */}
 
           <div className="relative flex shrink-0 justify-center md:w-[185px] lg:w-[205px]">
             <div className="relative">
-              {/* Wishlist */}
 
+              {/* Wishlist */}
               <button
                 type="button"
-                aria-label={`Add ${mobile.name} to wishlist`}
-                className="
+                onClick={handleFavoriteClick}
+                disabled={
+                  favoriteLoading
+                }
+                aria-label={
+                  isFavorite
+                    ? `Remove ${mobile.name} from wishlist`
+                    : `Add ${mobile.name} to wishlist`
+                }
+                className={`
                   absolute right-1 top-1 z-30
                   flex h-9 w-9 items-center justify-center
                   rounded-full
-                  border border-slate-200
+                  border
                   bg-white/95
-                  text-lg text-slate-400
                   shadow-sm
                   backdrop-blur
                   transition-all duration-200
-                  hover:border-pink-200
-                  hover:bg-pink-50
-                  hover:text-pink-500
-                "
+                  disabled:cursor-wait
+                  disabled:opacity-70
+                  ${
+                    isFavorite
+                      ? "border-pink-200 bg-pink-50 text-pink-500 shadow-pink-100"
+                      : "border-slate-200 text-slate-400 hover:border-pink-200 hover:bg-pink-50 hover:text-pink-500"
+                  }
+                `}
               >
-                ♡
+                {favoriteLoading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500" />
+                ) : (
+                  <span
+                    className={`
+                      transition-transform duration-200
+                      ${
+                        isFavorite
+                          ? "scale-110"
+                          : "scale-100"
+                      }
+                    `}
+                  >
+                    <HeartIcon
+                      filled={
+                        isFavorite
+                      }
+                    />
+                  </span>
+                )}
               </button>
 
               {/* Image box */}
-
               <Link
                 href={`/mobiles/${mobile.slug}`}
                 className="
@@ -487,14 +723,15 @@ export default function MobileCard({
                   sm:w-[185px]
                 "
               >
-                {/* soft background */}
-
+                {/* Soft background */}
                 <div className="absolute inset-x-5 bottom-5 h-9 rounded-full bg-slate-300/30 blur-2xl" />
 
+                {/* Label */}
                 <div className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 shadow-sm ring-1 ring-slate-100">
                   Mobile
                 </div>
 
+                {/* Product */}
                 <img
                   src={mobile.image}
                   alt={mobile.name}
@@ -512,7 +749,6 @@ export default function MobileCard({
               </Link>
 
               {/* Compare */}
-
               <button
                 type="button"
                 aria-label={`Compare ${mobile.name}`}
@@ -547,8 +783,8 @@ export default function MobileCard({
           ================================================= */}
 
           <div className="min-w-0 flex-1">
-            {/* HEADER */}
 
+            {/* HEADER */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
@@ -576,7 +812,6 @@ export default function MobileCard({
               </div>
 
               {/* SCORE */}
-
               {mobile.score > 0 && (
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 ring-1 ring-emerald-100">
@@ -593,7 +828,6 @@ export default function MobileCard({
             </div>
 
             {/* PRICE */}
-
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-baseline gap-2">
@@ -637,7 +871,6 @@ export default function MobileCard({
             </div>
 
             {/* RATING */}
-
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {rating > 0 ? (
                 <>
@@ -663,9 +896,11 @@ export default function MobileCard({
                     </span>
                   </span>
 
-                  {mobile.reviewCount > 0 && (
+                  {mobile.reviewCount >
+                    0 && (
                     <span className="text-[11px] font-medium text-slate-400">
-                      {mobile.reviewCount} reviews
+                      {mobile.reviewCount}{" "}
+                      reviews
                     </span>
                   )}
                 </>
@@ -677,8 +912,9 @@ export default function MobileCard({
             </div>
 
             {/* ACTIONS */}
-
             <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-slate-100 py-2.5">
+
+              {/* Compare */}
               <button
                 type="button"
                 className="
@@ -693,18 +929,39 @@ export default function MobileCard({
                 + Compare
               </button>
 
+              {/* Like */}
               <button
                 type="button"
-                className="
+                onClick={handleFavoriteClick}
+                disabled={
+                  favoriteLoading
+                }
+                className={`
+                  flex items-center gap-1.5
                   rounded-lg px-2.5 py-1.5
                   text-[11px] font-bold
-                  text-slate-500
                   transition
-                  hover:bg-pink-50
-                  hover:text-pink-600
-                "
+                  disabled:opacity-60
+                  ${
+                    isFavorite
+                      ? "bg-pink-50 text-pink-600"
+                      : "text-slate-500 hover:bg-pink-50 hover:text-pink-600"
+                  }
+                `}
               >
-                ♡ Like
+                {favoriteLoading ? (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-pink-200 border-t-pink-500" />
+                ) : (
+                  <HeartIcon
+                    filled={
+                      isFavorite
+                    }
+                  />
+                )}
+
+                {isFavorite
+                  ? "Liked"
+                  : "Like"}
               </button>
 
               <Link
@@ -800,7 +1057,9 @@ export default function MobileCard({
                 <SpecItem
                   icon="◒"
                   label="Operating System"
-                  value={operatingSystem}
+                  value={
+                    operatingSystem
+                  }
                 />
 
                 <SpecItem

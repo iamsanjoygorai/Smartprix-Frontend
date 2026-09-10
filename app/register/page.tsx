@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL =
@@ -15,6 +15,7 @@ interface RegisterResponse {
     user?: {
       id: string;
       email: string;
+      mobile?: string;
       name?: string;
       role: string;
       permissions: string[];
@@ -41,8 +42,6 @@ const months = [
    FLOATING INPUT
 ========================================================= */
 
-
-
 function FloatingInput({
   id,
   label,
@@ -52,6 +51,8 @@ function FloatingInput({
   disabled = false,
   autoComplete = "off",
   rightElement,
+  inputMode,
+  maxLength,
 }: {
   id: string;
   label: string;
@@ -60,7 +61,9 @@ function FloatingInput({
   onChange: (value: string) => void;
   disabled?: boolean;
   autoComplete?: string;
-  rightElement?: React.ReactNode;
+  rightElement?: ReactNode;
+  inputMode?: "text" | "numeric" | "tel" | "email" | "url" | "search";
+  maxLength?: number;
 }) {
   return (
     <div className="relative">
@@ -73,6 +76,8 @@ function FloatingInput({
         placeholder=" "
         autoComplete={autoComplete}
         disabled={disabled}
+        inputMode={inputMode}
+        maxLength={maxLength}
         className="
           peer
           h-[58px]
@@ -129,6 +134,10 @@ function FloatingInput({
   );
 }
 
+/* =========================================================
+   EYE ICON
+========================================================= */
+
 function EyeIcon({ off = false }: { off?: boolean }) {
   if (off) {
     return (
@@ -143,13 +152,8 @@ function EyeIcon({ off = false }: { off?: boolean }) {
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        {/* Eye */}
         <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
-
-        {/* Eye pupil */}
         <circle cx="12" cy="12" r="3" />
-
-        {/* Cross: bottom-left → top-right */}
         <path d="M4 20L20 4" />
       </svg>
     );
@@ -173,7 +177,6 @@ function EyeIcon({ off = false }: { off?: boolean }) {
   );
 }
 
-
 /* =========================================================
    REGISTER PAGE
 ========================================================= */
@@ -183,7 +186,10 @@ export default function RegisterPage() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
+
   const [password, setPassword] = useState("");
 
   const [day, setDay] = useState("");
@@ -193,37 +199,85 @@ export default function RegisterPage() {
   const [gender, setGender] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
+  const [eyeAnimating, setEyeAnimating] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [eyeAnimating, setEyeAnimating] = useState(false);
+
   const [showDobInfo, setShowDobInfo] = useState(false);
+
+  /* =======================================================
+     PASSWORD TOGGLE
+  ======================================================= */
+
+  function togglePassword() {
+    setEyeAnimating(true);
+    setShowPassword((value) => !value);
+
+    window.setTimeout(() => {
+      setEyeAnimating(false);
+    }, 180);
+  }
 
   /* =======================================================
      SUBMIT
   ======================================================= */
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
 
-    if (!firstName.trim()) {
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanMobile = mobile.replace(/\D/g, "");
+
+    /* -------------------------------------------------------
+       BASIC VALIDATION
+    ------------------------------------------------------- */
+
+    if (!cleanFirstName) {
       setError("Please enter your first name.");
       return;
     }
 
-    if (!lastName.trim()) {
+    if (cleanFirstName.length < 2) {
+      setError("Your first name must contain at least 2 characters.");
+      return;
+    }
+
+    if (!cleanLastName) {
       setError("Please enter your last name.");
       return;
     }
 
-    if (!email.trim()) {
-      setError(
-        "Please enter your mobile number or email address.",
-      );
+    if (cleanLastName.length < 1) {
+      setError("Please enter your last name.");
+      return;
+    }
+
+    if (!cleanMobile) {
+      setError("Please enter your mobile number.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(cleanMobile)) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    if (!cleanEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (
+      !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(
+        cleanEmail,
+      )
+    ) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -249,6 +303,10 @@ export default function RegisterPage() {
       return;
     }
 
+    /* -------------------------------------------------------
+       API REQUEST
+    ------------------------------------------------------- */
+
     try {
       setLoading(true);
 
@@ -260,11 +318,23 @@ export default function RegisterPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: `${firstName.trim()} ${lastName.trim()}`,
-            email: email.trim(),
+            name: `${cleanFirstName} ${cleanLastName}`,
+
+            email: cleanEmail,
+
+            mobile: cleanMobile,
+
             password,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
+
+            /*
+             * These are currently kept in the request for
+             * future database support.
+             *
+             * Your current User Prisma model does not yet
+             * contain dateOfBirth or gender fields.
+             */
+            firstName: cleanFirstName,
+            lastName: cleanLastName,
             dateOfBirth: `${year}-${month.padStart(
               2,
               "0",
@@ -274,8 +344,19 @@ export default function RegisterPage() {
         },
       );
 
-      const responseData: RegisterResponse =
-        await response.json();
+      let responseData: RegisterResponse;
+
+      try {
+        responseData = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response.",
+        );
+      }
+
+      /* -----------------------------------------------------
+         API ERROR
+      ----------------------------------------------------- */
 
       if (!response.ok || !responseData.success) {
         throw new Error(
@@ -284,16 +365,14 @@ export default function RegisterPage() {
         );
       }
 
-      /* =====================================================
-         AUTO LOGIN IF API RETURNS TOKEN
-      ===================================================== */
+      /* -----------------------------------------------------
+         SUCCESS
+      ----------------------------------------------------- */
 
-      if (
-        responseData.data?.token &&
-        responseData.data?.user
-      ) {
-        const { token, user } = responseData.data;
+      const token = responseData.data?.token;
+      const user = responseData.data?.user;
 
+      if (token && user) {
         localStorage.setItem(
           "smartprix_token",
           token,
@@ -304,17 +383,34 @@ export default function RegisterPage() {
           JSON.stringify(user),
         );
 
-        const isAdminUser =
-          user.role === "ADMIN" ||
-          user.role === "SUPER_ADMIN" ||
-          user.role === "EDITOR";
+        const role = String(
+          user.role ?? "",
+        ).toUpperCase();
+
+        /*
+         * Public registration always creates USER.
+         *
+         * Still keep this redirect defensive in case the
+         * backend response is changed later.
+         */
+        const isAdmin =
+          role === "ADMIN" ||
+          role === "SUPER_ADMIN";
 
         router.replace(
-          isAdminUser ? "/admin" : "/",
+          isAdmin ? "/admin" : "/",
         );
-      } else {
-        router.replace("/login?registered=true");
+
+        return;
       }
+
+      /*
+       * Fallback if registration succeeds but the backend
+       * doesn't return an authentication token.
+       */
+      router.replace(
+        "/login?registered=true",
+      );
     } catch (error) {
       setError(
         error instanceof Error
@@ -334,9 +430,9 @@ export default function RegisterPage() {
     <main className="min-h-screen bg-[#f0f2f5] px-4 py-8 sm:py-10">
       <div className="mx-auto w-full max-w-[432px]">
 
-        {/* ===================================================
+        {/* =================================================
             SMARTPRIX BRAND
-        =================================================== */}
+        ================================================= */}
 
         <div className="mb-5 text-center">
           <Link
@@ -356,9 +452,9 @@ export default function RegisterPage() {
           </Link>
         </div>
 
-        {/* ===================================================
+        {/* =================================================
             REGISTRATION CARD
-        =================================================== */}
+        ================================================= */}
 
         <section
           className="
@@ -368,6 +464,7 @@ export default function RegisterPage() {
             shadow-[0_2px_12px_rgba(0,0,0,0.12)]
           "
         >
+
           {/* =================================================
               CARD TITLE
           ================================================= */}
@@ -413,6 +510,7 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
                 <FloatingInput
                   id="firstName"
                   label="First name"
@@ -430,19 +528,41 @@ export default function RegisterPage() {
                   disabled={loading}
                   autoComplete="off"
                 />
+
               </div>
 
               {/* =============================================
-                  EMAIL / MOBILE
+                  MOBILE
+              ============================================= */}
+
+              <FloatingInput
+                id="mobile"
+                label="Mobile number"
+                value={mobile}
+                onChange={(value) => {
+                  setMobile(
+                    value.replace(/\D/g, "").slice(0, 10),
+                  );
+                }}
+                disabled={loading}
+                autoComplete="tel"
+                inputMode="tel"
+                maxLength={10}
+              />
+
+              {/* =============================================
+                  EMAIL
               ============================================= */}
 
               <FloatingInput
                 id="email"
-                label="Mobile number or email address"
+                label="Email address"
+                type="email"
                 value={email}
                 onChange={setEmail}
                 disabled={loading}
                 autoComplete="off"
+                inputMode="email"
               />
 
               {/* =============================================
@@ -461,42 +581,58 @@ export default function RegisterPage() {
                 onChange={setPassword}
                 disabled={loading}
                 autoComplete="new-password"
-               rightElement={
-  <button
-    type="button"
-    onClick={() =>
-      setShowPassword((value) => !value)
-    }
-    aria-label={
-      showPassword
-        ? "Hide password"
-        : "Show password"
-    }
-    title={
-      showPassword
-        ? "Hide password"
-        : "Show password"
-    }
-    className="
-      absolute
-      right-3
-      top-1/2
-      flex
-      h-9
-      w-9
-      -translate-y-1/2
-      items-center
-      justify-center
-      rounded-full
-      text-[#65676b]
-      transition
-      hover:bg-[#f0f2f5]
-      hover:text-[#1877f2]
-    "
-  >
-    <EyeIcon off={!showPassword} />
-  </button>
-}
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={togglePassword}
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    title={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    className="
+                      absolute
+                      right-3
+                      top-1/2
+                      flex
+                      h-9
+                      w-9
+                      -translate-y-1/2
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-[#65676b]
+                      transition
+                      hover:bg-[#f0f2f5]
+                      hover:text-[#1877f2]
+                    "
+                  >
+                    <span
+                      className={`
+                        flex
+                        items-center
+                        justify-center
+                        transition-transform
+                        duration-180
+                        ease-out
+                        ${
+                          eyeAnimating
+                            ? "scale-75"
+                            : "scale-100"
+                        }
+                      `}
+                    >
+                      <EyeIcon
+                        off={!showPassword}
+                      />
+                    </span>
+                  </button>
+                }
               />
 
               {/* =============================================
@@ -504,7 +640,9 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="pt-1">
+
                 <div className="mb-2 flex items-center gap-1.5">
+
                   <span
                     className="
                       text-[12px]
@@ -515,9 +653,16 @@ export default function RegisterPage() {
                     Date of birth
                   </span>
 
-                  <span
-                    title="Choose your date of birth"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowDobInfo(
+                        (value) => !value,
+                      )
+                    }
+                    aria-label="Why do we ask for your date of birth?"
                     className="
+                      relative
                       flex
                       h-[15px]
                       w-[15px]
@@ -529,10 +674,40 @@ export default function RegisterPage() {
                       font-bold
                       leading-none
                       text-white
+                      transition
+                      hover:bg-[#1877f2]
                     "
                   >
                     i
-                  </span>
+
+                    {showDobInfo && (
+                      <span
+                        className="
+                          absolute
+                          left-5
+                          top-5
+                          z-30
+                          w-[230px]
+                          rounded-md
+                          border
+                          border-[#ccd0d5]
+                          bg-white
+                          p-3
+                          text-left
+                          text-[12px]
+                          font-normal
+                          leading-[17px]
+                          text-[#606770]
+                          shadow-[0_4px_16px_rgba(0,0,0,0.16)]
+                        "
+                      >
+                        Your date of birth helps us provide
+                        a better experience and keep your
+                        account information accurate.
+                      </span>
+                    )}
+                  </button>
+
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -670,6 +845,7 @@ export default function RegisterPage() {
                       </option>
                     ))}
                   </select>
+
                 </div>
               </div>
 
@@ -678,7 +854,9 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="pt-1">
+
                 <div className="mb-2 flex items-center gap-1.5">
+
                   <span
                     className="
                       text-[12px]
@@ -707,9 +885,11 @@ export default function RegisterPage() {
                   >
                     i
                   </span>
+
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
+
                   {[
                     "Female",
                     "Male",
@@ -756,6 +936,7 @@ export default function RegisterPage() {
                       />
                     </label>
                   ))}
+
                 </div>
               </div>
 
@@ -764,6 +945,7 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="pt-1">
+
                 <p
                   className="
                     text-[11px]
@@ -773,6 +955,7 @@ export default function RegisterPage() {
                 >
                   By clicking Create account, you
                   agree to our{" "}
+
                   <Link
                     href="/terms"
                     className="
@@ -783,7 +966,9 @@ export default function RegisterPage() {
                   >
                     Terms
                   </Link>
+
                   ,{" "}
+
                   <Link
                     href="/privacy"
                     className="
@@ -793,8 +978,10 @@ export default function RegisterPage() {
                     "
                   >
                     Privacy Policy
-                  </Link>{" "}
-                  and{" "}
+                  </Link>
+
+                  {" "}and{" "}
+
                   <Link
                     href="/cookies"
                     className="
@@ -805,8 +992,10 @@ export default function RegisterPage() {
                   >
                     Cookies Policy
                   </Link>
+
                   .
                 </p>
+
               </div>
 
               {/* =============================================
@@ -836,6 +1025,7 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="flex justify-center pt-2">
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -848,9 +1038,11 @@ export default function RegisterPage() {
                     text-[17px]
                     font-bold
                     text-white
-                    transition
+                    transition-all
+                    duration-150
                     hover:bg-[#36a420]
-                    active:scale-[0.99]
+                    hover:shadow-md
+                    active:scale-[0.98]
                     disabled:cursor-not-allowed
                     disabled:opacity-60
                   "
@@ -859,6 +1051,7 @@ export default function RegisterPage() {
                     ? "Creating account..."
                     : "Create new account"}
                 </button>
+
               </div>
 
               {/* =============================================
@@ -866,6 +1059,7 @@ export default function RegisterPage() {
               ============================================= */}
 
               <div className="pt-2 text-center">
+
                 <Link
                   href="/login"
                   className="
@@ -877,14 +1071,16 @@ export default function RegisterPage() {
                 >
                   Already have an account?
                 </Link>
+
               </div>
+
             </div>
           </form>
         </section>
 
-        {/* ===================================================
+        {/* =================================================
             FOOTER
-        =================================================== */}
+        ================================================= */}
 
         <p
           className="
@@ -896,6 +1092,7 @@ export default function RegisterPage() {
         >
           © {new Date().getFullYear()} Smartprix
         </p>
+
       </div>
     </main>
   );

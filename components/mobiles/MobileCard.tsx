@@ -7,44 +7,31 @@ interface Mobile {
   id: string;
   slug: string;
   name: string;
-
   brand?: string | null;
   category?: string | null;
-
   price: string;
   score: number;
   rating: number;
   reviewCount: number;
-
   image: string;
-
   display: string;
   displayType?: string | null;
   refreshRate?: string | null;
-
   battery: string;
   charging?: string | null;
-
   camera: string;
   frontCamera?: string | null;
-
   storage: string;
   ram?: string | null;
   processor?: string | null;
-
   connectivity?: string | null;
   wifi?: string | null;
   bluetooth?: string | null;
-
   memoryCard?: string | null;
   operatingSystem?: string | null;
   reverseWirelessCharging?: string | null;
-
   seller?: string | null;
   description?: string | null;
-
-  /* NEW:
-     Complete structured specifications from database */
   specifications?: Record<string, string>;
 }
 
@@ -60,12 +47,10 @@ function getSpec(
   mobile: Mobile,
   slugs: string[],
 ): string | null {
-  const specifications =
-    mobile.specifications ?? {};
+  const specifications = mobile.specifications ?? {};
 
   for (const slug of slugs) {
-    const value =
-      specifications[slug];
+    const value = specifications[slug];
 
     if (
       value !== undefined &&
@@ -79,45 +64,26 @@ function getSpec(
   return null;
 }
 
-function hasSpec(
-  mobile: Mobile,
-  slugs: string[],
-): boolean {
-  return Boolean(
-    getSpec(mobile, slugs),
-  );
-}
-
 function isNegativeSpec(
   value: string | null | undefined,
 ): boolean {
-  if (!value) {
-    return false;
-  }
+  if (!value) return false;
 
   return /^(no|none|not supported|unsupported|false|n\/a)$/i.test(
     value.trim(),
   );
 }
 
-/* =========================================================
-   SPEC DISPLAY HELPERS
-========================================================= */
-
 function formatRam(
   mobile: Mobile,
 ): string | null {
   const ram =
-    getSpec(mobile, [
-      "ram",
-    ]) ??
+    getSpec(mobile, ["ram", "memory"]) ??
     mobile.ram;
 
-  if (!ram) {
-    return null;
-  }
+  if (!ram) return null;
 
-  return /\b(?:GB|MB)\b/i.test(ram)
+  return /\b(GB|MB)\b/i.test(ram)
     ? ram
     : `${ram} GB`;
 }
@@ -130,14 +96,11 @@ function formatStorage(
       "storage",
       "internal-storage",
       "inbuilt-memory",
-    ]) ??
-    mobile.storage;
+    ]) ?? mobile.storage;
 
-  if (!storage) {
-    return null;
-  }
+  if (!storage) return null;
 
-  return /\b(?:GB|TB)\b/i.test(storage)
+  return /\b(GB|TB)\b/i.test(storage)
     ? storage
     : `${storage} GB`;
 }
@@ -149,12 +112,9 @@ function formatBattery(
     getSpec(mobile, [
       "battery-capacity",
       "battery",
-    ]) ??
-    mobile.battery;
+    ]) ?? mobile.battery;
 
-  if (!battery) {
-    return null;
-  }
+  if (!battery) return null;
 
   return /\bmAh\b/i.test(battery)
     ? battery
@@ -167,16 +127,12 @@ function formatScreenSize(
   const size =
     getSpec(mobile, [
       "screen-size",
-      "size",
       "display-size",
-    ]) ??
-    mobile.display;
+      "size",
+      "screen",
+    ]) ?? mobile.display;
 
-  if (!size) {
-    return null;
-  }
-
-  return size;
+  return size || null;
 }
 
 function formatCamera(
@@ -186,14 +142,11 @@ function formatCamera(
     getSpec(mobile, [
       "rear-camera",
       "main-camera",
-    ]) ??
-    mobile.camera;
+      "primary-camera",
+      "camera",
+    ]) ?? mobile.camera;
 
-  if (!camera) {
-    return null;
-  }
-
-  return camera;
+  return camera || null;
 }
 
 function formatProcessor(
@@ -205,6 +158,7 @@ function formatProcessor(
       "chipset",
       "cpu",
       "processor-model",
+      "soc",
     ]) ??
     mobile.processor ??
     null
@@ -214,41 +168,30 @@ function formatProcessor(
 function formatDisplay(
   mobile: Mobile,
 ): string | null {
-  const size =
-    formatScreenSize(mobile);
+  const size = formatScreenSize(mobile);
 
   const type =
     getSpec(mobile, [
       "display-type",
-      "display",
-    ]) ??
-    mobile.displayType;
+      "screen-type",
+      "panel-type",
+    ]) ?? mobile.displayType;
 
   const refreshRate =
     getSpec(mobile, [
       "refresh-rate",
-    ]) ??
-    mobile.refreshRate;
+      "display-refresh-rate",
+    ]) ?? mobile.refreshRate;
 
   const parts: string[] = [];
 
-  if (size) {
-    parts.push(size);
-  }
+  if (size) parts.push(size);
+  if (type) parts.push(type);
+  if (refreshRate) parts.push(refreshRate);
 
-  if (type) {
-    parts.push(type);
-  }
-
-  if (refreshRate) {
-    parts.push(refreshRate);
-  }
-
-  if (parts.length === 0) {
-    return null;
-  }
-
-  return parts.join(" ");
+  return parts.length > 0
+    ? parts.join(" • ")
+    : null;
 }
 
 function formatConnectivity(
@@ -257,18 +200,12 @@ function formatConnectivity(
   const network =
     getSpec(mobile, [
       "network",
-    ]) ??
-    mobile.connectivity;
+      "connectivity",
+      "network-type",
+    ]) ?? mobile.connectivity;
 
-  const fiveG =
-    getSpec(mobile, [
-      "5g",
-    ]);
-
-  const fourG =
-    getSpec(mobile, [
-      "4g",
-    ]);
+  const fiveG = getSpec(mobile, ["5g"]);
+  const fourG = getSpec(mobile, ["4g"]);
 
   const parts: string[] = [];
 
@@ -278,18 +215,14 @@ function formatConnectivity(
 
   if (
     fiveG &&
-    !parts.some((part) =>
-      /5G/i.test(part),
-    )
+    !parts.some((part) => /5G/i.test(part))
   ) {
     parts.push("5G");
   }
 
   if (
     fourG &&
-    !parts.some((part) =>
-      /4G/i.test(part),
-    )
+    !parts.some((part) => /4G/i.test(part))
   ) {
     parts.push("4G");
   }
@@ -299,24 +232,63 @@ function formatConnectivity(
     : null;
 }
 
-/* =========================================================
-   OPTIONAL FEATURE HELPERS
-========================================================= */
-
 function getFeature(
   mobile: Mobile,
   slugs: string[],
 ): string | null {
-  const value = getSpec(
-    mobile,
-    slugs,
-  );
+  const value = getSpec(mobile, slugs);
 
   if (!value || isNegativeSpec(value)) {
     return null;
   }
 
   return value;
+}
+
+function stripHtml(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* =========================================================
+   SPEC ITEM
+========================================================= */
+
+function SpecItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value?: string | null;
+}) {
+  if (!value) return null;
+
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-[13px] text-slate-500 ring-1 ring-slate-100">
+        {icon}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+
+        <p
+          className="mt-0.5 truncate text-[12px] font-semibold text-slate-700"
+          title={value}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 /* =========================================================
@@ -326,52 +298,42 @@ function getFeature(
 export default function MobileCard({
   mobile,
 }: MobileCardProps) {
-  const rating =
-    Number(mobile.rating) || 0;
+  const rating = Number(mobile.rating) || 0;
 
-  const ratingPercentage =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        (rating / 5) * 100,
-      ),
-    );
+  const ratingPercentage = Math.min(
+    100,
+    Math.max(0, (rating / 5) * 100),
+  );
 
   /* =======================================================
-     DYNAMIC DATABASE SPECIFICATIONS
+     DATABASE SPECIFICATIONS
   ======================================================= */
 
-  const display =
-    formatDisplay(mobile);
+  const display = formatDisplay(mobile);
 
-  const processor =
-    formatProcessor(mobile);
+  const processor = formatProcessor(mobile);
 
-  const ram =
-    formatRam(mobile);
+  const ram = formatRam(mobile);
 
-  const storage =
-    formatStorage(mobile);
+  const storage = formatStorage(mobile);
 
-  const battery =
-    formatBattery(mobile);
+  const battery = formatBattery(mobile);
 
-  const camera =
-    formatCamera(mobile);
+  const camera = formatCamera(mobile);
 
   const frontCamera =
     getSpec(mobile, [
       "front-camera",
-    ]) ??
-    mobile.frontCamera;
+      "selfie-camera",
+    ]) ?? mobile.frontCamera;
 
   const charging =
     getSpec(mobile, [
       "charging-wattage",
       "fast-charging",
-    ]) ??
-    mobile.charging;
+      "charging",
+      "charging-speed",
+    ]) ?? mobile.charging;
 
   const connectivity =
     formatConnectivity(mobile);
@@ -382,15 +344,13 @@ export default function MobileCard({
       "wi-fi",
       "wifi-version",
       "wi-fi-version",
-    ]) ??
-    mobile.wifi;
+    ]) ?? mobile.wifi;
 
   const bluetooth =
     getFeature(mobile, [
       "bluetooth",
       "bluetooth-version",
-    ]) ??
-    mobile.bluetooth;
+    ]) ?? mobile.bluetooth;
 
   const operatingSystem =
     getSpec(mobile, [
@@ -398,168 +358,258 @@ export default function MobileCard({
       "os",
       "os-version",
       "android-version",
-    ]) ??
-    mobile.operatingSystem;
+    ]) ?? mobile.operatingSystem;
 
   const memoryCard =
     getSpec(mobile, [
       "memory-card",
       "expandable-storage",
-    ]) ??
-    mobile.memoryCard;
+      "card-slot",
+    ]) ?? mobile.memoryCard;
 
   const reverseWirelessCharging =
     getFeature(mobile, [
       "reverse-wireless-charging",
+      "reverse-charging",
     ]) ??
     mobile.reverseWirelessCharging;
 
-  const nfc =
-    getFeature(mobile, [
-      "nfc",
-    ]);
+  const nfc = getFeature(mobile, ["nfc"]);
 
-  const ipRating =
-    getFeature(mobile, [
-      "ip-rating",
-    ]);
+  const ipRating = getFeature(mobile, [
+    "ip-rating",
+  ]);
 
-  const usbOtg =
-    getFeature(mobile, [
-      "usb-otg",
-    ]);
+  const usbOtg = getFeature(mobile, [
+    "usb-otg",
+  ]);
 
-  const ois =
-    getFeature(mobile, [
-      "ois",
-    ]);
+  const ois = getFeature(mobile, ["ois"]);
 
-  const autofocus =
-    getFeature(mobile, [
-      "autofocus",
-    ]);
+  const autofocus = getFeature(mobile, [
+    "autofocus",
+  ]);
 
-  const dualSim =
-    getFeature(mobile, [
-      "dual-sim",
-    ]);
+  const dualSim = getFeature(mobile, [
+    "dual-sim",
+  ]);
 
-  const numberOfSims =
-    getFeature(mobile, [
-      "number-of-sims",
-    ]);
+  const numberOfSims = getFeature(mobile, [
+    "number-of-sims",
+  ]);
 
-  const stereoSpeakers =
-    getFeature(mobile, [
-      "stereo-speakers",
-    ]);
+  const stereoSpeakers = getFeature(
+    mobile,
+    ["stereo-speakers"],
+  );
 
-  const dolbyAtmos =
-    getFeature(mobile, [
-      "dolby-atmos",
-    ]);
+  const dolbyAtmos = getFeature(mobile, [
+    "dolby-atmos",
+  ]);
 
-  const hdr =
-    getFeature(mobile, [
-      "hdr",
-      "hdr10-plus",
-    ]);
+  const hdr = getFeature(mobile, [
+    "hdr",
+    "hdr10-plus",
+  ]);
 
-  const wirelessCharging =
-    getFeature(mobile, [
-      "wireless-charging",
-    ]);
+  const wirelessCharging = getFeature(
+    mobile,
+    ["wireless-charging"],
+  );
 
   const hasMemoryCard =
     Boolean(memoryCard) &&
     !isNegativeSpec(memoryCard);
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  const description = mobile.description
+    ? stripHtml(mobile.description)
+    : null;
 
   return (
-    <article className="group relative overflow-hidden border-b border-slate-200 bg-white transition-colors hover:bg-slate-50/40">
+    <article
+      className="
+        group relative overflow-hidden
+        border-b border-slate-200
+        bg-white
+        transition-all duration-300
+        hover:bg-slate-50/50
+      "
+    >
       <div className="p-4 sm:p-5 lg:p-6">
-        <div className="flex gap-4 sm:gap-6">
-
+        <div className="flex flex-col gap-5 md:flex-row md:gap-6">
           {/* =================================================
-              PRODUCT IMAGE
+              IMAGE
           ================================================= */}
 
-          <div className="relative flex w-[135px] shrink-0 items-start justify-center sm:w-[170px] lg:w-[190px]">
-            <Link
-              href={`/mobiles/${mobile.slug}`}
-              className="relative flex h-[185px] w-[125px] items-center justify-center rounded-lg bg-gradient-to-b from-slate-50 to-white transition-transform duration-300 group-hover:-translate-y-1 sm:h-[205px] sm:w-[145px] lg:h-[220px] lg:w-[165px]"
-            >
-              <div className="absolute inset-x-3 bottom-2 h-8 rounded-full bg-slate-300/30 blur-xl" />
+          <div className="relative flex shrink-0 justify-center md:w-[185px] lg:w-[205px]">
+            <div className="relative">
+              {/* Wishlist */}
 
-              <img
-                src={mobile.image}
-                alt={mobile.name}
-                className="relative z-10 h-[155px] w-[125px] object-contain drop-shadow-[0_10px_12px_rgba(15,23,42,0.14)] transition-transform duration-300 group-hover:scale-[1.04] sm:h-[175px] sm:w-[145px] lg:h-[190px] lg:w-[166px]"
-              />
-            </Link>
+              <button
+                type="button"
+                aria-label={`Add ${mobile.name} to wishlist`}
+                className="
+                  absolute right-1 top-1 z-30
+                  flex h-9 w-9 items-center justify-center
+                  rounded-full
+                  border border-slate-200
+                  bg-white/95
+                  text-lg text-slate-400
+                  shadow-sm
+                  backdrop-blur
+                  transition-all duration-200
+                  hover:border-pink-200
+                  hover:bg-pink-50
+                  hover:text-pink-500
+                "
+              >
+                ♡
+              </button>
 
-            <button
-              type="button"
-              aria-label={`Compare ${mobile.name}`}
-              className="absolute -bottom-1 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
-            >
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500 text-[11px] font-black text-white">
-                +
-              </span>
-              Compare
-            </button>
+              {/* Image box */}
+
+              <Link
+                href={`/mobiles/${mobile.slug}`}
+                className="
+                  relative flex
+                  h-[230px] w-[170px]
+                  items-center justify-center
+                  overflow-hidden
+                  rounded-2xl
+                  bg-gradient-to-b
+                  from-slate-50
+                  via-white
+                  to-slate-50
+                  ring-1 ring-slate-100
+                  transition-all duration-300
+                  group-hover:ring-indigo-100
+                  sm:h-[250px]
+                  sm:w-[185px]
+                "
+              >
+                {/* soft background */}
+
+                <div className="absolute inset-x-5 bottom-5 h-9 rounded-full bg-slate-300/30 blur-2xl" />
+
+                <div className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 shadow-sm ring-1 ring-slate-100">
+                  Mobile
+                </div>
+
+                <img
+                  src={mobile.image}
+                  alt={mobile.name}
+                  className="
+                    relative z-10
+                    h-[195px] w-[155px]
+                    object-contain
+                    drop-shadow-[0_16px_18px_rgba(15,23,42,0.16)]
+                    transition-transform duration-500
+                    group-hover:scale-[1.06]
+                    sm:h-[215px]
+                    sm:w-[170px]
+                  "
+                />
+              </Link>
+
+              {/* Compare */}
+
+              <button
+                type="button"
+                aria-label={`Compare ${mobile.name}`}
+                className="
+                  absolute -bottom-3 left-1/2 z-20
+                  flex -translate-x-1/2
+                  items-center gap-1.5
+                  whitespace-nowrap
+                  rounded-full
+                  border border-indigo-100
+                  bg-white
+                  px-3.5 py-1.5
+                  text-[11px] font-bold
+                  text-indigo-600
+                  shadow-md shadow-slate-200/60
+                  transition-all duration-200
+                  hover:border-indigo-300
+                  hover:bg-indigo-50
+                "
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white">
+                  +
+                </span>
+
+                Compare
+              </button>
+            </div>
           </div>
 
           {/* =================================================
-              PRODUCT CONTENT
+              CONTENT
           ================================================= */}
 
           <div className="min-w-0 flex-1">
-
             {/* HEADER */}
 
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
+                  {mobile.brand ??
+                    mobile.category ??
+                    "Smartphone"}
+                </p>
+
                 <Link
                   href={`/mobiles/${mobile.slug}`}
-                  className="block"
+                  className="group/title"
                 >
-                  <h3 className="text-[17px] font-extrabold leading-6 text-slate-900 transition-colors hover:text-indigo-600 sm:text-[19px]">
+                  <h3
+                    className="
+                      text-[18px] font-extrabold
+                      leading-6 text-slate-900
+                      transition-colors
+                      group-hover/title:text-indigo-600
+                      sm:text-[20px]
+                    "
+                  >
                     {mobile.name}
                   </h3>
                 </Link>
-
-                <p className="mt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">
-                  {mobile.brand ??
-                    mobile.category ??
-                    "Mobile"}
-                </p>
               </div>
+
+              {/* SCORE */}
+
+              {mobile.score > 0 && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 ring-1 ring-emerald-100">
+                    <span className="text-[15px] font-black leading-none text-emerald-600">
+                      {mobile.score}
+                    </span>
+
+                    <span className="mt-1 text-[8px] font-bold uppercase tracking-wide text-emerald-500">
+                      Score
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* =================================================
-                PRICE
-            ================================================= */}
+            {/* PRICE */}
 
-            <div className="mt-3 flex items-end justify-between gap-3">
+            <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xl font-extrabold text-gray-900">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-[23px] font-black tracking-tight text-slate-900">
                     {mobile.price}
                   </span>
 
                   {mobile.price !==
                     "Price unavailable" && (
-                    <span className="text-xs font-medium text-gray-500">
+                    <span className="text-[11px] font-semibold text-slate-400">
                       onwards
                     </span>
                   )}
                 </div>
 
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-0.5 text-[11px] text-slate-400">
                   Lowest price
                   {mobile.seller
                     ? ` on ${mobile.seller}`
@@ -569,25 +619,34 @@ export default function MobileCard({
 
               <Link
                 href={`/mobiles/${mobile.slug}`}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-100"
+                className="
+                  rounded-xl
+                  bg-indigo-600
+                  px-4 py-2
+                  text-[11px] font-bold
+                  text-white
+                  shadow-sm
+                  shadow-indigo-200
+                  transition-all duration-200
+                  hover:bg-indigo-700
+                  hover:shadow-md
+                "
               >
                 View Prices
               </Link>
             </div>
 
-            {/* =================================================
-                RATING
-            ================================================= */}
+            {/* RATING */}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {rating > 0 ? (
                 <>
-                  <span className="text-sm font-bold text-gray-900">
+                  <span className="rounded-md bg-amber-50 px-1.5 py-1 text-[11px] font-extrabold text-amber-600">
                     {rating.toFixed(1)}
                   </span>
 
                   <span
-                    className="relative inline-block text-sm tracking-[1px]"
+                    className="relative inline-block text-[14px] tracking-[1px]"
                     aria-label={`${rating} out of 5`}
                   >
                     <span className="text-slate-200">
@@ -595,7 +654,7 @@ export default function MobileCard({
                     </span>
 
                     <span
-                      className="absolute left-0 top-0 overflow-hidden whitespace-nowrap text-yellow-500"
+                      className="absolute left-0 top-0 overflow-hidden whitespace-nowrap text-amber-400"
                       style={{
                         width: `${ratingPercentage}%`,
                       }}
@@ -605,46 +664,58 @@ export default function MobileCard({
                   </span>
 
                   {mobile.reviewCount > 0 && (
-                    <span className="text-xs text-gray-500">
-                      ({mobile.reviewCount} reviews)
+                    <span className="text-[11px] font-medium text-slate-400">
+                      {mobile.reviewCount} reviews
                     </span>
                   )}
                 </>
               ) : (
-                <span className="text-xs font-medium text-slate-400">
+                <span className="text-[11px] font-medium text-slate-400">
                   No ratings yet
-                </span>
-              )}
-
-              {mobile.score > 0 && (
-                <span className="ml-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">
-                  Spec Score {mobile.score}
                 </span>
               )}
             </div>
 
-            {/* =================================================
-                ACTION BAR
-            ================================================= */}
+            {/* ACTIONS */}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-slate-100 py-2.5">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-slate-100 py-2.5">
               <button
                 type="button"
-                className="text-xs font-semibold text-slate-600 transition hover:text-indigo-600"
+                className="
+                  rounded-lg px-2.5 py-1.5
+                  text-[11px] font-bold
+                  text-slate-500
+                  transition
+                  hover:bg-indigo-50
+                  hover:text-indigo-600
+                "
               >
                 + Compare
               </button>
 
               <button
                 type="button"
-                className="text-xs font-semibold text-slate-600 transition hover:text-pink-600"
+                className="
+                  rounded-lg px-2.5 py-1.5
+                  text-[11px] font-bold
+                  text-slate-500
+                  transition
+                  hover:bg-pink-50
+                  hover:text-pink-600
+                "
               >
                 ♡ Like
               </button>
 
               <Link
                 href={`/mobiles/${mobile.slug}`}
-                className="text-xs font-semibold text-indigo-600 transition hover:text-indigo-800"
+                className="
+                  rounded-lg px-2.5 py-1.5
+                  text-[11px] font-bold
+                  text-indigo-600
+                  transition
+                  hover:bg-indigo-50
+                "
               >
                 View Details →
               </Link>
@@ -654,313 +725,255 @@ export default function MobileCard({
                 SPECIFICATIONS
             ================================================= */}
 
-            <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2.5 text-[12px] leading-[18px] text-slate-600 sm:grid-cols-2">
+            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-3.5 sm:p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                    Key Specifications
+                  </p>
 
-              {/* =================================================
-                  LEFT COLUMN
-              ================================================= */}
+                  <p className="mt-0.5 text-[10px] text-slate-400">
+                    Database verified specifications
+                  </p>
+                </div>
 
-              <div className="space-y-2.5">
-
-                {/* CONNECTIVITY */}
-
-                <SpecItem available={Boolean(connectivity)}>
-                  {connectivity
-                    ? `Connectivity: ${connectivity}`
-                    : "Connectivity information unavailable"}
-                </SpecItem>
-
-                {/* PROCESSOR */}
-
-                <SpecItem available={Boolean(processor)}>
-                  {processor
-                    ? `Processor: ${processor}`
-                    : "Processor information unavailable"}
-                </SpecItem>
-
-                {/* MEMORY */}
-
-                <SpecItem
-                  available={
-                    Boolean(
-                      ram ||
-                      storage,
-                    )
-                  }
-                >
-                  {ram || storage
-                    ? [
-                        ram
-                          ? `${ram} RAM`
-                          : null,
-                        storage
-                          ? `${storage} inbuilt`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")
-                    : "Memory information unavailable"}
-                </SpecItem>
-
-                {/* BATTERY */}
-
-                <SpecItem available={Boolean(battery)}>
-                  {battery
-                    ? `${battery} Battery${
-                        charging
-                          ? ` with ${charging} Charging`
-                          : ""
-                      }`
-                    : "Battery information unavailable"}
-                </SpecItem>
-
-                {/* WIFI */}
-
-                {wifi && (
-                  <SpecItem>
-                    Wi-Fi: {wifi}
-                  </SpecItem>
-                )}
-
-                {/* BLUETOOTH */}
-
-                {bluetooth && (
-                  <SpecItem>
-                    Bluetooth: {bluetooth}
-                  </SpecItem>
-                )}
-
-                {/* NFC */}
-
-                {nfc && (
-                  <SpecItem>
-                    NFC: {nfc}
-                  </SpecItem>
-                )}
-
-                {/* USB OTG */}
-
-                {usbOtg && (
-                  <SpecItem>
-                    USB OTG: {usbOtg}
-                  </SpecItem>
-                )}
-
-                {/* DUAL SIM */}
-
-                {(dualSim || numberOfSims) && (
-                  <SpecItem>
-                    SIM:{" "}
-                    {[
-                      numberOfSims,
-                      dualSim,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </SpecItem>
-                )}
-
+                <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-bold text-slate-400 ring-1 ring-slate-100">
+                  DETAILS
+                </span>
               </div>
 
-              {/* =================================================
-                  RIGHT COLUMN
-              ================================================= */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <SpecItem
+                  icon="▣"
+                  label="Display"
+                  value={display}
+                />
 
-              <div className="space-y-2.5">
+                <SpecItem
+                  icon="⚙"
+                  label="Processor"
+                  value={processor}
+                />
 
-                {/* DISPLAY */}
+                <SpecItem
+                  icon="◈"
+                  label="RAM"
+                  value={ram}
+                />
 
-                <SpecItem available={Boolean(display)}>
-                  {display
-                    ? `Display: ${display}`
-                    : "Display information unavailable"}
-                </SpecItem>
+                <SpecItem
+                  icon="▤"
+                  label="Storage"
+                  value={storage}
+                />
 
-                {/* CAMERA */}
+                <SpecItem
+                  icon="◉"
+                  label="Battery"
+                  value={
+                    battery
+                      ? charging
+                        ? `${battery} • ${charging}`
+                        : battery
+                      : null
+                  }
+                />
 
-                <SpecItem available={Boolean(camera)}>
-                  {camera
-                    ? `${camera} Rear Camera${
-                        frontCamera
-                          ? `, ${frontCamera} Front Camera`
-                          : ""
-                      }`
-                    : "Camera information unavailable"}
-                </SpecItem>
+                <SpecItem
+                  icon="◎"
+                  label="Rear Camera"
+                  value={camera}
+                />
 
-                {/* CAMERA FEATURES */}
+                <SpecItem
+                  icon="◌"
+                  label="Front Camera"
+                  value={frontCamera}
+                />
 
-                {(ois || autofocus) && (
-                  <SpecItem>
-                    Camera:{" "}
-                    {[
-                      ois
-                        ? `OIS ${ois}`
-                        : null,
-                      autofocus
-                        ? `Autofocus ${autofocus}`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </SpecItem>
-                )}
+                <SpecItem
+                  icon="▤"
+                  label="Network"
+                  value={connectivity}
+                />
 
-                {/* MEMORY CARD */}
+                <SpecItem
+                  icon="◒"
+                  label="Operating System"
+                  value={operatingSystem}
+                />
 
-                {hasMemoryCard ? (
-                  <SpecItem>
-                    Memory Card Supported
-                    {memoryCard
-                      ? `: ${memoryCard}`
-                      : ""}
-                  </SpecItem>
-                ) : (
-                  <div className="flex items-start gap-2 text-red-500">
-                    <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-50 text-[9px] font-black">
+                <SpecItem
+                  icon="◫"
+                  label="Wi-Fi"
+                  value={wifi}
+                />
+
+                <SpecItem
+                  icon="⌁"
+                  label="Bluetooth"
+                  value={bluetooth}
+                />
+
+                <SpecItem
+                  icon="▣"
+                  label="IP Rating"
+                  value={ipRating}
+                />
+              </div>
+
+              {/* FEATURE BADGES */}
+
+              {(nfc ||
+                usbOtg ||
+                hasMemoryCard ||
+                ois ||
+                autofocus ||
+                dualSim ||
+                numberOfSims ||
+                stereoSpeakers ||
+                dolbyAtmos ||
+                hdr ||
+                wirelessCharging ||
+                reverseWirelessCharging) && (
+                <div className="mt-4 border-t border-slate-200/70 pt-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {nfc && (
+                      <FeatureBadge>
+                        NFC
+                      </FeatureBadge>
+                    )}
+
+                    {usbOtg && (
+                      <FeatureBadge>
+                        USB OTG
+                      </FeatureBadge>
+                    )}
+
+                    {hasMemoryCard && (
+                      <FeatureBadge>
+                        Memory Card
+                      </FeatureBadge>
+                    )}
+
+                    {ois && (
+                      <FeatureBadge>
+                        OIS
+                      </FeatureBadge>
+                    )}
+
+                    {autofocus && (
+                      <FeatureBadge>
+                        Autofocus
+                      </FeatureBadge>
+                    )}
+
+                    {(dualSim ||
+                      numberOfSims) && (
+                      <FeatureBadge>
+                        Dual SIM
+                      </FeatureBadge>
+                    )}
+
+                    {stereoSpeakers && (
+                      <FeatureBadge>
+                        Stereo Speakers
+                      </FeatureBadge>
+                    )}
+
+                    {dolbyAtmos && (
+                      <FeatureBadge>
+                        Dolby Atmos
+                      </FeatureBadge>
+                    )}
+
+                    {hdr && (
+                      <FeatureBadge>
+                        HDR
+                      </FeatureBadge>
+                    )}
+
+                    {wirelessCharging && (
+                      <FeatureBadge>
+                        Wireless Charging
+                      </FeatureBadge>
+                    )}
+
+                    {reverseWirelessCharging && (
+                      <FeatureBadge>
+                        Reverse Wireless Charging
+                      </FeatureBadge>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!hasMemoryCard &&
+                mobile.specifications &&
+                Object.keys(
+                  mobile.specifications,
+                ).length > 0 && (
+                  <div className="mt-3 flex items-center gap-2 text-[10px] font-medium text-red-500">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-50 font-black">
                       ×
                     </span>
 
-                    <span>
-                      Memory Card Not Supported
-                    </span>
+                    Memory Card Not Supported
                   </div>
                 )}
-
-                {/* OPERATING SYSTEM */}
-
-                <SpecItem
-                  available={Boolean(
-                    operatingSystem,
-                  )}
-                >
-                  {operatingSystem
-                    ? operatingSystem
-                    : "Operating system information unavailable"}
-                </SpecItem>
-
-                {/* IP RATING */}
-
-                {ipRating && (
-                  <SpecItem>
-                    IP Rating: {ipRating}
-                  </SpecItem>
-                )}
-
-                {/* WIRELESS CHARGING */}
-
-                {wirelessCharging && (
-                  <SpecItem>
-                    {wirelessCharging}
-                  </SpecItem>
-                )}
-
-                {/* REVERSE WIRELESS CHARGING */}
-
-                {reverseWirelessCharging && (
-                  <SpecItem>
-                    {reverseWirelessCharging}
-                  </SpecItem>
-                )}
-
-                {/* HDR */}
-
-                {hdr && (
-                  <SpecItem>
-                    HDR: {hdr}
-                  </SpecItem>
-                )}
-
-                {/* STEREO SPEAKERS */}
-
-                {stereoSpeakers && (
-                  <SpecItem>
-                    Stereo Speakers:{" "}
-                    {stereoSpeakers}
-                  </SpecItem>
-                )}
-
-                {/* DOLBY ATMOS */}
-
-                {dolbyAtmos && (
-                  <SpecItem>
-                    Dolby Atmos:{" "}
-                    {dolbyAtmos}
-                  </SpecItem>
-                )}
-
-              </div>
             </div>
 
-            {/* =================================================
-                DESCRIPTION
-            ================================================= */}
+            {/* DESCRIPTION */}
 
-            {mobile.description && (
-              <p className="mt-4 line-clamp-2 text-[11px] leading-5 text-slate-400">
-                {stripHtml(
-                  mobile.description,
-                )}
+            {description && (
+              <p className="mt-3 line-clamp-2 text-[11px] leading-5 text-slate-400">
+                {description}
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* =====================================================
-          PREMIUM HOVER LINE
-      ===================================================== */}
+      {/* PREMIUM BOTTOM LINE */}
 
-      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 group-hover:w-full" />
+      <div
+        className="
+          absolute bottom-0 left-0
+          h-[3px] w-0
+          bg-gradient-to-r
+          from-indigo-500
+          via-purple-500
+          to-pink-500
+          transition-all duration-500
+          group-hover:w-full
+        "
+      />
     </article>
   );
 }
 
 /* =========================================================
-   SPEC ITEM
+   FEATURE BADGE
 ========================================================= */
 
-function SpecItem({
+function FeatureBadge({
   children,
-  available = true,
 }: {
   children: ReactNode;
-  available?: boolean;
 }) {
-  if (!available) {
-    return (
-      <div className="flex items-start gap-2 text-slate-400">
-        <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-black">
-          –
-        </span>
-
-        <span>{children}</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-start gap-2">
-      <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-black text-emerald-600">
-        ✓
-      </span>
-
-      <span>{children}</span>
-    </div>
+    <span
+      className="
+        rounded-full
+        border border-indigo-100
+        bg-white
+        px-2.5 py-1
+        text-[9px] font-bold
+        text-indigo-600
+        shadow-sm
+      "
+    >
+      ✓ {children}
+    </span>
   );
-}
-
-/* =========================================================
-   HTML CLEANER
-========================================================= */
-
-function stripHtml(
-  value: string,
-): string {
-  return value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
-    .trim();
 }

@@ -355,15 +355,45 @@ useEffect(() => {
   // ─────────────────────────────────────────────
 
   const handleFeatureChange = (feature: string) => {
-    const featureMap: Record<string, [string, string]> = {
-      "5G Mobiles": ["connectivity", "5G"],
-      "Android Phones": ["operating-system", "Android"],
-      "256GB Storage": ["inbuilt-memory", "256GB"],
-      "Foldable Phones": ["types", "Foldable"],
-      "Best Camera": ["rear-camera", "50MP"],
-      "Upcoming Mobiles": ["availability", "Upcoming"],
-      "Latest Mobiles": ["availability", "Latest"],
-    };
+    const featureMap: Record<
+  string,
+  [string, string]
+> = {
+  "5G Mobiles": [
+    "connectivity",
+    "5G",
+  ],
+
+  "Android Phones": [
+    "operating-system",
+    "Android",
+  ],
+
+  "256GB Storage": [
+    "inbuilt-memory",
+    "256 GB",
+  ],
+
+  "Foldable Phones": [
+    "types",
+    "Foldable Phones",
+  ],
+
+  "Best Camera": [
+    "rear-camera",
+    "50 MP",
+  ],
+
+  "Upcoming Mobiles": [
+    "availability",
+    "Upcoming",
+  ],
+
+  "Latest Mobiles": [
+    "launched-within",
+    "Last 1 Month",
+  ],
+};
 
     const mappedFilter = featureMap[feature];
 
@@ -507,6 +537,7 @@ useEffect(() => {
   filterValues={filterValues}
   sortBy={sortBy}
   page={currentPage}
+  onBrandCounts={setBrandCounts}
   onPageChange={(newPage) => {
     const params = new URLSearchParams(
       searchParams.toString(),

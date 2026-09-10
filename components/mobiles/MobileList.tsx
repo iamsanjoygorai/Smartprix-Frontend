@@ -73,7 +73,9 @@ interface Product {
   images?: ProductImage[];
   prices?: ProductPrice[];
   variants?: ProductVariant[];
-  specifications?: ProductSpecification[];
+  specifications?:
+  | ProductSpecification[]
+  | Record<string, unknown>;
 
   reviews?: {
     rating: number;
@@ -148,18 +150,222 @@ interface Mobile {
   specifications?: Record<string, string>;
 }
 
-interface MobileListProps {
-  search?: string;
-  brands?: string[];
-  minPrice?: string;
-  maxPrice?: string;
-  displays?: string[];
-  filterValues?: Record<string, string[]>;
-  sortBy?: string;
+/* =========================================================
+   FILTER QUERY MAPPING
+========================================================= */
 
+function normalizeFilterValue(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ");
+}
+
+function mapFilterValue(
+  group: string,
+  value: string,
+): string {
+  const normalized = normalizeFilterValue(value);
+
+  const mappings: Record<
+    string,
+    Record<string, string>
+  > = {
+    availability: {
+      "in stock": "in-stock",
+      "out of stock": "out-of-stock",
+    },
+
+    types: {
+      smartphones: "smartphones",
+      "foldable phones": "foldable",
+      "gaming phones": "gaming",
+      "rugged phones": "rugged",
+    },
+
+    "launched-within": {
+      "last 1 month": "1-month",
+      "last 3 months": "3-months",
+      "last 6 months": "6-months",
+      "last 1 year": "12-months",
+    },
+
+    design: {
+      "water drop notch": "water-drop-notch",
+      "punch hole": "punch-hole",
+      "bezel-less": "bezel-less",
+      "curved display": "curved-display",
+      "flat display": "flat-display",
+    },
+
+    "screen-sizes": {
+      "below 6 inch": "below-6",
+      "6 - 6.4 inch": "6-6.4",
+      "6.4 - 6.7 inch": "6.4-6.7",
+      "above 6.7 inch": "above-6.7",
+    },
+
+    "screen-resolution": {
+      "hd+": "hd+",
+      "full hd+": "full-hd+",
+      "1.5k": "1.5k",
+      "2k": "2k",
+      "qhd+": "qhd+",
+    },
+
+    "rear-camera": {
+      "12 mp & below": "12mp-above",
+      "13 - 32 mp": "13mp-above",
+      "33 - 49 mp": "33mp-above",
+      "50 mp": "48mp-above",
+      "64 mp": "64mp-above",
+      "108 mp": "108mp-above",
+      "200 mp": "200mp-above",
+    },
+
+    "front-camera": {
+      "8 mp & below": "8mp-above",
+      "12 mp": "12mp-above",
+      "16 mp": "16mp-above",
+      "32 mp": "32mp-above",
+      "50 mp": "50mp-above",
+    },
+
+    cpu: {
+      snapdragon: "qualcomm",
+      mediatek: "mediatek",
+      exynos: "samsung",
+      apple: "apple",
+      tensor: "google",
+      unisoc: "unisoc",
+    },
+
+    ram: {
+      "2 gb": "2gb-above",
+      "3 gb": "3gb-above",
+      "4 gb": "4gb-above",
+      "6 gb": "6gb-above",
+      "8 gb": "8gb-above",
+      "12 gb": "12gb-above",
+      "16 gb": "16gb-above",
+      "24 gb": "24gb-above",
+    },
+
+    "battery-size": {
+      "below 4000 mah": "below-4000",
+      "4000 - 4500 mah": "4000-4500",
+      "4500 - 5000 mah": "4500-5000",
+      "5000 - 6000 mah": "5000-6000",
+      "6000 mah & above": "6000-above",
+    },
+
+    connectivity: {
+      "5g": "5g",
+      "4g": "4g",
+      volte: "volte",
+      "wi-fi 6": "wifi-6",
+      "wi-fi 7": "wifi-7",
+      nfc: "nfc",
+    },
+
+    features: {
+      "fast charging": "fast-charging",
+      "wireless charging": "wireless-charging",
+      "water resistant": "water-resistant",
+      "stereo speakers": "stereo-speakers",
+      "ir blaster": "ir-blaster",
+      "fm radio": "fm-radio",
+    },
+
+    "operating-system": {
+      android: "android",
+      ios: "ios",
+    },
+
+    "android-version": {
+      "android 13": "android-13",
+      "android 14": "android-14",
+      "android 15": "android-15",
+      "android 16": "android-16",
+    },
+
+    "inbuilt-memory": {
+      "32 gb": "32gb-above",
+      "64 gb": "64gb-above",
+      "128 gb": "128gb-above",
+      "256 gb": "256gb-above",
+      "512 gb": "512gb-above",
+      "1 tb": "1tb-above",
+    },
+
+    "price-drop": {
+      "price dropped recently": "recent",
+      "biggest price drops": "biggest",
+    },
+
+    "aspect-ratio": {
+      "19:9": "19:9",
+      "20:9": "20:9",
+      "20.5:9": "20.5:9",
+      "21:9": "21:9",
+      "22:9": "22:9",
+    },
+
+    "refresh-rate": {
+      "60 hz": "60hz",
+      "90 hz": "90hz",
+      "120 hz": "120hz",
+      "144 hz": "144hz",
+      "165 hz": "165hz",
+    },
+
+    "cpu-manufacturer": {
+      qualcomm: "qualcomm",
+      mediatek: "mediatek",
+      samsung: "samsung",
+      apple: "apple",
+      google: "google",
+      unisoc: "unisoc",
+    },
+
+    "gpu-manufacturer": {
+      adreno: "adreno",
+      mali: "mali",
+      "apple gpu": "apple-gpu",
+      immortalis: "immortalis",
+      xclipse: "xclipse",
+    },
+
+    "ip-rating": {
+      ip53: "ip53",
+      ip54: "ip54",
+      ip55: "ip55",
+      ip67: "ip67",
+      ip68: "ip68",
+      ip69: "ip69",
+    },
+  };
+
+  return (
+    mappings[group]?.[normalized] ??
+    normalized.replace(/\s+/g, "-")
+  );
+}
+
+
+interface MobileListProps {
+  search: string;
+  brands: string[];
+  minPrice: string;
+  maxPrice: string;
+  displays: string[];
+  filterValues: Record<string, string[]>;
+  sortBy: string;
   page: number;
   onPageChange: (page: number) => void;
   onSortChange: (sort: string) => void;
+  onBrandCounts?: (counts: Record<string, number>) => void;
 }
 
 const API_URL =
@@ -544,21 +750,83 @@ function getAllSpecifications(
 ): Record<string, string> {
   const result: Record<string, string> = {};
 
-  for (const item of product.specifications ?? []) {
-    const slug = item.specification?.slug?.trim().toLowerCase();
+  const specifications = product.specifications;
 
-    if (!slug) continue;
+  if (Array.isArray(specifications)) {
+    for (const item of specifications) {
+      const slug = item.specification?.slug
+        ?.trim()
+        .toLowerCase();
 
-    const value =
-      item.customValue ??
-      item.value?.value ??
-      "";
+      if (!slug) continue;
 
-    const cleanedValue = cleanText(value);
+      const value =
+        item.customValue ??
+        item.value?.value ??
+        "";
 
-    if (!cleanedValue) continue;
+      const cleanedValue = cleanText(value);
 
-    result[slug] = cleanedValue;
+      if (!cleanedValue) continue;
+
+      result[slug] = cleanedValue;
+    }
+
+    return result;
+  }
+
+  if (
+    specifications &&
+    typeof specifications === "object"
+  ) {
+    for (const [key, rawValue] of Object.entries(
+      specifications,
+    )) {
+      const slug = key.trim().toLowerCase();
+
+      if (!slug) continue;
+
+      if (
+        typeof rawValue === "string" ||
+        typeof rawValue === "number"
+      ) {
+        const cleanedValue = cleanText(
+          String(rawValue),
+        );
+
+        if (cleanedValue) {
+          result[slug] = cleanedValue;
+        }
+
+        continue;
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === "object"
+      ) {
+        const obj =
+          rawValue as Record<string, unknown>;
+
+        const value =
+          obj.value ??
+          obj.customValue ??
+          "";
+
+        if (
+          typeof value === "string" ||
+          typeof value === "number"
+        ) {
+          const cleanedValue = cleanText(
+            String(value),
+          );
+
+          if (cleanedValue) {
+            result[slug] = cleanedValue;
+          }
+        }
+      }
+    }
   }
 
   return result;
@@ -983,16 +1251,17 @@ function convertProduct(
 ========================================================= */
 
 export default function MobileList({
-  search = "",
-  brands = [],
-  minPrice = "",
-  maxPrice = "",
-  displays = [],
-  filterValues = {},
-  sortBy = "relevance",
+  search,
+  brands,
+  minPrice,
+  maxPrice,
+  displays,
+  filterValues,
+  sortBy,
   page,
   onPageChange,
   onSortChange,
+  onBrandCounts,
 }: MobileListProps) {
   const [products, setProducts] =
     useState<Mobile[]>([]);
@@ -1026,169 +1295,200 @@ export default function MobileList({
   ======================================================= */
 
   useEffect(() => {
-    let cancelled = false;
+  let isActive = true;
 
-    async function fetchProducts() {
-      try {
+  async function fetchProducts() {
+    try {
+      if (isActive) {
         setLoading(true);
         setError(null);
+      }
 
-        const params =
-          new URLSearchParams();
+      const params = new URLSearchParams();
 
-        params.set(
-          "page",
-          String(page),
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+
+      /* -----------------------------------------------
+         SEARCH
+      ------------------------------------------------ */
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
+
+      /* -----------------------------------------------
+         BRANDS
+      ------------------------------------------------ */
+      if (brands.length > 0) {
+        params.set("brands", brands.join(","));
+      }
+
+      /* -----------------------------------------------
+         PRICE
+      ------------------------------------------------ */
+      if (minPrice.trim()) {
+        params.set("minPrice", minPrice.trim());
+      }
+
+      if (
+        maxPrice.trim() &&
+        maxPrice.trim() !== "30000+"
+      ) {
+        params.set("maxPrice", maxPrice.trim());
+      }
+
+      /* -----------------------------------------------
+         DISPLAY
+      ------------------------------------------------ */
+      if (displays.length > 0) {
+        params.set("displays", displays.join(","));
+      }
+
+      /* -----------------------------------------------
+         OTHER FILTERS
+      ------------------------------------------------ */
+      Object.entries(filterValues).forEach(
+        ([group, values]) => {
+          if (!values || values.length === 0) {
+            return;
+          }
+
+          const mappedValues = values.map((value) =>
+            mapFilterValue(group, value),
+          );
+
+          if (mappedValues.length > 0) {
+            params.set(
+              group,
+              mappedValues.join(","),
+            );
+          }
+        },
+      );
+
+      /* -----------------------------------------------
+         SORT
+      ------------------------------------------------ */
+      if (sortBy) {
+        params.set("sortBy", sortBy);
+      }
+
+      const requestUrl =
+        `${API_URL}/products?${params.toString()}`;
+
+      const response = await fetch(requestUrl, {
+        cache: "no-store",
+      });
+
+      /* -----------------------------------------------
+         COMPONENT UNMOUNTED / NEW REQUEST STARTED
+      ------------------------------------------------ */
+      if (!isActive) {
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch products (${response.status})`,
+        );
+      }
+
+      const result: ProductsResponse =
+        await response.json();
+
+      if (!isActive) {
+        return;
+      }
+
+      if (!result.success) {
+        throw new Error(
+          "Failed to load products",
+        );
+      }
+
+      /* -----------------------------------------------
+         CONVERT PRODUCTS
+      ------------------------------------------------ */
+      const convertedProducts =
+        (result.data?.products ?? []).map(
+          convertProduct,
         );
 
-        params.set(
-          "limit",
-          String(limit),
+      if (!isActive) {
+        return;
+      }
+
+      setProducts(convertedProducts);
+
+      setTotalPages(
+        result.data?.pagination?.totalPages ?? 1,
+      );
+
+      setTotalResults(
+        result.data?.pagination?.total ?? 0,
+      );
+
+      /* -----------------------------------------------
+         BRAND COUNTS
+      ------------------------------------------------ */
+      if (result.data?.brandCounts) {
+        onBrandCounts?.(
+          result.data.brandCounts,
         );
+      }
+    } catch (err) {
+      /*
+       * If this effect has already been cleaned up,
+       * ignore the result completely.
+       */
+      if (!isActive) {
+        return;
+      }
 
-        if (search.trim()) {
-          params.set(
-            "search",
-            search.trim(),
-          );
-        }
+      console.error(
+        "Mobile products fetch error:",
+        err,
+      );
 
-        if (brands.length > 0) {
-          params.set(
-            "brands",
-            brands.join(","),
-          );
-        }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load mobiles",
+      );
 
-        if (minPrice) {
-          params.set(
-            "minPrice",
-            minPrice,
-          );
-        }
-
-        if (maxPrice) {
-          params.set(
-            "maxPrice",
-            maxPrice,
-          );
-        }
-
-        if (displays.length > 0) {
-          params.set(
-            "displays",
-            displays.join(","),
-          );
-        }
-
-        Object.entries(
-          filterValues,
-        ).forEach(
-          ([group, values]) => {
-            if (
-              values &&
-              values.length > 0
-            ) {
-              params.set(
-                group,
-                values.join(","),
-              );
-            }
-          },
-        );
-
-        if (sortBy) {
-          params.set(
-            "sortBy",
-            sortBy,
-          );
-        }
-
-        const response =
-          await fetch(
-            `${API_URL}/products?${params.toString()}`,
-            {
-              cache: "no-store",
-            },
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch products (${response.status})`,
-          );
-        }
-
-        const result: ProductsResponse =
-          await response.json();
-
-        if (!result.success) {
-          throw new Error(
-            "Failed to load products",
-          );
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        const convertedProducts =
-          (
-            result.data?.products ??
-            []
-          ).map(convertProduct);
-
-        setProducts(
-          convertedProducts,
-        );
-
-        setTotalPages(
-          result.data?.pagination
-            ?.totalPages ?? 1,
-        );
-
-        setTotalResults(
-          result.data?.pagination
-            ?.total ?? 0,
-        );
-      } catch (err) {
-        if (cancelled) {
-          return;
-        }
-
-        console.error(
-          "Mobile products fetch error:",
-          err,
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load mobiles",
-        );
-
-        setProducts([]);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      setProducts([]);
+      setTotalResults(0);
+      setTotalPages(1);
+    } finally {
+      if (isActive) {
+        setLoading(false);
       }
     }
+  }
 
-    fetchProducts();
+  void fetchProducts();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    search,
-    brands,
-    minPrice,
-    maxPrice,
-    displays,
-    filterValues,
-    sortBy,
-    page,
-  ]);
+  /*
+   * IMPORTANT:
+   * We intentionally do NOT call controller.abort().
+   *
+   * When search/filter/page changes, the previous request
+   * is simply ignored when it finishes.
+   */
+  return () => {
+    isActive = false;
+  };
+}, [
+  search,
+  brands,
+  minPrice,
+  maxPrice,
+  displays,
+  filterValues,
+  sortBy,
+  page,
+  onBrandCounts,
+]);
 
   /* =======================================================
      LOADING
@@ -1349,29 +1649,12 @@ export default function MobileList({
       </div>
 
       {/* PRODUCTS */}
-      {products.map((mobile) => {
-  const cameraText = getSpecification(mobile, [
-    "rear-camera",
-    "main-camera",
-    "primary-camera",
-    "camera",
-  ]);
-
-  const storageText = getSpecification(mobile, [
-    "storage",
-    "internal-storage",
-    "inbuilt-memory",
-  ]);
-
-  return (
-    <MobileCard
-      key={mobile.id}
-      mobile={mobile}
-      cameraText={cameraText}
-      storageText={storageText}
-    />
-  );
-})}
+      {products.map((mobile) => (
+  <MobileCard
+    key={mobile.id}
+    mobile={mobile}
+  />
+))}
 
       {/* PAGINATION */}
       {totalPages > 1 && (

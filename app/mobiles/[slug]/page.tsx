@@ -1,15 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 interface ProductImage {
   id: string;
   url: string;
   altText?: string | null;
+  sortOrder?: number | null;
   isPrimary?: boolean;
-  sortOrder?: number;
 }
 
 interface Brand {
@@ -26,74 +35,88 @@ interface Seller {
 
 interface Price {
   id: string;
-  price: number | string;
-  seller?: Seller | null;
-  sellerName?: string;
+  amount: number | string;
+  currency?: string;
   url?: string | null;
+  inStock?: boolean;
+  seller?: Seller | null;
 }
 
 interface ProductVariant {
   id: string;
   name?: string | null;
-  price?: number | string | null;
+  color?: string | null;
   storage?: string | null;
   ram?: string | null;
-  color?: string | null;
+  price?: number | string | null;
+  sku?: string | null;
 }
 
 interface Specification {
-  id: string;
-  name: string;
-  slug: string;
+  id?: string;
+  name?: string;
+  slug?: string;
+  value?: unknown;
   unit?: string | null;
-  dataType?: string | null;
-  group?: string | null;
+  dataType?: string;
+  group?: string;
+  column?: string | null;
+  groupOrder?: number | null;
+  sortOrder?: number | null;
 }
 
-interface SpecificationValue {
-  id: string;
-  value: string;
-}
-
-interface ProductSpecification {
-  id: string;
-  specification: Specification;
-  value?: SpecificationValue | null;
-  customValue?: string | null;
-}
+type ProductSpecification = Specification;
 
 interface Review {
   id: string;
   rating: number;
   title?: string | null;
   comment?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+
   user?: {
+    id?: string;
     name?: string | null;
+    email?: string | null;
   } | null;
-  createdAt?: string;
-  userId?: string;
 }
 
 interface Product {
   id: string;
-  name: string;
   slug: string;
-  description?: string | null;
+  name: string;
+
   shortDescription?: string | null;
-  releaseDate?: string | null;
+  description?: string | null;
+
   brand?: Brand | null;
+
+  category?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+  } | null;
+
   images?: ProductImage[];
   prices?: Price[];
   variants?: ProductVariant[];
   specifications?: ProductSpecification[];
-  reviews?: Review[];
+
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface LoginUser {
   id: string;
-  name?: string;
-  email?: string;
+  name?: string | null;
+  email?: string | null;
 }
+
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -101,12 +124,23 @@ const API_URL =
 
 const BACKEND_URL = API_URL.replace(/\/api\/?$/, "");
 
-function getImageUrl(url: string) {
+const PLACEHOLDER_IMAGE =
+  "/images/mobile-placeholder.png";
+
+/* =========================================================
+   IMAGE
+========================================================= */
+
+function getImageUrl(url?: string | null) {
   if (!url) {
-    return "/placeholder-product.png";
+    return PLACEHOLDER_IMAGE;
   }
 
-  if (url.startsWith("http://") || url.startsWith("https://")) {
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:")
+  ) {
     return url;
   }
 
@@ -117,206 +151,570 @@ function getImageUrl(url: string) {
   return `${BACKEND_URL}/${url}`;
 }
 
+/* =========================================================
+   PRICE
+========================================================= */
+
 function formatPrice(
-  value: number | string | null | undefined,
+  value?: number | string | null,
+  currency = "INR"
 ) {
   const numericValue = Number(value);
 
   if (!Number.isFinite(numericValue)) {
-    return "₹0";
+    return "—";
   }
 
-  return `₹${numericValue.toLocaleString("en-IN")}`;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(numericValue);
 }
 
-function getSpecValue(item: ProductSpecification) {
-  return (
-    item.customValue?.trim() ||
-    item.value?.value?.trim() ||
-    ""
-  );
+/* =========================================================
+   SAFE OBJECT → TEXT
+========================================================= */
+
+function stringifyValue(value: unknown): string {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number"
+  ) {
+    return String(value).trim();
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stringifyValue(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "object") {
+    const objectValue =
+      value as Record<string, unknown>;
+
+    /*
+      Prefer common human-readable fields.
+    */
+    const preferredKeys = [
+      "name",
+      "title",
+      "label",
+      "value",
+      "text",
+      "display",
+      "model",
+      "brand",
+    ];
+
+    for (const key of preferredKeys) {
+      if (
+        objectValue[key] !== undefined &&
+        objectValue[key] !== null
+      ) {
+        const result =
+          stringifyValue(objectValue[key]);
+
+        if (result) {
+          return result;
+        }
+      }
+    }
+
+    /*
+      If no preferred field exists,
+      flatten the object intelligently.
+    */
+    return Object.entries(objectValue)
+      .map(([key, val]) => {
+        const formatted =
+          stringifyValue(val);
+
+        if (!formatted) {
+          return "";
+        }
+
+        const prettyKey = key
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (char) =>
+            char.toUpperCase()
+          );
+
+        return `${prettyKey}: ${formatted}`;
+      })
+      .filter(Boolean)
+      .join(" • ");
+  }
+
+  return String(value);
 }
 
-/**
- * Converts TinyMCE HTML into normal readable text.
- *
- * Example:
- *
- * <p>Hello &amp; welcome</p>
- *
- * becomes:
- *
- * Hello & welcome
- */
-function htmlToPlainText(html: string | null | undefined) {
+/* =========================================================
+   SPEC VALUE
+========================================================= */
+
+function getSpecValue(item: ProductSpecification): string {
+  return stringifyValue(item.value);
+}
+
+/* =========================================================
+   TEXT
+========================================================= */
+
+function cleanText(
+  value?: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function htmlToPlainText(
+  html?: string | null
+) {
   if (!html) {
     return "";
   }
 
-  if (typeof window === "undefined") {
-    return html
-      .replace(/<[^>]*>/g, "")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .trim();
+  if (
+    typeof window === "undefined"
+  ) {
+    return cleanText(html);
   }
 
-  const parser = new DOMParser();
-  const document = parser.parseFromString(
-    html,
-    "text/html",
-  );
+  try {
+    const parser =
+      new DOMParser();
 
-  return (
-    document.body.textContent
-      ?.replace(/\u00a0/g, " ")
+    const doc =
+      parser.parseFromString(
+        html,
+        "text/html"
+      );
+
+    return (
+      doc.body.textContent || ""
+    )
       .replace(/\s+/g, " ")
-      .trim() ?? ""
-  );
+      .trim();
+  } catch {
+    return cleanText(html);
+  }
 }
+
+/* =========================================================
+   SPEC SEARCH
+========================================================= */
 
 function findSpecification(
   product: Product | null,
-  options: {
-    slugs?: string[];
-    names?: string[];
-    groups?: string[];
-  },
+  options: string[]
 ) {
   if (!product?.specifications?.length) {
-    return null;
+    return "";
   }
 
-  const slugs = (options.slugs ?? []).map((item) =>
-    item.toLowerCase(),
+  const normalizedOptions = options.map((item) =>
+    item.toLowerCase().trim()
   );
 
-  const names = (options.names ?? []).map((item) =>
-    item.toLowerCase(),
-  );
+  /* Exact match */
+  for (const item of product.specifications) {
+    const slug = String(item.slug ?? "")
+      .toLowerCase()
+      .trim();
 
-  const groups = (options.groups ?? []).map((item) =>
-    item.toLowerCase(),
-  );
+    const name = String(item.name ?? "")
+      .toLowerCase()
+      .trim();
 
-  const exact = product.specifications.find((item) => {
-    const slug =
-      item.specification.slug.toLowerCase();
+    if (
+      normalizedOptions.includes(slug) ||
+      normalizedOptions.includes(name)
+    ) {
+      const value = getSpecValue(item);
 
-    const name =
-      item.specification.name.toLowerCase();
-
-    const group = (
-      item.specification.group ?? "General"
-    ).toLowerCase();
-
-    const slugMatch = slugs.includes(slug);
-    const nameMatch = names.includes(name);
-
-    const groupMatch =
-      groups.length === 0 || groups.includes(group);
-
-    return (
-      (slugMatch || nameMatch) &&
-      groupMatch
-    );
-  });
-
-  if (exact) {
-    return exact;
+      if (value) {
+        return value;
+      }
+    }
   }
 
-  const partial = product.specifications.find((item) => {
-    const slug =
-      item.specification.slug.toLowerCase();
+  /* Partial match */
+  for (const item of product.specifications) {
+    const slug = String(item.slug ?? "")
+      .toLowerCase()
+      .trim();
 
-    const name =
-      item.specification.name.toLowerCase();
+    const name = String(item.name ?? "")
+      .toLowerCase()
+      .trim();
 
-    const group = (
-      item.specification.group ?? "General"
-    ).toLowerCase();
-
-    const keywordMatch = [...slugs, ...names].some(
-      (keyword) =>
-        slug.includes(keyword) ||
-        name.includes(keyword),
+    const matched = normalizedOptions.some(
+      (option) =>
+        (slug && slug.includes(option)) ||
+        (slug && option.includes(slug)) ||
+        (name && name.includes(option)) ||
+        (name && option.includes(name))
     );
 
-    const groupMatch =
-      groups.length === 0 || groups.includes(group);
+    if (matched) {
+      const value = getSpecValue(item);
 
-    return keywordMatch && groupMatch;
-  });
+      if (value) {
+        return value;
+      }
+    }
+  }
 
-  return partial ?? null;
+  return "";
 }
 
 function getSpecText(
   product: Product | null,
-  options: {
-    slugs?: string[];
-    names?: string[];
-    groups?: string[];
-  },
+  options: string[],
+  fallback = "—"
 ) {
-  const specification = findSpecification(
-    product,
-    options,
+  return (
+    findSpecification(
+      product,
+      options
+    ) || fallback
   );
-
-  return specification
-    ? getSpecValue(specification)
-    : "";
 }
 
-function formatReviewDate(date?: string) {
+/* =========================================================
+   DATE
+========================================================= */
+
+function formatReviewDate(
+  date?: string | null
+) {
   if (!date) {
     return "";
   }
 
-  const parsed = new Date(date);
+  const parsed =
+    new Date(date);
 
-  if (Number.isNaN(parsed.getTime())) {
+  if (
+    Number.isNaN(
+      parsed.getTime()
+    )
+  ) {
     return "";
   }
 
-  return parsed.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function ratingStars(rating: number) {
-  const rounded = Math.round(rating);
-
-  return "★".repeat(
-    Math.max(0, Math.min(5, rounded)),
+  return parsed.toLocaleDateString(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }
   );
 }
 
+/* =========================================================
+   ICON
+========================================================= */
+
+function Icon({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* =========================================================
+   SPEC ROW
+========================================================= */
+
+function SpecRow({
+  name,
+  value,
+}: {
+  name: string;
+  value: string;
+}) {
+  const negative =
+    ["no", "none", "false", "not supported"]
+      .includes(
+        value.toLowerCase().trim()
+      );
+
+  const positive =
+    ["yes", "true", "supported"]
+      .includes(
+        value.toLowerCase().trim()
+      );
+
+  return (
+      <div className="grid grid-cols-[135px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0">
+      <div className="bg-slate-50/70 px-3 py-2.5 text-[12px] font-bold leading-5 text-slate-500">
+        {name}
+      </div>
+
+      <div className="px-3 py-2.5 text-[12px] font-medium leading-5 text-slate-700">
+        {positive && (
+          <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[9px] font-black text-white">
+            ✓
+          </span>
+        )}
+
+        {negative && (
+          <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
+            ×
+          </span>
+        )}
+
+        {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SPEC GROUP
+========================================================= */
+
+function SpecificationGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items: ProductSpecification[];
+}) {
+  const groupIcons: Record<string, string> = {
+    General: "◈",
+    Design: "✦",
+    Display: "▣",
+    Memory: "▤",
+    Connectivity: "⌁",
+    Extra: "✧",
+    Camera: "◉",
+    Technical: "⚙",
+    Multimedia: "♫",
+    Battery: "⚡",
+  };
+
+  const sortedItems = [...items].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+  );
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {/* Group Header */}
+      <div className="flex items-center gap-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-lg font-bold text-indigo-600">
+          {groupIcons[title] ?? "✦"}
+        </div>
+
+        <div>
+          <h3 className="text-[15px] font-extrabold text-slate-800">
+            {title}
+          </h3>
+
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Specifications
+          </p>
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div>
+        {sortedItems.map((item) => {
+          const name =
+            item.name?.trim() ||
+            item.slug
+              ?.replace(/[-_]/g, " ")
+              .replace(/\b\w/g, (char) => char.toUpperCase()) ||
+            "Specification";
+
+          const value = getSpecValue(item);
+
+          const unit =
+            item.unit && !value.toLowerCase().includes(item.unit.toLowerCase())
+              ? ` ${item.unit}`
+              : "";
+
+          const displayValue = `${value}${unit}`.trim();
+
+          const normalizedValue = value.trim().toLowerCase();
+
+          const positive = [
+            "yes",
+            "true",
+            "supported",
+            "available",
+          ].includes(normalizedValue);
+
+          const negative = [
+            "no",
+            "false",
+            "not supported",
+            "not available",
+          ].includes(normalizedValue);
+
+          return (
+            <div
+              key={item.id ?? item.slug ?? name}
+              className="grid grid-cols-[125px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0"
+            >
+              {/* Name */}
+              <div className="bg-slate-50/70 px-3 py-2.5 text-[12px] font-bold leading-5 text-slate-500">
+                {name}
+              </div>
+
+              {/* Value */}
+              <div className="px-3 py-2.5 text-[12px] font-semibold leading-5 text-slate-700">
+                {positive && (
+                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-600">
+                    ✓
+                  </span>
+                )}
+
+                {negative && (
+                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-100 text-[10px] font-black text-rose-500">
+                    ×
+                  </span>
+                )}
+
+                {displayValue || "—"}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SELLER
+========================================================= */
+
+function SellerRow({
+  price,
+  best,
+}: {
+  price: Price;
+  best?: boolean;
+}) {
+  const seller =
+    price.seller?.name ||
+    "Seller";
+
+  return (
+    <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-2.5 last:border-b-0">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black text-slate-700">
+        {seller
+          .slice(0, 1)
+          .toUpperCase()}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-semibold text-slate-700">
+          {seller}
+        </p>
+
+        <p
+          className={`text-[10px] ${
+            price.inStock === false
+              ? "text-red-500"
+              : "text-green-600"
+          }`}
+        >
+          {price.inStock === false
+            ? "Out of stock"
+            : "In stock"}
+        </p>
+      </div>
+
+      <div className="text-right">
+        <p
+          className={`text-sm font-extrabold ${
+            best
+              ? "text-green-700"
+              : "text-slate-800"
+          }`}
+        >
+          {formatPrice(
+            price.amount,
+            price.currency ?? "INR"
+          )}
+        </p>
+
+        {price.url && (
+          <a
+            href={price.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-bold text-blue-600 hover:underline"
+          >
+            View →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function MobileDetailPage() {
-  console.log("🔥 PRODUCT DETAIL PAGE IS RUNNING");
   const params = useParams();
   const router = useRouter();
 
-  const slug =
-    typeof params.slug === "string"
-      ? params.slug
-      : "";
+  const slug = Array.isArray(
+    params?.slug
+  )
+    ? params.slug[0]
+    : String(
+        params?.slug ?? ""
+      );
 
   const [product, setProduct] =
     useState<Product | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [selectedImage, setSelectedImage] =
-    useState(0);
+  const [error, setError] =
+    useState("");
 
   const [reviews, setReviews] =
     useState<Review[]>([]);
@@ -333,437 +731,490 @@ export default function MobileDetailPage() {
   const [reviewComment, setReviewComment] =
     useState("");
 
-  const [submittingReview, setSubmittingReview] =
-    useState(false);
+  const [
+    submittingReview,
+    setSubmittingReview,
+  ] = useState(false);
 
-  const [reviewMessage, setReviewMessage] =
-    useState("");
+  const [
+    reviewMessage,
+    setReviewMessage,
+  ] = useState("");
 
-  const [editingReviewId, setEditingReviewId] =
-    useState<string | null>(null);
+  const [
+    editingReviewId,
+    setEditingReviewId,
+  ] = useState<string | null>(null);
 
-  /*
-   * LOAD PRODUCT
-   */
+  /* =======================================================
+     LOAD PRODUCT
+  ======================================================= */
+
   useEffect(() => {
     if (!slug) {
       return;
     }
 
-    const loadProduct = async () => {
+    let active = true;
+
+    async function loadProduct() {
       try {
         setLoading(true);
         setError("");
 
-        const response = await fetch(
-          `${API_URL}/products/${slug}`,
-        );
+        const response =
+          await fetch(
+            `${API_URL}/products/${encodeURIComponent(
+              slug
+            )}`
+          );
 
         if (!response.ok) {
           throw new Error(
-            "Unable to load mobile product.",
+            `Failed to load product (${response.status})`
           );
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         const loadedProduct =
-          data.product ?? data;
+          data?.product ??
+          data?.data ??
+          data;
 
-        setProduct(loadedProduct);
+        if (!loadedProduct?.id) {
+          throw new Error(
+            "Product not found"
+          );
+        }
+
+        if (active) {
+          setProduct(
+            loadedProduct
+          );
+        }
       } catch (err) {
-        console.error(err);
-
-        setError(
-          "Unable to load this mobile product.",
+        console.error(
+          "Product detail error:",
+          err
         );
+
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load product"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
-    };
+    }
 
     loadProduct();
+
+    return () => {
+      active = false;
+    };
   }, [slug]);
 
-  /*
-   * LOAD CURRENT USER
-   */
+  /* =======================================================
+     USER
+  ======================================================= */
+
   useEffect(() => {
     try {
       const storedUser =
         localStorage.getItem(
-          "smartprix_user",
+          "smartprix_user"
         );
 
-      if (storedUser) {
-        setCurrentUser(
-          JSON.parse(storedUser),
-        );
+      if (!storedUser) {
+        return;
+      }
+
+      const parsed =
+        JSON.parse(storedUser);
+
+      if (parsed?.id) {
+        setCurrentUser(parsed);
       }
     } catch {
-      setCurrentUser(null);
+      // Ignore invalid local storage
     }
   }, []);
 
-  /*
-   * LOAD REVIEWS
-   */
+  /* =======================================================
+     REVIEWS
+  ======================================================= */
+
   useEffect(() => {
     if (!product?.id) {
       return;
     }
 
-    const loadReviews = async () => {
+    let active = true;
+
+    async function loadReviews() {
       try {
-        const response = await fetch(
-          `${API_URL}/reviews/product/${product.id}`,
-        );
+        const response =
+          await fetch(
+            `${API_URL}/reviews/product/${product.id}`
+          );
 
         if (!response.ok) {
           return;
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        setReviews(
-          data.reviews ??
-            data ??
-            [],
-        );
+        const loadedReviews =
+          data?.reviews ??
+          data?.data ??
+          data ??
+          [];
+
+        if (
+          active &&
+          Array.isArray(
+            loadedReviews
+          )
+        ) {
+          setReviews(
+            loadedReviews
+          );
+        }
       } catch (err) {
         console.error(
           "Failed to load reviews:",
-          err,
+          err
         );
       }
-    };
-
-    loadReviews();
-  }, [product?.id]);
-
-  /*
-   * IMAGES
-   */
-  const images = useMemo(() => {
-    return [...(product?.images ?? [])].sort(
-      (a, b) =>
-        (a.sortOrder ?? 0) -
-        (b.sortOrder ?? 0),
-    );
-  }, [product?.images]);
-
-  /*
-   * PRIMARY PRICE
-   */
-  const primaryPrice = useMemo(() => {
-    const prices = product?.prices ?? [];
-
-    if (!prices.length) {
-      return null;
     }
 
-    return prices.reduce(
-      (lowest, current) => {
-        return Number(current.price) <
-          Number(lowest.price)
-          ? current
-          : lowest;
-      },
+    loadReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [product?.id]);
+  
+
+  /* =======================================================
+     IMAGES
+  ======================================================= */
+
+  const images = useMemo(() => {
+    const source = [
+      ...(product?.images ?? []),
+    ];
+
+    source.sort((a, b) => {
+      if (
+        a.isPrimary &&
+        !b.isPrimary
+      ) {
+        return -1;
+      }
+
+      if (
+        !a.isPrimary &&
+        b.isPrimary
+      ) {
+        return 1;
+      }
+
+      return (
+        Number(
+          a.sortOrder ?? 0
+        ) -
+        Number(
+          b.sortOrder ?? 0
+        )
+      );
+    });
+
+    return source;
+  }, [product?.images]);
+
+  const [selectedImage, setSelectedImage] =
+    useState(0);
+
+  const activeImage =
+    images[selectedImage];
+
+  /* =======================================================
+     PRICES
+  ======================================================= */
+
+  const sortedPrices = useMemo(() => {
+    return [
+      ...(product?.prices ?? []),
+    ].sort(
+      (a, b) =>
+        Number(a.amount) -
+        Number(b.amount)
     );
   }, [product?.prices]);
 
-  /*
-   * GROUP SPECIFICATIONS
-   */
-  const groupedSpecifications = useMemo(() => {
-    return (
-      product?.specifications ?? []
-    ).reduce<
-      Record<string, ProductSpecification[]>
-    >(
-      (groups, item) => {
-        const group =
-          item.specification.group ||
-          "General";
+  const primaryPrice =
+    sortedPrices[0];
 
-        if (!groups[group]) {
-          groups[group] = [];
-        }
+ /* =======================================================
+   SPEC GROUPS
+======================================================= */
 
-        groups[group].push(item);
+const specificationGroups = useMemo(() => {
+  const groups = new Map<string, ProductSpecification[]>();
 
-        return groups;
-      },
-      {},
-    );
-  }, [product?.specifications]);
+  for (const item of product?.specifications ?? []) {
+    const group = item.group?.trim() || "General";
 
-  /*
-   * AVERAGE RATING
-   */
-  const averageRating = useMemo(() => {
-    if (!reviews.length) {
-      return 0;
-    }
+    const existing = groups.get(group) ?? [];
+    existing.push(item);
 
-    const total = reviews.reduce(
-      (sum, review) =>
-        sum + Number(review.rating || 0),
-      0,
-    );
+    groups.set(group, existing);
+  }
 
-    return total / reviews.length;
-  }, [reviews]);
+  return groups;
+}, [product?.specifications]);
 
-  /*
-   * RATING DISTRIBUTION
-   */
-  const ratingDistribution = useMemo(() => {
-    const counts = {
-      5: 0,
-      4: 0,
-      3: 0,
-      2: 0,
-      1: 0,
-    };
+  /* =======================================================
+     KEY SPECS
+  ======================================================= */
 
-    reviews.forEach((review) => {
-      const rating = Math.round(
-        Number(review.rating),
-      ) as keyof typeof counts;
+  const processor =
+    getSpecText(product, [
+      "processor",
+      "cpu",
+      "chipset",
+      "soc",
+    ]);
 
-      if (rating >= 1 && rating <= 5) {
-        counts[rating]++;
-      }
-    });
+  const ram =
+    getSpecText(product, [
+      "ram",
+      "ram-capacity",
+    ]);
 
-    return counts;
-  }, [reviews]);
-
-  /*
-   * SPECIFICATION VALUES
-   */
-  const processor = getSpecText(product, {
-    slugs: ["processor"],
-    names: ["Processor"],
-    groups: ["Performance"],
-  });
-
-  const chipset = getSpecText(product, {
-    slugs: ["chipset"],
-    names: ["Chipset"],
-    groups: ["Performance"],
-  });
-
-  const ram = getSpecText(product, {
-    slugs: ["ram"],
-    names: ["RAM"],
-    groups: [
-      "Performance",
-      "Memory",
-    ],
-  });
-
-  const storage = getSpecText(product, {
-    slugs: [
+  const storage =
+    getSpecText(product, [
       "storage",
       "internal-storage",
-    ],
-    names: [
-      "Storage",
-      "Internal Storage",
-    ],
-  });
+      "inbuilt-memory",
+      "rom",
+    ]);
 
-  const display = getSpecText(product, {
-    slugs: [
+  const display =
+    getSpecText(product, [
+      "display",
+      "screen",
+      "display-size",
       "screen-size",
-      "screen_size",
-      "size",
-    ],
-    names: [
-      "Screen Size",
-      "Size",
-    ],
-    groups: ["Display"],
-  });
+    ]);
 
-  const resolution = getSpecText(product, {
-    slugs: ["resolution"],
-    names: ["Resolution"],
-    groups: ["Display"],
-  });
+  const resolution =
+    getSpecText(product, [
+      "screen-resolution",
+      "display-resolution",
+      "resolution",
+    ]);
 
-  const operatingSystem = getSpecText(
-    product,
-    {
-      slugs: [
-        "operating-system",
-        "os",
-      ],
-      names: [
-        "Operating System",
-        "OS",
-      ],
-      groups: ["General"],
-    },
-  );
+  const battery =
+    getSpecText(product, [
+      "battery",
+      "battery-capacity",
+      "battery-size",
+    ]);
 
-  const gpu = getSpecText(product, {
-    slugs: [
-      "gpu",
-      "graphics",
-      "graphics-gpu",
-    ],
-    names: [
-      "Graphics",
-      "Graphics (GPU)",
-      "GPU",
-    ],
-    groups: [
-      "Performance",
-      "Graphics",
-    ],
-  });
+  const charging =
+    getSpecText(product, [
+      "charging",
+      "fast-charging",
+      "charging-speed",
+    ]);
 
-  const rearCamera = getSpecText(
-    product,
-    {
-      slugs: [
-        "rear-camera",
-        "primary-camera",
-        "main-camera",
-      ],
-      names: [
-        "Rear Camera",
-        "Primary Camera",
-        "Main Camera",
-      ],
-      groups: ["Rear Camera"],
-    },
-  );
+  const rearCamera =
+    getSpecText(product, [
+      "rear-camera",
+      "main-camera",
+      "primary-camera",
+      "camera",
+    ]);
 
-  const frontCamera = getSpecText(
-    product,
-    {
-      slugs: [
-        "front-camera",
-        "selfie-camera",
-      ],
-      names: [
-        "Front Camera",
-        "Selfie Camera",
-      ],
-      groups: ["Front Camera"],
-    },
-  );
+  const frontCamera =
+    getSpecText(product, [
+      "front-camera",
+      "selfie-camera",
+    ]);
 
-  const battery = getSpecText(product, {
-    slugs: ["battery"],
-    names: ["Battery"],
-    groups: ["Battery"],
-  });
+  const operatingSystem =
+    getSpecText(product, [
+      "operating-system",
+      "os",
+      "android-version",
+      "software",
+    ]);
 
-  /*
-   * DESCRIPTION AS NORMAL TEXT
-   *
-   * This converts:
-   *
-   * <p>Hello &amp; World</p>
-   *
-   * into:
-   *
-   * Hello & World
-   */
-  const plainDescription = useMemo(() => {
-    return htmlToPlainText(
-      product?.description,
-    );
-  }, [product?.description]);
+  const refreshRate =
+    getSpecText(product, [
+      "refresh-rate",
+      "screen-refresh-rate",
+    ]);
 
-  console.log("PRODUCT DESCRIPTION RAW:", product?.description);
-console.log("PRODUCT DESCRIPTION PLAIN:", plainDescription);
+  const connectivity =
+    getSpecText(product, [
+      "connectivity",
+      "network",
+      "network-type",
+      "5g",
+    ]);
 
-  /*
-   * KEY HIGHLIGHTS
-   */
-  const keyHighlights = [
-    {
-      label: "Processor",
-      value:
-        chipset ||
-        processor ||
-        "—",
-    },
-    {
-      label: "RAM & Storage",
-      value:
-        [ram, storage]
-          .filter(Boolean)
-          .join(" • ") || "—",
-    },
-    {
-      label: "Display",
-      value:
-        [display, resolution]
-          .filter(Boolean)
-          .join(", ") || "—",
-    },
-    {
-      label: "Rear Camera",
-      value:
-        rearCamera || "—",
-    },
-    {
-      label: "Front Camera",
-      value:
-        frontCamera || "—",
-    },
-    {
-      label: "Battery",
-      value:
-        battery || "—",
-    },
-  ];
+  const ipRating =
+    getSpecText(product, [
+      "ip-rating",
+      "water-resistance",
+      "waterproof",
+    ]);
 
-  const leftGroups = [
-    "General",
-    "Performance",
-    "Display",
-    "Design",
-  ];
+  const nfc =
+    getSpecText(product, [
+      "nfc",
+    ]);
 
-  const rightGroups = [
-    "Rear Camera",
-    "Front Camera",
-    "Network & Connectivity",
-    "Multimedia",
-    "Sensors",
-    "Battery",
-  ];
+  const ois =
+    getSpecText(product, [
+      "ois",
+      "optical-image-stabilization",
+    ]);
 
-  /*
-   * SUBMIT / UPDATE REVIEW
-   */
-  const submitReview = async () => {
+  /* =======================================================
+     FEATURES
+  ======================================================= */
+
+  const features = useMemo(() => {
+    const result: string[] =
+      [];
+
+    const add = (
+      value: string,
+      label: string
+    ) => {
+      if (
+        value &&
+        value !== "—" &&
+        ![
+          "no",
+          "none",
+          "false",
+          "not supported",
+        ].includes(
+          value
+            .toLowerCase()
+            .trim()
+        )
+      ) {
+        if (!result.includes(label)) {
+          result.push(label);
+        }
+      }
+    };
+
+    add(nfc, "NFC");
+    add(ois, "OIS");
+    add(ipRating, ipRating);
+
+    return result;
+  }, [
+    nfc,
+    ois,
+    ipRating,
+  ]);
+
+  /* =======================================================
+     REVIEWS
+  ======================================================= */
+
+  const averageRating =
+    useMemo(() => {
+      if (!reviews.length) {
+        return 0;
+      }
+
+      return (
+        reviews.reduce(
+          (sum, review) =>
+            sum +
+            Number(
+              review.rating || 0
+            ),
+          0
+        ) / reviews.length
+      );
+    }, [reviews]);
+
+  const ratingDistribution =
+    useMemo(() => {
+      const distribution = {
+        5: 0,
+        4: 0,
+        3: 0,
+        2: 0,
+        1: 0,
+      };
+
+      for (const review of reviews) {
+        const rating =
+          Math.round(
+            Number(
+              review.rating
+            )
+          ) as keyof typeof distribution;
+
+        if (
+          rating >= 1 &&
+          rating <= 5
+        ) {
+          distribution[rating]++;
+        }
+      }
+
+      return distribution;
+    }, [reviews]);
+
+  /* =======================================================
+     REVIEW ACTIONS
+  ======================================================= */
+
+  function resetReviewForm() {
+    setReviewRating(5);
+    setReviewTitle("");
+    setReviewComment("");
+    setEditingReviewId(null);
+  }
+
+  async function submitReview() {
     if (!product?.id) {
       return;
     }
 
     if (!currentUser) {
-      router.push("/login");
+      setReviewMessage(
+        "Please login to write a review."
+      );
       return;
     }
 
     if (!reviewComment.trim()) {
       setReviewMessage(
-        "Please write a review.",
+        "Please write a review comment."
       );
       return;
     }
-
-    const wasEditing =
-      Boolean(editingReviewId);
 
     try {
       setSubmittingReview(true);
@@ -771,226 +1222,268 @@ console.log("PRODUCT DESCRIPTION PLAIN:", plainDescription);
 
       const token =
         localStorage.getItem(
-          "smartprix_token",
+          "smartprix_token"
         );
 
-      const url = editingReviewId
+      const editing =
+        Boolean(
+          editingReviewId
+        );
+
+      const url = editing
         ? `${API_URL}/reviews/${editingReviewId}`
         : `${API_URL}/reviews`;
 
-      const method = editingReviewId
-        ? "PUT"
-        : "POST";
+      const response =
+        await fetch(url, {
+          method: editing
+            ? "PUT"
+            : "POST",
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : {}),
-        },
-        body: JSON.stringify({
-          productId: product.id,
-          rating: reviewRating,
-          title:
-            reviewTitle.trim() || null,
-          comment:
-            reviewComment.trim(),
-        }),
-      });
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            ...(token
+              ? {
+                  Authorization:
+                    `Bearer ${token}`,
+                }
+              : {}),
+          },
+
+          body: JSON.stringify({
+            productId:
+              product.id,
+            rating:
+              reviewRating,
+            title:
+              reviewTitle.trim(),
+            comment:
+              reviewComment.trim(),
+          }),
+        });
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
 
       if (!response.ok) {
-        const data =
-          await response
-            .json()
-            .catch(() => null);
-
         throw new Error(
           data?.message ||
-            "Failed to submit review.",
+            data?.error ||
+            "Failed to submit review"
         );
       }
 
-      setReviewTitle("");
-      setReviewComment("");
-      setReviewRating(5);
-      setEditingReviewId(null);
-
       setReviewMessage(
-        wasEditing
+        editing
           ? "Review updated successfully."
-          : "Review submitted successfully.",
+          : "Review submitted successfully."
       );
 
-      const reviewsResponse =
+      resetReviewForm();
+
+      const reviewResponse =
         await fetch(
-          `${API_URL}/reviews/product/${product.id}`,
+          `${API_URL}/reviews/product/${product.id}`
         );
 
-      if (reviewsResponse.ok) {
-        const data =
-          await reviewsResponse.json();
+      if (
+        reviewResponse.ok
+      ) {
+        const reviewData =
+          await reviewResponse.json();
 
-        setReviews(
-          data.reviews ??
-            data ??
-            [],
-        );
+        const updatedReviews =
+          reviewData?.reviews ??
+          reviewData?.data ??
+          reviewData ??
+          [];
+
+        if (
+          Array.isArray(
+            updatedReviews
+          )
+        ) {
+          setReviews(
+            updatedReviews
+          );
+        }
       }
     } catch (err) {
       setReviewMessage(
         err instanceof Error
           ? err.message
-          : "Failed to submit review.",
+          : "Failed to submit review."
       );
     } finally {
       setSubmittingReview(false);
     }
-  };
+  }
 
-  /*
-   * DELETE REVIEW
-   */
-  const deleteReview = async (
-    reviewId: string,
-  ) => {
-    if (!currentUser) {
-      return;
-    }
+  function editReview(
+    review: Review
+  ) {
+    setEditingReviewId(
+      review.id
+    );
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this review?",
-      );
+    setReviewRating(
+      Number(review.rating)
+    );
 
-    if (!confirmed) {
+    setReviewTitle(
+      review.title ?? ""
+    );
+
+    setReviewComment(
+      review.comment ?? ""
+    );
+
+    document
+      .getElementById(
+        "write-review"
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
+  }
+
+  async function deleteReview(
+    reviewId: string
+  ) {
+    if (
+      !confirm(
+        "Delete this review?"
+      )
+    ) {
       return;
     }
 
     try {
       const token =
         localStorage.getItem(
-          "smartprix_token",
+          "smartprix_token"
         );
 
-      const response = await fetch(
-        `${API_URL}/reviews/${reviewId}`,
-        {
-          method: "DELETE",
-          headers: {
-            ...(token
+      const response =
+        await fetch(
+          `${API_URL}/reviews/${reviewId}`,
+          {
+            method: "DELETE",
+
+            headers: token
               ? {
-                  Authorization: `Bearer ${token}`,
+                  Authorization:
+                    `Bearer ${token}`,
                 }
-              : {}),
-          },
-        },
-      );
+              : {},
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
 
       if (!response.ok) {
         throw new Error(
-          "Failed to delete review.",
+          data?.message ||
+            data?.error ||
+            "Failed to delete review"
         );
       }
 
-      setReviews((current) =>
-        current.filter(
-          (review) =>
-            review.id !== reviewId,
-        ),
+      setReviews(
+        (previous) =>
+          previous.filter(
+            (review) =>
+              review.id !==
+              reviewId
+          )
       );
     } catch (err) {
-      console.error(err);
-
       setReviewMessage(
-        "Failed to delete review.",
+        err instanceof Error
+          ? err.message
+          : "Failed to delete review."
       );
     }
-  };
+  }
 
-  /*
-   * START EDITING REVIEW
-   */
-  const startEditingReview = (
-    review: Review,
-  ) => {
-    setEditingReviewId(review.id);
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
-    setReviewRating(
-      Number(review.rating) || 5,
-    );
-
-    setReviewTitle(
-      review.title ?? "",
-    );
-
-    setReviewComment(
-      review.comment ?? "",
-    );
-
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      behavior: "smooth",
-    });
-  };
-
-  /*
-   * LOADING
-   */
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f1f3f6]">
-        <div className="mx-auto max-w-[1100px] px-3 py-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-[420px] rounded-xl bg-white" />
-            <div className="h-[300px] rounded-xl bg-white" />
+      <main className="min-h-screen bg-[#f1f3f6]">
+        <div className="mx-auto max-w-[1180px] px-4 py-8">
+          <div className="h-5 w-72 animate-pulse rounded bg-slate-200" />
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_285px]">
+            <div className="h-[700px] animate-pulse rounded-xl bg-white" />
+
+            <div className="space-y-4">
+              <div className="h-48 animate-pulse rounded-xl bg-white" />
+              <div className="h-80 animate-pulse rounded-xl bg-white" />
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
-  /*
-   * ERROR
-   */
-  if (error || !product) {
-    return (
-      <div className="min-h-screen bg-[#f1f3f6]">
-        <div className="mx-auto max-w-[1100px] px-3 py-12">
-          <div className="rounded-xl bg-white p-10 text-center shadow-sm">
-            <h1 className="text-xl font-bold text-gray-900">
-              Mobile not found
-            </h1>
+  /* =======================================================
+     ERROR
+  ======================================================= */
 
-            <p className="mt-2 text-sm text-gray-500">
-              {error ||
-                "The requested mobile product could not be found."}
-            </p>
-
-            <Link
-              href="/mobiles"
-              className="mt-5 inline-flex rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Back to Mobiles
-            </Link>
-          </div>
+ if (error || !product) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f1f3f6] px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-2xl">
+          ⚠️
         </div>
+
+        <h1 className="mt-4 text-lg font-extrabold text-slate-900">
+          Unable to load product
+        </h1>
+
+        <p className="mt-2 text-sm leading-6 text-slate-500">
+          {error || "Product not found."}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => router.refresh()}
+          className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-extrabold text-white transition hover:bg-blue-700"
+        >
+          Try Again
+        </button>
       </div>
-    );
-  }
+    </main>
+  );
+}
+
+  /* =======================================================
+     MAIN
+  ======================================================= */
 
   return (
-    <div className="min-h-screen bg-[#f1f3f6]">
-      <div className="mx-auto w-full max-w-[1100px] px-2 py-3">
+    <main className="min-h-screen bg-[#eef1f4] text-slate-900">
 
-        {/* BREADCRUMB */}
-        <div className="mb-3 flex items-center gap-2 text-xs text-gray-500">
+      {/* =================================================
+          BREADCRUMB
+      ================================================= */}
+
+      <div className="mx-auto max-w-[1320px] px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
           <Link
             href="/"
-            className="hover:text-blue-600"
+            className="font-medium hover:text-blue-600"
           >
             Home
           </Link>
@@ -999,796 +1492,989 @@ console.log("PRODUCT DESCRIPTION PLAIN:", plainDescription);
 
           <Link
             href="/mobiles"
-            className="hover:text-blue-600"
+            className="font-medium hover:text-blue-600"
           >
             Mobiles
           </Link>
 
           <span>›</span>
 
-          <span className="truncate text-gray-700">
+          <span className="truncate font-semibold text-slate-700">
             {product.name}
           </span>
         </div>
+      </div>
 
-        {/* ======================================================
-            PRODUCT TOP SECTION
-        ====================================================== */}
+      {/* =================================================
+          PRODUCT TITLE BAR
+      ================================================= */}
 
-        <section className="rounded-xl bg-white shadow-sm">
-          <div className="grid gap-6 p-5 lg:grid-cols-[420px_1fr]">
+      <div className="mx-auto mt-3 max-w-[1320px] px-4 sm:px-6 lg:px-8">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 
-            {/* IMAGE GALLERY */}
             <div>
-              <div className="flex min-h-[400px] items-center justify-center rounded-xl border border-gray-100 bg-white p-6">
-                {images.length > 0 ? (
-                  <img
-                    src={getImageUrl(
-                      images[selectedImage]?.url ??
-                        images[0].url,
-                    )}
-                    alt={
-                      images[selectedImage]
-                        ?.altText ||
-                      product.name
-                    }
-                    className="max-h-[380px] w-auto max-w-full object-contain"
-                  />
-                ) : (
-                  <div className="text-sm text-gray-400">
-                    No image available
-                  </div>
-                )}
-              </div>
-
-              {images.length > 0 && (
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                  {images.map(
-                    (image, index) => (
-                      <button
-                        key={image.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedImage(
-                            index,
-                          )
-                        }
-                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border bg-white p-1 ${
-                          selectedImage ===
-                          index
-                            ? "border-blue-600 ring-1 ring-blue-600"
-                            : "border-gray-200"
-                        }`}
-                      >
-                        <img
-                          src={getImageUrl(
-                            image.url,
-                          )}
-                          alt={
-                            image.altText ||
-                            `${product.name} ${
-                              index + 1
-                            }`
-                          }
-                          className="h-full w-full object-contain"
-                        />
-                      </button>
-                    ),
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* PRODUCT INFORMATION */}
-            <div className="flex flex-col">
-
-              {/* BRAND + RELEASE DATE */}
-              <div className="flex items-center gap-2">
-                {product.brand && (
-                  <span className="text-sm font-semibold text-gray-500">
+              <div className="flex flex-wrap items-center gap-2">
+                {product.brand?.name && (
+                  <span className="rounded bg-blue-50 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-blue-700">
                     {product.brand.name}
                   </span>
                 )}
 
-                {product.releaseDate && (
-                  <span className="text-xs text-gray-400">
-                    • Released{" "}
-                    {new Date(
-                      product.releaseDate,
-                    ).toLocaleDateString(
-                      "en-IN",
-                      {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      },
-                    )}
+                {product.category?.name && (
+                  <span className="rounded bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                    {product.category.name}
                   </span>
                 )}
               </div>
 
-              {/* PRODUCT NAME */}
-              <h1 className="mt-2 text-2xl font-bold leading-tight text-gray-900 md:text-3xl">
+              <h1 className="mt-2 text-xl font-extrabold tracking-tight text-slate-950 sm:text-2xl">
                 {product.name}
               </h1>
+            </div>
 
-              {/* SHORT DESCRIPTION */}
-              {product.shortDescription && (
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  {product.shortDescription}
-                </p>
-              )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <Icon>＋</Icon>
+                Compare
+              </button>
 
-              {/* DESCRIPTION - NORMAL TEXT */}
-              {plainDescription && (
-                <div className="mt-5">
-                  <h2 className="text-lg font-bold text-gray-900">
-                    Description
-                  </h2>
-
-                  <p className="mt-2 text-sm leading-7 text-gray-700">
-                    {plainDescription}
-                  </p>
-                </div>
-              )}
-
-              {/* RATING */}
-              <div className="mt-4 flex items-center gap-3">
-                <div className="rounded-md bg-green-600 px-2.5 py-1 text-sm font-bold text-white">
-                  {averageRating
-                    ? averageRating.toFixed(
-                        1,
-                      )
-                    : "—"}{" "}
-                  ★
-                </div>
-
-                <span className="text-sm text-gray-500">
-                  {reviews.length}{" "}
-                  {reviews.length === 1
-                    ? "Review"
-                    : "Reviews"}
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-pink-300 hover:bg-pink-50"
+              >
+                <span className="text-base text-pink-500">
+                  ♡
                 </span>
-              </div>
+                Like
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              {/* PRICE */}
-              <div className="mt-5">
-                <div className="text-3xl font-bold text-gray-900">
-                  {primaryPrice
-                    ? formatPrice(
-                        primaryPrice.price,
-                      )
-                    : "Price unavailable"}
-                </div>
+      {/* =================================================
+          MAIN TWO COLUMN
+      ================================================= */}
 
-                {primaryPrice?.seller && (
-                  <div className="mt-1 text-sm text-gray-500">
-                    Available at{" "}
-                    <span className="font-medium text-gray-700">
-                      {
-                        primaryPrice
-                          .seller.name
-                      }
+      <div className="mx-auto mt-4 max-w-[1320px] px-4 pb-12 sm:px-6 lg:px-8">
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_285px]">
+
+          {/* =============================================
+              LEFT MAIN
+          ============================================= */}
+
+          <div className="min-w-0 space-y-4">
+
+            {/* ===========================================
+                QUICK PRODUCT CARD
+            =========================================== */}
+
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+
+                <div className="grid md:grid-cols-[420px_minmax(0,1fr)]">
+
+                {/* IMAGE */}
+<div className="border-b border-slate-200 p-4 md:border-b-0 md:border-r">
+      <div className="flex h-[300px] items-center justify-center rounded-2xl bg-slate-50 md:h-[360px]">
+    <img
+      src={getImageUrl(activeImage?.url)}
+      alt={activeImage?.altText || product.name}
+      className="h-full w-full object-contain p-8"
+      onError={(event) => {
+        event.currentTarget.src = PLACEHOLDER_IMAGE;
+      }}
+    />
+  </div>
+
+  {images.length > 0 && (
+    <div className="mt-4 flex gap-2 overflow-x-auto px-1 pb-2 justify-center">
+      {images.slice(0, 5).map((image, index) => (
+        <button
+          key={image.id ?? `${image.url}-${index}`}
+          type="button"
+          onClick={() => setSelectedImage(index)}
+          className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-white ${
+            selectedImage === index
+              ? "border-blue-600 shadow-md"
+              : "border-slate-200"
+          }`}
+        >
+          <img
+            src={getImageUrl(image.url)}
+            alt=""
+            className="h-full w-full object-contain p-1"
+          />
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+                {/* SUMMARY */}
+
+                <div className="p-5">
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="rounded-md bg-green-600 px-2 py-1 text-xs font-extrabold text-white">
+                      {averageRating
+                        ? averageRating.toFixed(
+                            1
+                          )
+                        : "—"}{" "}
+                      ★
+                    </div>
+
+                    <span className="text-xs font-semibold text-slate-500">
+                      {reviews.length} Reviews
                     </span>
                   </div>
-                )}
-              </div>
 
-              {/* KEY HIGHLIGHTS */}
-              <div className="mt-6">
-                <h2 className="text-lg font-bold text-gray-900">
-                  Key Highlights
+                  {product.shortDescription && (
+                    <p className="mt-3 max-w-3xl text-xs leading-5 text-slate-500">
+                      {htmlToPlainText(
+                        product.shortDescription
+                      )}
+                    </p>
+                  )}
+
+                  <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      {
+                        icon: "⚡",
+                        label: "Processor",
+                        value: processor,
+                      },
+                      {
+                        icon: "🧠",
+                        label: "RAM",
+                        value: ram,
+                      },
+                      {
+                        icon: "💾",
+                        label: "Storage",
+                        value: storage,
+                      },
+                      {
+                        icon: "📱",
+                        label: "Display",
+                        value: display,
+                      },
+                      {
+                        icon: "📷",
+                        label: "Rear Camera",
+                        value: rearCamera,
+                      },
+                      {
+                        icon: "🤳",
+                        label: "Front Camera",
+                        value: frontCamera,
+                      },
+                      {
+                        icon: "🔋",
+                        label: "Battery",
+                        value: battery,
+                      },
+                      {
+                        icon: "⚡",
+                        label: "Charging",
+                        value: charging,
+                      },
+                    ].map(
+                      (item) => (
+                       <div
+  key={item.label}
+  className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:bg-blue-50 hover:shadow-lg"
+>
+  <div className="text-lg transition-transform duration-300 group-hover:scale-125">
+    {item.icon}
+  </div>
+
+  <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-slate-400 transition-colors duration-300 group-hover:text-blue-500">
+    {item.label}
+  </p>
+
+  <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-4 text-slate-700 transition-colors duration-300 group-hover:text-blue-700">
+    {item.value || "—"}
+  </p>
+</div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* =========================================
+                FULL SPECS
+            ========================================= */}
+
+            <section
+              id="specifications"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h2 className="text-lg font-extrabold text-slate-900">
+                  {product.name} Full Specs
                 </h2>
 
-                <div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
-                  {keyHighlights.map(
-                    (item) => (
-                      <div
-                        key={item.label}
-                        className="rounded-lg border border-gray-100 bg-gray-50 p-3"
-                      >
-                        <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                          {item.label}
-                        </div>
-
-                        <div className="mt-1 text-sm font-semibold leading-5 text-gray-900">
-                          {item.value}
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ======================================================
-            SPECIFICATIONS
-        ====================================================== */}
-
-        <section className="mt-3 rounded-xl bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Specifications
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Complete specifications of{" "}
-              {product.name}
-            </p>
-          </div>
-
-          <div className="grid gap-4 p-5 md:grid-cols-2">
-            {[
-              {
-                label: "Processor",
-                value:
-                  chipset ||
-                  processor ||
-                  "—",
-              },
-              {
-                label: "RAM",
-                value: ram || "—",
-              },
-              {
-                label: "Storage",
-                value:
-                  storage || "—",
-              },
-              {
-                label: "Display",
-                value:
-                  [
-                    display,
-                    resolution,
-                  ]
-                    .filter(Boolean)
-                    .join(" • ") ||
-                  "—",
-              },
-              {
-                label: "Operating System",
-                value:
-                  operatingSystem ||
-                  "—",
-              },
-              {
-                label: "Graphics",
-                value: gpu || "—",
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-gray-100 p-4"
-              >
-                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {item.label}
-                </div>
-
-                <div className="mt-1 text-sm font-semibold text-gray-900">
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ======================================================
-            FULL SPECIFICATIONS
-        ====================================================== */}
-
-        <section className="mt-3 rounded-xl bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Full Specifications
-            </h2>
-          </div>
-
-          <div className="grid gap-5 p-5 lg:grid-cols-2">
-
-            {/* LEFT */}
-            <div className="space-y-5">
-              {leftGroups.map((group) => {
-                const items =
-                  groupedSpecifications[
-                    group
-                  ] ?? [];
-
-                if (!items.length) {
-                  return null;
-                }
-
-                return (
-                  <div
-                    key={group}
-                    className="overflow-hidden rounded-xl border border-gray-200"
-                  >
-                    <div className="bg-gray-50 px-4 py-3">
-                      <h3 className="text-base font-bold text-gray-900">
-                        {group}
-                      </h3>
-                    </div>
-
-                    <div className="divide-y divide-gray-100">
-                      {items.map(
-                        (item) => (
-                          <div
-                            key={item.id}
-                            className="grid grid-cols-[42%_58%] px-4 py-3"
-                          >
-                            <div className="pr-3 text-sm text-gray-500">
-                              {
-                                item
-                                  .specification
-                                  .name
-                              }
-                            </div>
-
-                            <div className="text-sm font-medium leading-5 text-gray-900">
-                              {getSpecValue(
-                                item,
-                              ) || "—"}
-                            </div>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* RIGHT */}
-            <div className="space-y-5">
-              {rightGroups.map(
-                (group) => {
-                  const items =
-                    groupedSpecifications[
-                      group
-                    ] ?? [];
-
-                  if (!items.length) {
-                    return null;
-                  }
-
-                  return (
-                    <div
-                      key={group}
-                      className="overflow-hidden rounded-xl border border-gray-200"
-                    >
-                      <div className="bg-gray-50 px-4 py-3">
-                        <h3 className="text-base font-bold text-gray-900">
-                          {group}
-                        </h3>
-                      </div>
-
-                      <div className="divide-y divide-gray-100">
-                        {items.map(
-                          (item) => (
-                            <div
-                              key={item.id}
-                              className="grid grid-cols-[42%_58%] px-4 py-3"
-                            >
-                              <div className="pr-3 text-sm text-gray-500">
-                                {
-                                  item
-                                    .specification
-                                    .name
-                                }
-                              </div>
-
-                              <div className="text-sm font-medium leading-5 text-gray-900">
-                                {getSpecValue(
-                                  item,
-                                ) || "—"}
-                              </div>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ======================================================
-            PRICE COMPARISON
-        ====================================================== */}
-
-        <section className="mt-3 rounded-xl bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Price Comparison
-            </h2>
-          </div>
-
-          <div className="divide-y divide-gray-100">
-            {(product.prices ?? []).map(
-              (price) => (
-                <div
-                  key={price.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
-                >
-                  <div>
-                    <div className="font-semibold text-gray-900">
-                      {price.seller?.name ||
-                        price.sellerName ||
-                        "Seller"}
-                    </div>
-
-                    <div className="mt-1 text-xs text-gray-500">
-                      Online price
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-bold text-gray-900">
-                      {formatPrice(
-                        price.price,
-                      )}
-                    </span>
-
-                    {price.url && (
-                      <a
-                        href={price.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                      >
-                        Visit Store
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ),
-            )}
-
-            {!product.prices?.length && (
-              <div className="px-5 py-8 text-center text-sm text-gray-500">
-                No price comparison data
-                available.
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ======================================================
-            ABOUT PRODUCT
-        ====================================================== */}
-
-        <section className="mt-3 rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-bold text-gray-900">
-            About Product
-          </h2>
-
-          {plainDescription ? (
-            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-600">
-              {plainDescription}
-            </p>
-          ) : product.shortDescription ? (
-            <p className="mt-3 text-sm leading-7 text-gray-600">
-              {product.shortDescription}
-            </p>
-          ) : (
-            <p className="mt-3 text-sm leading-7 text-gray-500">
-              No product description available.
-            </p>
-          )}
-        </section>
-
-        {/* ======================================================
-            RATINGS & REVIEWS
-        ====================================================== */}
-
-        <section className="mt-3 rounded-xl bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Ratings & Reviews
-            </h2>
-          </div>
-
-          <div className="grid gap-6 p-5 md:grid-cols-[260px_1fr]">
-
-            {/* RATING SUMMARY */}
-            <div className="rounded-xl bg-gray-50 p-5 text-center">
-              <div className="text-4xl font-bold text-gray-900">
-                {reviews.length
-                  ? averageRating.toFixed(
-                      1,
-                    )
-                  : "—"}
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Complete technical specifications
+                </p>
               </div>
 
-              <div className="mt-1 text-xl tracking-wide text-yellow-500">
-                {reviews.length
-                  ? ratingStars(
-                      averageRating,
-                    )
-                  : "★★★★★"}
-              </div>
-
-              <div className="mt-2 text-sm text-gray-500">
-                {reviews.length}{" "}
-                {reviews.length === 1
-                  ? "review"
-                  : "reviews"}
-              </div>
-
-              <div className="mt-5 space-y-2 text-left">
-                {[5, 4, 3, 2, 1].map(
-                  (rating) => {
-                    const count =
-                      ratingDistribution[
-                        rating as keyof typeof ratingDistribution
-                      ];
-
-                    const percentage =
-                      reviews.length
-                        ? (count /
-                            reviews.length) *
-                          100
-                        : 0;
-
-                    return (
-                      <div
-                        key={rating}
-                        className="flex items-center gap-2 text-xs"
-                      >
-                        <span className="w-5">
-                          {rating}★
-                        </span>
-
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className="h-full rounded-full bg-green-500"
-                            style={{
-                              width: `${percentage}%`,
-                            }}
-                          />
-                        </div>
-
-                        <span className="w-5 text-right text-gray-500">
-                          {count}
-                        </span>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-
-            {/* REVIEWS */}
-            <div className="space-y-4">
-              {reviews.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center">
-                  <div className="font-semibold text-gray-900">
-                    No reviews yet
-                  </div>
-
-                  <div className="mt-1 text-sm text-gray-500">
-                    Be the first to review
-                    this mobile.
-                  </div>
+              {specificationGroups.size === 0 ? (
+                <div className="p-10 text-center text-sm text-slate-500">
+                  No specifications available.
                 </div>
               ) : (
-                reviews.map((review) => {
-                  const isOwner =
-                    currentUser?.id ===
-                    review.userId;
+                <div className="grid items-start gap-5 lg:grid-cols-2">
+  
+  {/* ==========================================
+      LEFT COLUMN
+  ========================================== */}
 
-                  return (
-                    <article
-                      key={review.id}
-                      className="rounded-xl border border-gray-100 p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-green-600 px-2 py-0.5 text-xs font-bold text-white">
-                              {review.rating} ★
-                            </span>
+  <div className="space-y-5">
+    {[
+      "General",
+      "Design",
+      "Display",
+      "Memory",
+      "Connectivity",
+    ].map((groupName) => {
+      const specifications =
+        specificationGroups.get(groupName);
 
-                            {review.title && (
-                              <span className="font-semibold text-gray-900">
-                                {review.title}
-                              </span>
-                            )}
-                          </div>
+      if (
+        !specifications ||
+        specifications.length === 0
+      ) {
+        return null;
+      }
 
-                          <div className="mt-1 text-xs text-gray-500">
-                            {review.user
-                              ?.name ||
-                              "User"}
+      return (
+        <SpecificationGroup
+          key={groupName}
+          title={groupName}
+          items={specifications}
+        />
+      );
+    })}
+  </div>
 
-                            {review.createdAt
-                              ? ` • ${formatReviewDate(
-                                  review.createdAt,
-                                )}`
-                              : ""}
-                          </div>
-                        </div>
+  {/* ==========================================
+      RIGHT COLUMN
+  ========================================== */}
 
-                        {isOwner && (
-                          <div className="flex gap-3 text-xs">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                startEditingReview(
-                                  review,
-                                )
-                              }
-                              className="font-semibold text-blue-600"
-                            >
-                              Edit
-                            </button>
+  <div className="space-y-5">
+    {[
+      "Extra",
+      "Camera",
+      "Technical",
+      "Multimedia",
+      "Battery",
+    ].map((groupName) => {
+      const specifications =
+        specificationGroups.get(groupName);
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                deleteReview(
-                                  review.id,
-                                )
-                              }
-                              className="font-semibold text-red-600"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
+      if (
+        !specifications ||
+        specifications.length === 0
+      ) {
+        return null;
+      }
 
-                      {review.comment && (
-                        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">
-                          {review.comment}
-                        </p>
-                      )}
-                    </article>
-                  );
-                })
+      return (
+        <SpecificationGroup
+          key={groupName}
+          title={groupName}
+          items={specifications}
+        />
+      );
+    })}
+  </div>
+
+</div>
               )}
-            </div>
-          </div>
+            </section>
 
-          {/* REVIEW FORM */}
-          <div className="border-t border-gray-100 p-5">
-            <h3 className="text-lg font-bold text-gray-900">
-              {editingReviewId
-                ? "Edit your review"
-                : "Write a review"}
-            </h3>
+            {/* =========================================
+                PRICE COMPARISON
+            ========================================= */}
 
-            {!currentUser ? (
-              <div className="mt-3 rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
-                Please{" "}
-                <Link
-                  href="/login"
-                  className="font-semibold text-blue-600"
-                >
-                  login
-                </Link>{" "}
-                to write a review.
-              </div>
-            ) : (
-              <div className="mt-4 max-w-2xl space-y-4">
-
-                {/* RATING */}
+            <section
+              id="price-comparison"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Rating
-                  </label>
+                  <h2 className="text-lg font-extrabold text-slate-900">
+                    Price Comparison
+                  </h2>
 
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map(
-                      (rating) => (
-                        <button
-                          key={rating}
-                          type="button"
-                          onClick={() =>
-                            setReviewRating(
-                              rating,
-                            )
-                          }
-                          className={`text-2xl ${
-                            rating <=
-                            reviewRating
-                              ? "text-yellow-500"
-                              : "text-gray-300"
-                          }`}
-                        >
-                          ★
-                        </button>
-                      ),
-                    )}
-                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Compare prices from sellers
+                  </p>
                 </div>
 
-                {/* REVIEW TITLE */}
-                <input
-                  type="text"
-                  value={reviewTitle}
-                  onChange={(event) =>
-                    setReviewTitle(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Review title"
-                  className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                />
+                {primaryPrice && (
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">
+                      Lowest price
+                    </p>
 
-                {/* REVIEW COMMENT */}
-                <textarea
-                  value={reviewComment}
-                  onChange={(event) =>
-                    setReviewComment(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Write your review..."
-                  rows={5}
-                  className="w-full resize-none rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
-                />
-
-                {/* MESSAGE */}
-                {reviewMessage && (
-                  <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                    {reviewMessage}
+                    <p className="text-lg font-black text-green-700">
+                      {formatPrice(
+                        primaryPrice.amount,
+                        primaryPrice.currency ??
+                          "INR"
+                      )}
+                    </p>
                   </div>
                 )}
+              </div>
 
-                {/* BUTTONS */}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={
-                      submittingReview
-                    }
-                    onClick={submitReview}
-                    className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {submittingReview
-                      ? "Submitting..."
-                      : editingReviewId
-                        ? "Update Review"
-                        : "Submit Review"}
-                  </button>
-
-                  {editingReviewId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingReviewId(
-                          null,
-                        );
-                        setReviewTitle("");
-                        setReviewComment("");
-                        setReviewRating(5);
-                      }}
-                      className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700"
-                    >
-                      Cancel
-                    </button>
+              {sortedPrices.length ===
+              0 ? (
+                <div className="p-8 text-center text-sm text-slate-500">
+                  No seller prices available.
+                </div>
+              ) : (
+                <div>
+                  {sortedPrices.map(
+                    (price, index) => (
+                      <SellerRow
+                        key={price.id}
+                        price={price}
+                        best={
+                          index === 0
+                        }
+                      />
+                    )
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        </section>
+              )}
+            </section>
 
-        {/* BACK */}
-        <div className="py-6">
-          <Link
-            href="/mobiles"
-            className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-          >
-            ← Back to Mobiles
-          </Link>
+            {/* =========================================
+                FEATURES
+            ========================================= */}
+
+            {features.length > 0 && (
+              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-gradient-to-r from-white via-slate-50/50 to-white px-5 py-5">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="flex items-center gap-2">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-lg text-blue-600">
+          ⚙
+        </span>
+
+        <div>
+          <h2 className="text-xl font-black tracking-tight text-slate-950">
+            {product.name} Full Specs
+          </h2>
+
+          <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+            Complete technical specifications
+          </p>
         </div>
       </div>
     </div>
+
+    <div className="inline-flex w-fit items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-extrabold text-blue-700">
+      {product.specifications?.length ?? 0} Specifications
+    </div>
+  </div>
+</div>
+
+                <div className="flex flex-wrap gap-2 p-4">
+                  {features.map(
+                    (feature) => (
+                      <span
+                        key={feature}
+                        className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-[11px] font-bold text-green-700"
+                      >
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[9px] text-white">
+                          ✓
+                        </span>
+
+                        {feature}
+                      </span>
+                    )
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* =========================================
+                ABOUT
+            ========================================= */}
+
+            {product.description && (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-extrabold">
+                  About {product.name}
+                </h2>
+
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600">
+                  {htmlToPlainText(
+                    product.description
+                  )}
+                </p>
+              </section>
+            )}
+
+            {/* =========================================
+                REVIEWS
+            ========================================= */}
+
+            <section
+              id="reviews"
+              className="rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              <div className="border-b border-slate-200 px-4 py-3">
+                <h2 className="text-lg font-extrabold">
+                  Ratings & Reviews
+                </h2>
+              </div>
+
+              <div className="grid gap-5 p-5 lg:grid-cols-[190px_1fr]">
+
+                <div className="rounded-xl bg-slate-50 p-5 text-center">
+                  <div className="text-4xl font-black text-slate-900">
+                    {averageRating
+                      ? averageRating.toFixed(
+                          1
+                        )
+                      : "—"}
+                  </div>
+
+                  <div className="mt-1 text-lg tracking-wider text-amber-400">
+                    ★★★★★
+                  </div>
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    {reviews.length} reviews
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {[5, 4, 3, 2, 1].map(
+                    (rating) => {
+                      const count =
+                        ratingDistribution[
+                          rating as keyof typeof ratingDistribution
+                        ];
+
+                      const percentage =
+                        reviews.length
+                          ? (count /
+                              reviews.length) *
+                            100
+                          : 0;
+
+                      return (
+                        <div
+                          key={rating}
+                          className="flex items-center gap-3"
+                        >
+                          <span className="w-8 text-[11px] font-bold">
+                            {rating}★
+                          </span>
+
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-amber-400"
+                              style={{
+                                width: `${percentage}%`,
+                              }}
+                            />
+                          </div>
+
+                          <span className="w-5 text-right text-[10px] text-slate-400">
+                            {count}
+                          </span>
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 p-5">
+                {reviews.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center">
+                    <div className="text-3xl">
+                      ⭐
+                    </div>
+
+                    <h3 className="mt-2 font-bold">
+                      No reviews yet
+                    </h3>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Be the first to review this product.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reviews.map(
+                      (review) => {
+                        const isOwner =
+                          Boolean(
+                            currentUser?.id &&
+                              review.user?.id &&
+                              currentUser.id ===
+                                review.user.id
+                          );
+
+                        return (
+                          <article
+                            key={
+                              review.id
+                            }
+                            className="rounded-xl border border-slate-200 p-4"
+                          >
+                            <div className="flex justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-bold">
+                                  {review.user
+                                    ?.name ||
+                                    "Anonymous User"}
+                                </p>
+
+                                <div className="mt-1 text-xs text-amber-400">
+                                  {"★".repeat(
+                                    Math.round(
+                                      Number(
+                                        review.rating
+                                      )
+                                    )
+                                  )}
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] text-slate-400">
+                                {formatReviewDate(
+                                  review.createdAt
+                                )}
+                              </span>
+                            </div>
+
+                            {review.title && (
+                              <h3 className="mt-3 text-sm font-extrabold">
+                                {review.title}
+                              </h3>
+                            )}
+
+                            {review.comment && (
+                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                                {review.comment}
+                              </p>
+                            )}
+
+                            {isOwner && (
+                              <div className="mt-3 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    editReview(
+                                      review
+                                    )
+                                  }
+                                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold"
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    deleteReview(
+                                      review.id
+                                    )
+                                  }
+                                  className="rounded-lg border border-red-200 px-3 py-1.5 text-[11px] font-bold text-red-600"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+
+                {/* WRITE REVIEW */}
+
+                <div
+                  id="write-review"
+                  className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5"
+                >
+                  <h3 className="font-extrabold">
+                    {editingReviewId
+                      ? "Edit your review"
+                      : "Write a review"}
+                  </h3>
+
+                  {!currentUser ? (
+                    <p className="mt-3 rounded-lg bg-blue-50 p-3 text-xs font-medium text-blue-700">
+                      Please login to write a review.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mt-4 flex gap-1">
+                        {[1, 2, 3, 4, 5].map(
+                          (rating) => (
+                            <button
+                              key={
+                                rating
+                              }
+                              type="button"
+                              onClick={() =>
+                                setReviewRating(
+                                  rating
+                                )
+                              }
+                              className={`text-2xl ${
+                                rating <=
+                                reviewRating
+                                  ? "text-amber-400"
+                                  : "text-slate-300"
+                              }`}
+                            >
+                              ★
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      <input
+                        value={
+                          reviewTitle
+                        }
+                        onChange={(event) =>
+                          setReviewTitle(
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="Review title"
+                        className="mt-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400"
+                      />
+
+                      <textarea
+                        value={
+                          reviewComment
+                        }
+                        onChange={(event) =>
+                          setReviewComment(
+                            event.target
+                              .value
+                          )
+                        }
+                        rows={4}
+                        placeholder="Write your review..."
+                        className="mt-3 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400"
+                      />
+
+                      {reviewMessage && (
+                        <p className="mt-2 text-xs font-medium text-slate-600">
+                          {reviewMessage}
+                        </p>
+                      )}
+
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            submittingReview
+                          }
+                          onClick={
+                            submitReview
+                          }
+                          className="rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-extrabold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {submittingReview
+                            ? "Submitting..."
+                            : editingReviewId
+                            ? "Update Review"
+                            : "Submit Review"}
+                        </button>
+
+                        {editingReviewId && (
+                          <button
+                            type="button"
+                            onClick={
+                              resetReviewForm
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* =============================================
+              RIGHT SIDEBAR
+          ============================================= */}
+
+          <aside className="space-y-4 lg:sticky lg:top-4">
+
+            {/* PRODUCT PRICE CARD */}
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-3 py-3">
+                <h2 className="text-sm font-extrabold text-slate-900">
+                  {product.name}
+                </h2>
+
+                <div className="mt-2 flex gap-1">
+                  <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-bold text-slate-600">
+                    ＋ Compare
+                  </button>
+
+                  <button className="flex-1 rounded-lg border border-slate-200 py-2 text-[10px] font-bold text-pink-500">
+                    ♡ Like
+                  </button>
+                </div>
+              </div>
+
+              {sortedPrices.length >
+              0 ? (
+                sortedPrices
+                  .slice(0, 3)
+                  .map(
+                    (price, index) => (
+                      <SellerRow
+                        key={
+                          price.id
+                        }
+                        price={
+                          price
+                        }
+                        best={
+                          index ===
+                          0
+                        }
+                      />
+                    )
+                  )
+              ) : (
+                <div className="p-4 text-xs text-slate-500">
+                  Price unavailable
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  document
+                    .getElementById(
+                      "price-comparison"
+                    )
+                    ?.scrollIntoView({
+                      behavior:
+                        "smooth",
+                    })
+                }
+                className="m-3 w-[calc(100%-24px)] rounded-lg bg-blue-600 py-2.5 text-xs font-extrabold text-white hover:bg-blue-700"
+              >
+                View All Prices →
+              </button>
+            </div>
+
+            {/* QUICK SPECS */}
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5">
+                <h2 className="text-sm font-extrabold">
+                  Quick Specs
+                </h2>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {[
+                  [
+                    "Processor",
+                    processor,
+                  ],
+                  [
+                    "Display",
+                    display,
+                  ],
+                  [
+                    "Resolution",
+                    resolution,
+                  ],
+                  [
+                    "Refresh Rate",
+                    refreshRate,
+                  ],
+                  [
+                    "Rear Camera",
+                    rearCamera,
+                  ],
+                  [
+                    "Battery",
+                    battery,
+                  ],
+                  [
+                    "OS",
+                    operatingSystem,
+                  ],
+                  [
+                    "Connectivity",
+                    connectivity,
+                  ],
+                  [
+                    "IP Rating",
+                    ipRating,
+                  ],
+                  [
+                    "NFC",
+                    nfc,
+                  ],
+                ].map(
+                  ([label, value]) => (
+                    <div
+                      key={label}
+                      className="grid grid-cols-[88px_1fr] px-3 py-2"
+                    >
+                      <span className="text-[10px] font-bold text-slate-400">
+                        {label}
+                      </span>
+
+                      <span className="text-right text-[10px] font-semibold text-slate-700">
+                        {value}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* PRODUCT VARIANTS */}
+
+            {product.variants &&
+              product.variants.length >
+                0 && (
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <h2 className="text-sm font-extrabold">
+                      Variants
+                    </h2>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {product.variants
+                      .slice(0, 5)
+                      .map(
+                        (
+                          variant
+                        ) => (
+                          <div
+                            key={
+                              variant.id
+                            }
+                            className="px-3 py-3"
+                          >
+                            <p className="text-xs font-extrabold text-slate-800">
+                              {variant.name ||
+                                "Variant"}
+                            </p>
+
+                            <div className="mt-1 space-y-0.5 text-[10px] text-slate-500">
+                              {variant.ram && (
+                                <p>
+                                  RAM:{" "}
+                                  <b className="text-slate-700">
+                                    {
+                                      variant.ram
+                                    }
+                                  </b>
+                                </p>
+                              )}
+
+                              {variant.storage && (
+                                <p>
+                                  Storage:{" "}
+                                  <b className="text-slate-700">
+                                    {
+                                      variant.storage
+                                    }
+                                  </b>
+                                </p>
+                              )}
+
+                              {variant.color && (
+                                <p>
+                                  Color:{" "}
+                                  <b className="text-slate-700">
+                                    {
+                                      variant.color
+                                    }
+                                  </b>
+                                </p>
+                              )}
+                            </div>
+
+                            {variant.price !=
+                              null && (
+                              <p className="mt-2 text-sm font-black text-green-700">
+                                {formatPrice(
+                                  variant.price
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      )}
+                  </div>
+                </div>
+              )}
+
+            {/* EXPLORE */}
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="bg-gradient-to-r from-blue-700 to-blue-500 p-4 text-white">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-100">
+                  Smartprix
+                </p>
+
+                <h2 className="mt-1 text-lg font-black">
+                  Explore Mobiles
+                </h2>
+
+                <p className="mt-1 text-[11px] leading-4 text-blue-100">
+                  Compare specifications,
+                  prices and features.
+                </p>
+
+                <Link
+                  href="/mobiles"
+                  className="mt-3 inline-flex rounded-lg bg-white px-3 py-2 text-[10px] font-extrabold text-blue-700"
+                >
+                  Browse Mobiles →
+                </Link>
+              </div>
+            </div>
+
+          </aside>
+        </div>
+      </div>
+    </main>
   );
 }

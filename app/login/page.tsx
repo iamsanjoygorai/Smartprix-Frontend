@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL =
@@ -30,10 +30,6 @@ interface LoginResponse {
   };
 }
 
-/* =========================================================
-   EYE ICON
-========================================================= */
-
 function EyeIcon({ off = false }: { off?: boolean }) {
   if (off) {
     return (
@@ -48,13 +44,8 @@ function EyeIcon({ off = false }: { off?: boolean }) {
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        {/* Eye */}
         <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
-
-        {/* Pupil */}
         <circle cx="12" cy="12" r="3" />
-
-        {/* Slash: bottom-left → top-right */}
         <path d="M4 20L20 4" />
       </svg>
     );
@@ -78,25 +69,59 @@ function EyeIcon({ off = false }: { off?: boolean }) {
   );
 }
 
-/* =========================================================
-   LOGIN PAGE
-========================================================= */
-
 export default function LoginPage() {
   const router = useRouter();
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
   const [eyeAnimating, setEyeAnimating] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  /* =======================================================
-     LOGIN
-  ======================================================= */
+  /*
+   * Redirect users who are already logged in.
+   */
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("smartprix_token");
+
+      if (!token) {
+        return;
+      }
+
+      const storedUser = localStorage.getItem("smartprix_user");
+
+      let user: {
+        role?: string;
+        isAdmin?: boolean;
+      } | null = null;
+
+      if (storedUser) {
+        try {
+          user = JSON.parse(storedUser);
+        } catch {
+          user = null;
+        }
+      }
+
+      const role = String(user?.role ?? "").toUpperCase();
+
+      const isAdmin =
+        user?.isAdmin === true ||
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN";
+
+      if (isAdmin) {
+        router.replace("/admin");
+      } else {
+        router.replace("/");
+      }
+    } catch {
+      // If localStorage contains invalid data,
+      // simply allow the user to see the login page.
+    }
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -137,24 +162,6 @@ export default function LoginPage() {
         );
       }
 
-      /*
-       * Support both:
-       *
-       * {
-       *   token,
-       *   user
-       * }
-       *
-       * and:
-       *
-       * {
-       *   data: {
-       *     token,
-       *     user
-       *   }
-       * }
-       */
-
       const token =
         result.token ??
         result.data?.token ??
@@ -180,11 +187,6 @@ export default function LoginPage() {
         );
       }
 
-      /*
-       * Admin users go to the admin dashboard.
-       * Normal users go to the Smartprix home page.
-       */
-
       const role = String(user?.role ?? "").toUpperCase();
 
       const isAdmin =
@@ -193,9 +195,9 @@ export default function LoginPage() {
         role === "SUPER_ADMIN";
 
       if (isAdmin) {
-        router.push("/admin");
+        router.replace("/admin");
       } else {
-        router.push("/");
+        router.replace("/");
       }
     } catch (err) {
       setError(
@@ -208,10 +210,6 @@ export default function LoginPage() {
     }
   }
 
-  /* =======================================================
-     PASSWORD EYE
-  ======================================================= */
-
   function togglePassword() {
     setEyeAnimating(true);
 
@@ -223,34 +221,20 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      className="
-        flex
-        min-h-screen
-        items-center
-        justify-center
-        bg-[#f0f2f5]
-        px-4
-        py-8
-        sm:py-12
-      "
-    >
+    <main className="flex min-h-screen items-center justify-center bg-[#f0f2f5] px-4 py-10">
       <div className="w-full max-w-[460px]">
 
-        {/* =================================================
-            SMARTPRIX BRAND
-        ================================================= */}
-
-        <div className="mb-5 text-center">
+        {/* Smartprix Logo */}
+        <div className="mb-6 text-center">
           <Link
             href="/"
             className="
               inline-block
-              text-[38px]
+              text-[42px]
               font-extrabold
-              tracking-[-1.8px]
+              tracking-[-2px]
               text-[#1877f2]
-              transition
+              transition-opacity
               hover:opacity-90
             "
           >
@@ -258,347 +242,312 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        {/* =================================================
-            LOGIN CARD
-        ================================================= */}
-
+        {/* Login Card */}
         <div
           className="
             overflow-hidden
-            rounded-xl
+            rounded-lg
             bg-white
-            shadow-[0_2px_12px_rgba(0,0,0,0.16)]
+            shadow-[0_2px_12px_rgba(0,0,0,0.12)]
           "
         >
           <div className="px-7 pb-8 pt-7 sm:px-9">
 
-            {/* TITLE */}
-
-            <h1
-              className="
-                text-center
-                text-[22px]
-                font-bold
-                tracking-[-0.2px]
-                text-[#1c1e21]
-              "
-            >
+            {/* Heading */}
+            <h1 className="mb-6 text-center text-[24px] font-bold text-[#1c1e21]">
               Log in to Smartprix
             </h1>
 
-            {/* FORM */}
-
             <form
               onSubmit={handleSubmit}
-              className="mt-5 space-y-3"
+              autoComplete="off"
+              className="space-y-4"
             >
 
-              {/* EMAIL / MOBILE */}
+              {/* Email / Mobile */}
+              <div className="relative">
+                <input
+                  id="login-identifier"
+                  name="smartprix-identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(event) => {
+                    setIdentifier(event.target.value);
+                    setError("");
+                  }}
+                  placeholder=" "
+                  autoComplete="new-password"
+                  disabled={loading}
+                  className="
+                    peer
+                    h-[54px]
+                    w-full
+                    rounded-md
+                    border
+                    border-[#ccd0d5]
+                    bg-white
+                    px-4
+                    pt-3
+                    text-[15px]
+                    text-[#1c1e21]
+                    outline-none
+                    transition
+                    focus:border-[#1877f2]
+                    focus:ring-1
+                    focus:ring-[#1877f2]
+                    disabled:bg-[#f5f6f7]
+                    disabled:text-[#8a8d91]
+                  "
+                />
 
-              {/* EMAIL / MOBILE — FLOATING INPUT */}
-<div className="relative">
-  <input
-    id="login-identifier"
-    type="text"
-    value={identifier}
-    onChange={(event) => {
-      setIdentifier(event.target.value);
-      setError("");
-    }}
-    placeholder=" "
-    autoComplete="username"
-    disabled={loading}
-    className="
-      peer
-      h-[54px]
-      w-full
-      rounded-md
-      border
-      border-[#ccd0d5]
-      bg-white
-      px-4
-      pt-3
-      text-[15px]
-      text-[#1c1e21]
-      outline-none
-      transition
-      focus:border-[#1877f2]
-      focus:ring-1
-      focus:ring-[#1877f2]
-      disabled:bg-[#f5f6f7]
-      disabled:text-[#8a8d91]
-    "
-  />
+                <label
+                  htmlFor="login-identifier"
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-4
+                    top-1/2
+                    -translate-y-1/2
+                    bg-white
+                    px-1
+                    text-[15px]
+                    text-[#8a8d91]
+                    transition-all
+                    duration-150
+                    peer-focus:top-0
+                    peer-focus:-translate-y-1/2
+                    peer-focus:text-[12px]
+                    peer-focus:font-medium
+                    peer-focus:text-[#1877f2]
+                    peer-[:not(:placeholder-shown)]:top-0
+                    peer-[:not(:placeholder-shown)]:-translate-y-1/2
+                    peer-[:not(:placeholder-shown)]:text-[12px]
+                    peer-[:not(:placeholder-shown)]:font-medium
+                    peer-[:not(:placeholder-shown)]:text-[#65676b]
+                  "
+                >
+                  Email address or mobile number
+                </label>
+              </div>
 
-  <label
-    htmlFor="login-identifier"
-    className="
-      pointer-events-none
-      absolute
-      left-4
-      top-1/2
-      -translate-y-1/2
-      bg-white
-      px-1
-      text-[15px]
-      text-[#8a8d91]
-      transition-all
-      duration-150
-      peer-focus:top-0
-      peer-focus:-translate-y-1/2
-      peer-focus:text-[12px]
-      peer-focus:font-medium
-      peer-focus:text-[#1877f2]
-      peer-[:not(:placeholder-shown)]:top-0
-      peer-[:not(:placeholder-shown)]:-translate-y-1/2
-      peer-[:not(:placeholder-shown)]:text-[12px]
-      peer-[:not(:placeholder-shown)]:font-medium
-      peer-[:not(:placeholder-shown)]:text-[#65676b]
-    "
-  >
-    Email address or mobile number
-  </label>
-</div>
+              {/* Password */}
+              <div className="relative">
+                <input
+                  id="login-password"
+                  name="smartprix-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setError("");
+                  }}
+                  placeholder=" "
+                  autoComplete="new-password"
+                  disabled={loading}
+                  className="
+                    peer
+                    h-[54px]
+                    w-full
+                    rounded-md
+                    border
+                    border-[#ccd0d5]
+                    bg-white
+                    px-4
+                    pt-3
+                    pr-12
+                    text-[15px]
+                    text-[#1c1e21]
+                    outline-none
+                    transition
+                    focus:border-[#1877f2]
+                    focus:ring-1
+                    focus:ring-[#1877f2]
+                    disabled:bg-[#f5f6f7]
+                    disabled:text-[#8a8d91]
+                  "
+                />
 
-{/* PASSWORD — FLOATING INPUT */}
-<div className="relative">
-  <input
-    id="login-password"
-    type={showPassword ? "text" : "password"}
-    value={password}
-    onChange={(event) => {
-      setPassword(event.target.value);
-      setError("");
-    }}
-    placeholder=" "
-    autoComplete="current-password"
-    disabled={loading}
-    className="
-      peer
-      h-[54px]
-      w-full
-      rounded-md
-      border
-      border-[#ccd0d5]
-      bg-white
-      px-4
-      pt-3
-      pr-12
-      text-[15px]
-      text-[#1c1e21]
-      outline-none
-      transition
-      focus:border-[#1877f2]
-      focus:ring-1
-      focus:ring-[#1877f2]
-      disabled:bg-[#f5f6f7]
-      disabled:text-[#8a8d91]
-    "
-  />
+                <label
+                  htmlFor="login-password"
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-4
+                    top-1/2
+                    -translate-y-1/2
+                    bg-white
+                    px-1
+                    text-[15px]
+                    text-[#8a8d91]
+                    transition-all
+                    duration-150
+                    peer-focus:top-0
+                    peer-focus:-translate-y-1/2
+                    peer-focus:text-[12px]
+                    peer-focus:font-medium
+                    peer-focus:text-[#1877f2]
+                    peer-[:not(:placeholder-shown)]:top-0
+                    peer-[:not(:placeholder-shown)]:-translate-y-1/2
+                    peer-[:not(:placeholder-shown)]:text-[12px]
+                    peer-[:not(:placeholder-shown)]:font-medium
+                    peer-[:not(:placeholder-shown)]:text-[#65676b]
+                  "
+                >
+                  Password
+                </label>
 
-  <label
-    htmlFor="login-password"
-    className="
-      pointer-events-none
-      absolute
-      left-4
-      top-1/2
-      -translate-y-1/2
-      bg-white
-      px-1
-      text-[15px]
-      text-[#8a8d91]
-      transition-all
-      duration-150
-      peer-focus:top-0
-      peer-focus:-translate-y-1/2
-      peer-focus:text-[12px]
-      peer-focus:font-medium
-      peer-focus:text-[#1877f2]
-      peer-[:not(:placeholder-shown)]:top-0
-      peer-[:not(:placeholder-shown)]:-translate-y-1/2
-      peer-[:not(:placeholder-shown)]:text-[12px]
-      peer-[:not(:placeholder-shown)]:font-medium
-      peer-[:not(:placeholder-shown)]:text-[#65676b]
-    "
-  >
-    Password
-  </label>
+                {/* Eye Button */}
+                <button
+                  type="button"
+                  onClick={togglePassword}
+                  disabled={loading}
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  className="
+                    absolute
+                    right-3
+                    top-1/2
+                    flex
+                    h-9
+                    w-9
+                    -translate-y-1/2
+                    items-center
+                    justify-center
+                    rounded-full
+                    text-[#65676b]
+                    transition-colors
+                    hover:bg-[#f0f2f5]
+                    hover:text-[#1c1e21]
+                    disabled:cursor-not-allowed
+                  "
+                >
+                  <span
+                    className={`
+                      flex
+                      items-center
+                      justify-center
+                      transition-transform
+                      duration-180
+                      ease-out
+                      ${
+                        eyeAnimating
+                          ? "scale-75"
+                          : "scale-100"
+                      }
+                    `}
+                  >
+                    <EyeIcon off={!showPassword} />
+                  </span>
+                </button>
+              </div>
 
-  {/* PASSWORD EYE — KEEP YOUR EXISTING CODE */}
-  <button
-    type="button"
-    onClick={togglePassword}
-    disabled={loading}
-    aria-label={showPassword ? "Hide password" : "Show password"}
-    title={showPassword ? "Hide password" : "Show password"}
-    className="
-      absolute
-      right-2
-      top-1/2
-      flex
-      h-9
-      w-9
-      -translate-y-1/2
-      items-center
-      justify-center
-      rounded-full
-      text-[#65676b]
-      transition-colors
-      duration-200
-      hover:bg-[#f0f2f5]
-      hover:text-[#1877f2]
-      disabled:pointer-events-none
-    "
-  >
-    <span
-      className={`
-        flex
-        items-center
-        justify-center
-        transition-transform
-        duration-180
-        ease-out
-        ${eyeAnimating ? "scale-75" : "scale-100"}
-      `}
-    >
-      <EyeIcon off={!showPassword} />
-    </span>
-  </button>
-</div>
-
-              {/* ERROR */}
-
+              {/* Error */}
               {error && (
                 <div
                   className="
                     rounded-md
                     border
-                    border-[#f0b8b8]
-                    bg-[#fff4f4]
-                    px-3
-                    py-2.5
-                    text-[13px]
+                    border-[#f5c2c7]
+                    bg-[#fff5f5]
+                    px-4
+                    py-3
+                    text-sm
                     leading-5
-                    text-[#c62828]
+                    text-[#b42318]
                   "
                 >
                   {error}
                 </div>
               )}
 
-              {/* LOGIN BUTTON */}
-
+              {/* Login */}
               <button
                 type="submit"
                 disabled={loading}
                 className="
-                  mt-1 flex h-[50px] w-full items-center justify-center
-  rounded-full bg-[#1877f2]
-  text-[16px] font-bold text-white
-  transition-all duration-150
-  hover:bg-[#166fe5] hover:shadow-md
-  active:scale-[0.98]
-  disabled:cursor-pointer disabled:opacity-70
+                  mt-1
+                  flex
+                  h-[50px]
+                  w-full
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-[#1877f2]
+                  text-[16px]
+                  font-bold
+                  text-white
+                  transition-all
+                  duration-150
+                  hover:bg-[#166fe5]
+                  hover:shadow-md
+                  active:scale-[0.98]
+                  disabled:cursor-not-allowed
+                  disabled:opacity-70
                 "
               >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="
-                        h-4
-                        w-4
-                        animate-spin
-                        rounded-full
-                        border-2
-                        border-white/40
-                        border-t-white
-                      "
-                    />
-                    Logging in...
-                  </span>
-                ) : (
-                  "Log in"
-                )}
+                {loading ? "Logging in..." : "Log in"}
               </button>
-            </form>
 
-            {/* FORGOTTEN PASSWORD */}
+              {/* Forgot Password */}
+              <div className="pt-1 text-center">
+                <Link
+                  href="/forgot-password"
+                  className="
+                    text-[14px]
+                    font-semibold
+                    text-[#1877f2]
+                    hover:underline
+                  "
+                >
+                  Forgotten password?
+                </Link>
+              </div>
 
-            <div className="mt-4 text-center">
-              <Link
-                href="/forgot-password"
-                className="
-                  text-[14px]
-                  font-medium
-                  text-[#1877f2]
-                  hover:underline
-                "
-              >
-                Forgotten password?
-              </Link>
-            </div>
+              {/* Divider */}
+              <div className="flex items-center gap-3 py-2">
+                <div className="h-px flex-1 bg-[#dadde1]" />
+                <span className="text-[13px] text-[#8a8d91]">
+                  OR
+                </span>
+                <div className="h-px flex-1 bg-[#dadde1]" />
+              </div>
 
-            {/* DIVIDER */}
-
-            <div className="my-5 flex items-center">
-              <div className="h-px flex-1 bg-[#dadde1]" />
-
-              <span
-                className="
-                  px-3
-                  text-[12px]
-                  font-medium
-                  text-[#8a8d91]
-                "
-              >
-                OR
-              </span>
-
-              <div className="h-px flex-1 bg-[#dadde1]" />
-            </div>
-
-            {/* CREATE ACCOUNT */}
-
-            <div className="flex justify-center">
+              {/* Create Account */}
               <Link
                 href="/register"
                 className="
-   flex h-[50px] w-full items-center justify-center
-  rounded-full border border-[#1877f2] bg-white
-  px-6 text-[16px] font-bold text-[#1877f2]
-  transition-all duration-150
-  hover:bg-[#f0f2f5] hover:shadow-sm
-  active:scale-[0.98]
-"
+                  flex
+                  h-[50px]
+                  w-full
+                  items-center
+                  justify-center
+                  rounded-full
+                  border
+                  border-[#1877f2]
+                  bg-white
+                  px-6
+                  text-[16px]
+                  font-bold
+                  text-[#1877f2]
+                  transition-all
+                  duration-150
+                  hover:bg-[#f0f2f5]
+                  hover:shadow-sm
+                  active:scale-[0.98]
+                "
               >
                 Create new account
               </Link>
-            </div>
+            </form>
           </div>
         </div>
 
-        {/* =================================================
-            FOOTNOTE
-        ================================================= */}
-
-        <p
-          className="
-            mt-6
-            text-center
-            text-[11px]
-            leading-5
-            text-[#8a8d91]
-          "
-        >
-          By continuing, you agree to use Smartprix in accordance
-          with our Terms and Privacy Policy.
-        </p>
-
-        <div className="mt-3 text-center">
-          <span className="text-[11px] text-[#a0a3a7]">
-            © {new Date().getFullYear()} Smartprix
-          </span>
+        {/* Footer */}
+        <div className="mt-6 text-center text-[12px] text-[#65676b]">
+          © {new Date().getFullYear()} Smartprix
         </div>
       </div>
     </main>

@@ -464,42 +464,138 @@ function Icon({
 function SpecRow({
   name,
   value,
+  slug,
 }: {
   name: string;
   value: string;
+  slug?: string;
 }) {
-  const negative =
-    ["no", "none", "false", "not supported"]
-      .includes(
-        value.toLowerCase().trim()
-      );
+  const normalized = `${name} ${slug ?? ""}`.toLowerCase();
 
-  const positive =
-    ["yes", "true", "supported"]
-      .includes(
-        value.toLowerCase().trim()
-      );
+  const negative = [
+    "no",
+    "none",
+    "false",
+    "not supported",
+  ].includes(value.toLowerCase().trim());
+
+  const positive = [
+    "yes",
+    "true",
+    "supported",
+    "available",
+  ].includes(value.toLowerCase().trim());
+
+  let icon = "✦";
+
+  if (
+    normalized.includes("processor") ||
+    normalized.includes("cpu") ||
+    normalized.includes("chipset")
+  ) {
+    icon = "⚙";
+  } else if (
+    normalized.includes("ram") ||
+    normalized.includes("memory")
+  ) {
+    icon = "◫";
+  } else if (
+    normalized.includes("storage") ||
+    normalized.includes("rom")
+  ) {
+    icon = "▤";
+  } else if (
+    normalized.includes("display") ||
+    normalized.includes("screen") ||
+    normalized.includes("resolution")
+  ) {
+    icon = "▣";
+  } else if (
+    normalized.includes("camera") ||
+    normalized.includes("ois") ||
+    normalized.includes("flash")
+  ) {
+    icon = "◉";
+  } else if (
+    normalized.includes("battery") ||
+    normalized.includes("charging")
+  ) {
+    icon = "⚡";
+  } else if (
+    normalized.includes("network") ||
+    normalized.includes("connectivity") ||
+    normalized.includes("wifi") ||
+    normalized.includes("bluetooth") ||
+    normalized.includes("5g")
+  ) {
+    icon = "⌁";
+  } else if (
+    normalized.includes("audio") ||
+    normalized.includes("speaker") ||
+    normalized.includes("music")
+  ) {
+    icon = "♫";
+  } else if (
+    normalized.includes("video") ||
+    normalized.includes("multimedia")
+  ) {
+    icon = "▶";
+  } else if (
+    normalized.includes("android") ||
+    normalized.includes("operating system") ||
+    normalized.includes("software") ||
+    normalized.includes("os")
+  ) {
+    icon = "◈";
+  } else if (
+    normalized.includes("dimension") ||
+    normalized.includes("weight") ||
+    normalized.includes("design") ||
+    normalized.includes("material")
+  ) {
+    icon = "◇";
+  } else if (
+    normalized.includes("ip rating") ||
+    normalized.includes("water")
+  ) {
+    icon = "◌";
+  } else if (
+    normalized.includes("gps") ||
+    normalized.includes("location")
+  ) {
+    icon = "⌖";
+  }
 
   return (
-      <div className="grid grid-cols-[135px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0">
-      <div className="bg-slate-50/70 px-3 py-2.5 text-[12px] font-bold leading-5 text-slate-500">
-        {name}
+    <div className="grid grid-cols-[135px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0">
+      {/* NAME */}
+      <div className="flex items-center gap-2 bg-slate-50/70 px-3 py-2.5">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[12px] font-black text-blue-600 shadow-sm ring-1 ring-slate-100">
+          {icon}
+        </span>
+
+        <span className="min-w-0 text-[11px] font-bold leading-4 text-slate-500">
+          {name}
+        </span>
       </div>
 
-      <div className="px-3 py-2.5 text-[12px] font-medium leading-5 text-slate-700">
+      {/* VALUE */}
+      <div className="flex items-center px-3 py-2.5 text-[12px] font-semibold leading-5 text-slate-700">
         {positive && (
-          <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[9px] font-black text-white">
+          <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-600">
             ✓
           </span>
         )}
 
         {negative && (
-          <span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white">
+          <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-black text-rose-500">
             ×
           </span>
         )}
 
-        {value || "—"}
+        <span className="break-words">
+          {value || "—"}
+        </span>
       </div>
     </div>
   );
@@ -518,11 +614,11 @@ function SpecificationGroup({
 }) {
   const groupIcons: Record<string, string> = {
     General: "◈",
-    Design: "✦",
+    Design: "◇",
     Display: "▣",
     Memory: "▤",
     Connectivity: "⌁",
-    Extra: "✧",
+    Extra: "✦",
     Camera: "◉",
     Technical: "⚙",
     Multimedia: "♫",
@@ -542,31 +638,29 @@ function SpecificationGroup({
   }
 
   return (
-    <div className="relative rounded-xl border border-slate-200 bg-white px-3 pb-3 pt-5 shadow-sm">
-      
-      {/* =========================================
-          GROUP TITLE ON BORDER
-      ========================================= */}
-      <div className="absolute -top-3 left-4 bg-white px-2">
-        <div className="flex items-center gap-1.5">
-          
-          <span className="text-[13px] text-blue-600">
+    <fieldset className="relative min-w-0 rounded-xl border border-slate-200 bg-white px-3 pb-3 pt-2 shadow-sm transition-all duration-300 hover:border-slate-300 hover:shadow-md">
+      {/* =================================================
+          LEGEND / TITLE
+      ================================================= */}
+
+      <legend className="ml-2 px-2">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-white px-1">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[12px] font-black text-blue-600">
             {groupIcons[title] ?? "✦"}
           </span>
 
-          <h3 className="text-[14px] font-extrabold text-slate-800">
+          <span className="text-[14px] font-black tracking-tight text-slate-800">
             {title}
-          </h3>
+          </span>
+        </span>
+      </legend>
 
-        </div>
-      </div>
-
-      {/* =========================================
+      {/* =================================================
           SPECIFICATION TABLE
-      ========================================= */}
-      <div className="overflow-hidden rounded-lg border border-slate-100">
+      ================================================= */}
+
+      <div className="mt-1 overflow-hidden rounded-lg border border-slate-100">
         {sortedItems.map((item, index) => {
-          
           const name =
             item.name?.trim() ||
             item.slug
@@ -576,8 +670,7 @@ function SpecificationGroup({
               ) ||
             "Specification";
 
-          const value =
-            getSpecValue(item);
+          const value = getSpecValue(item);
 
           const unit =
             item.unit &&
@@ -601,18 +694,96 @@ function SpecificationGroup({
             "true",
             "supported",
             "available",
-          ].includes(
-            normalizedValue
-          );
+          ].includes(normalizedValue);
 
           const negative = [
             "no",
             "false",
             "not supported",
             "not available",
-          ].includes(
-            normalizedValue
-          );
+          ].includes(normalizedValue);
+
+          let icon = "✦";
+
+          const normalizedName =
+            `${name} ${item.slug ?? ""}`.toLowerCase();
+
+          if (
+            normalizedName.includes("processor") ||
+            normalizedName.includes("cpu") ||
+            normalizedName.includes("chipset")
+          ) {
+            icon = "⚙";
+          } else if (
+            normalizedName.includes("ram") ||
+            normalizedName.includes("memory")
+          ) {
+            icon = "◫";
+          } else if (
+            normalizedName.includes("storage") ||
+            normalizedName.includes("rom")
+          ) {
+            icon = "▤";
+          } else if (
+            normalizedName.includes("display") ||
+            normalizedName.includes("screen") ||
+            normalizedName.includes("resolution")
+          ) {
+            icon = "▣";
+          } else if (
+            normalizedName.includes("camera") ||
+            normalizedName.includes("ois") ||
+            normalizedName.includes("flash")
+          ) {
+            icon = "◉";
+          } else if (
+            normalizedName.includes("battery") ||
+            normalizedName.includes("charging")
+          ) {
+            icon = "⚡";
+          } else if (
+            normalizedName.includes("network") ||
+            normalizedName.includes("connectivity") ||
+            normalizedName.includes("wifi") ||
+            normalizedName.includes("bluetooth") ||
+            normalizedName.includes("5g")
+          ) {
+            icon = "⌁";
+          } else if (
+            normalizedName.includes("speaker") ||
+            normalizedName.includes("audio") ||
+            normalizedName.includes("music")
+          ) {
+            icon = "♫";
+          } else if (
+            normalizedName.includes("video") ||
+            normalizedName.includes("multimedia")
+          ) {
+            icon = "▶";
+          } else if (
+            normalizedName.includes("android") ||
+            normalizedName.includes("operating system") ||
+            normalizedName.includes("software") ||
+            normalizedName === "os"
+          ) {
+            icon = "◈";
+          } else if (
+            normalizedName.includes("weight") ||
+            normalizedName.includes("dimension") ||
+            normalizedName.includes("material")
+          ) {
+            icon = "◇";
+          } else if (
+            normalizedName.includes("ip rating") ||
+            normalizedName.includes("water")
+          ) {
+            icon = "◌";
+          } else if (
+            normalizedName.includes("gps") ||
+            normalizedName.includes("location")
+          ) {
+            icon = "⌖";
+          }
 
           return (
             <div
@@ -620,42 +791,52 @@ function SpecificationGroup({
                 item.id ??
                 `${item.slug ?? "spec"}-${index}`
               }
-              className={`grid grid-cols-[125px_minmax(0,1fr)] ${
-                index !==
-                sortedItems.length - 1
+              className={`grid grid-cols-[135px_minmax(0,1fr)] transition-colors duration-200 hover:bg-blue-50/40 ${
+                index !== sortedItems.length - 1
                   ? "border-b border-slate-100"
                   : ""
               }`}
             >
+              {/* =================================================
+                  SPEC NAME
+              ================================================= */}
 
-              {/* SPEC NAME */}
-              <div className="bg-slate-50/70 px-3 py-2.5 text-[12px] font-bold leading-5 text-slate-500">
-                {name}
+              <div className="flex min-w-0 items-center gap-2 bg-slate-50/70 px-3 py-2.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[11px] font-black text-blue-600 shadow-sm ring-1 ring-slate-100">
+                  {icon}
+                </span>
+
+                <span className="min-w-0 text-[11px] font-bold leading-4 text-slate-500">
+                  {name}
+                </span>
               </div>
 
-              {/* SPEC VALUE */}
-              <div className="px-3 py-2.5 text-[12px] font-semibold leading-5 text-slate-700">
-                
+              {/* =================================================
+                  SPEC VALUE
+              ================================================= */}
+
+              <div className="flex min-w-0 items-center px-3 py-2.5 text-[12px] font-semibold leading-5 text-slate-700">
                 {positive && (
-                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-600">
+                  <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-black text-emerald-600">
                     ✓
                   </span>
                 )}
 
                 {negative && (
-                  <span className="mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-100 text-[10px] font-black text-rose-500">
+                  <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] font-black text-rose-500">
                     ×
                   </span>
                 )}
 
-                {displayValue || "—"}
-
+                <span className="break-words">
+                  {displayValue || "—"}
+                </span>
               </div>
             </div>
           );
         })}
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -1897,56 +2078,114 @@ const specificationGroups = useMemo(() => {
               )}
             </section>
 
-            {/* =========================================
-                FEATURES
-            ========================================= */}
+           {/* =========================================
+    PREMIUM HIGHLIGHTS
+========================================= */}
 
-            {features.length > 0 && (
-              <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 bg-gradient-to-r from-white via-slate-50/50 to-white px-5 py-5">
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <div>
-      <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-lg text-blue-600">
-          ⚙
-        </span>
+{features.length > 0 && (
+  <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    {/* HEADER */}
 
-        <div>
-          <h2 className="text-xl font-black tracking-tight text-slate-950">
-            {product.name} Full Specs
-          </h2>
+    <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/40 px-5 py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-lg text-white shadow-md">
+            ✦
+          </div>
 
-          <p className="mt-0.5 text-[11px] font-medium text-slate-500">
-            Complete technical specifications
-          </p>
+          <div>
+            <h2 className="text-lg font-black tracking-tight text-slate-950">
+              Highlights
+            </h2>
+
+            <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+              Key features of {product.name}
+            </p>
+          </div>
+        </div>
+
+        <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-extrabold text-blue-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+          {features.length} Key Features
         </div>
       </div>
     </div>
 
-    <div className="inline-flex w-fit items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-extrabold text-blue-700">
-      {product.specifications?.length ?? 0} Specifications
+    {/* HIGHLIGHT CARDS */}
+
+    <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      {features.map((feature, index) => {
+        const normalized =
+          feature.toLowerCase();
+
+        let icon = "✦";
+        let description =
+          "Useful feature";
+
+        if (
+          normalized.includes("nfc")
+        ) {
+          icon = "⌁";
+          description =
+            "Contactless connectivity";
+        } else if (
+          normalized.includes("ois")
+        ) {
+          icon = "◉";
+          description =
+            "Optical image stabilization";
+        } else if (
+          normalized.includes("ip")
+        ) {
+          icon = "◌";
+          description =
+            "Water & dust protection";
+        }
+
+        return (
+          <div
+            key={feature}
+            className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg"
+          >
+            {/* TOP ACCENT */}
+
+            <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg font-black text-blue-600 transition-all duration-300 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white">
+                {icon}
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[12px] font-black text-slate-800">
+                  {feature}
+                </p>
+
+                <p className="mt-1 text-[10px] leading-4 text-slate-400">
+                  {description}
+                </p>
+              </div>
+
+              <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-black text-emerald-600">
+                ✓
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                Feature {index + 1}
+              </span>
+
+              <span className="text-[10px] font-bold text-blue-500 transition-transform duration-300 group-hover:translate-x-1">
+                View →
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
-  </div>
-</div>
-
-                <div className="flex flex-wrap gap-2 p-4">
-                  {features.map(
-                    (feature) => (
-                      <span
-                        key={feature}
-                        className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-[11px] font-bold text-green-700"
-                      >
-                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-600 text-[9px] text-white">
-                          ✓
-                        </span>
-
-                        {feature}
-                      </span>
-                    )
-                  )}
-                </div>
-              </section>
-            )}
+  </section>
+)}
 
             {/* =========================================
                 ABOUT

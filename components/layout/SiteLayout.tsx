@@ -13,16 +13,20 @@ export default function SiteLayout({
 }) {
   const pathname = usePathname();
 
-  // Pages that should NOT have the public header/navbar/footer
-  const isAdminPage =
+  // Pages that should NOT have the public Header/Navbar/Footer
+  const isStandalonePage =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/news-admin") ||
-    pathname.startsWith("/login");
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password";
 
-  if (isAdminPage) {
+  // Completely standalone pages
+  if (isStandalonePage) {
     return <>{children}</>;
   }
 
+  // Normal public website layout
   return (
     <>
       <Header />

@@ -1,94 +1,112 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:5000/api";
-
-interface LoginUser {
-  id: string;
-  email: string;
-  name?: string;
-  role: string;
-  permissions: string[];
-}
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
 interface LoginResponse {
-  success: boolean;
-  message: string;
+  success?: boolean;
+  message?: string;
+  token?: string;
   data?: {
-    token: string;
-    user: LoginUser;
+    token?: string;
+    user?: {
+      id?: string;
+      name?: string;
+      email?: string;
+      role?: string;
+      isAdmin?: boolean;
+    };
+  };
+  user?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    isAdmin?: boolean;
   };
 }
+
+/* =========================================================
+   EYE ICON
+========================================================= */
+
+function EyeIcon({ off = false }: { off?: boolean }) {
+  if (off) {
+    return (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {/* Eye */}
+        <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
+
+        {/* Pupil */}
+        <circle cx="12" cy="12" r="3" />
+
+        {/* Slash: bottom-left → top-right */}
+        <path d="M4 20L20 4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   LOGIN PAGE
+========================================================= */
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [eyeAnimating, setEyeAnimating] = useState(false);
+
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
-  /*
-   * If the user is already logged in:
-   *
-   * ADMIN        -> /admin
-   * SUPER_ADMIN  -> /admin
-   * EDITOR       -> /admin
-   * USER         -> /
-   *
-   * This prevents an already-logged-in user from staying
-   * on the login page.
-   */
-  useEffect(() => {
-    const token = localStorage.getItem("smartprix_token");
-    const userData = localStorage.getItem("smartprix_user");
+  /* =======================================================
+     LOGIN
+  ======================================================= */
 
-    if (!token || !userData) {
-      setCheckingAuth(false);
-      return;
-    }
-
-    try {
-      const user: LoginUser = JSON.parse(userData);
-
-      const isAdminUser =
-        user.role === "ADMIN" ||
-        user.role === "SUPER_ADMIN" ||
-        user.role === "EDITOR";
-
-      if (isAdminUser) {
-        router.replace("/admin");
-        return;
-      }
-
-      router.replace("/");
-    } catch {
-      localStorage.removeItem("smartprix_user");
-      localStorage.removeItem("smartprix_token");
-
-      setCheckingAuth(false);
-    }
-  }, [router]);
-
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
-    setSuccess("");
 
-    if (!email.trim()) {
-      setError("Please enter your email address.");
+    const cleanIdentifier = identifier.trim();
+
+    if (!cleanIdentifier) {
+      setError("Please enter your email address or mobile number.");
       return;
     }
 
@@ -97,215 +115,490 @@ export default function LoginPage() {
       return;
     }
 
+    setLoading(true);
+
     try {
-      setLoading(true);
-
-      const response = await fetch(
-        `${API_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-          }),
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          email: cleanIdentifier,
+          password,
+        }),
+      });
 
-      const responseData: LoginResponse =
-        await response.json();
+      const result: LoginResponse = await response.json();
 
-      if (!response.ok || !responseData.success) {
+      if (!response.ok || result.success === false) {
         throw new Error(
-          responseData.message ||
-            "Invalid email or password",
+          result.message || "Invalid email or password.",
         );
       }
 
-      if (
-        !responseData.data?.token ||
-        !responseData.data?.user
-      ) {
-        throw new Error(
-          "Invalid login response from server.",
-        );
-      }
-
-      const { token, user } = responseData.data;
-
       /*
-       * Store authentication information.
-       */
-      localStorage.setItem(
-        "smartprix_token",
-        token,
-      );
-
-      localStorage.setItem(
-        "smartprix_user",
-        JSON.stringify(user),
-      );
-
-      setSuccess(
-        responseData.message ||
-          "Login successful",
-      );
-
-      /*
-       * Redirect according to user role.
+       * Support both:
        *
-       * ADMIN        -> /admin
-       * SUPER_ADMIN  -> /admin
-       * EDITOR       -> /admin
-       * USER         -> /
+       * {
+       *   token,
+       *   user
+       * }
+       *
+       * and:
+       *
+       * {
+       *   data: {
+       *     token,
+       *     user
+       *   }
+       * }
        */
-      const isAdminUser =
-        user.role === "ADMIN" ||
-        user.role === "SUPER_ADMIN" ||
-        user.role === "EDITOR";
 
-      if (isAdminUser) {
-        router.replace("/admin");
-      } else {
-        router.replace("/");
+      const token =
+        result.token ??
+        result.data?.token ??
+        "";
+
+      const user =
+        result.user ??
+        result.data?.user ??
+        null;
+
+      if (!token) {
+        throw new Error(
+          "Login succeeded, but no authentication token was returned.",
+        );
       }
-    } catch (error) {
+
+      localStorage.setItem("smartprix_token", token);
+
+      if (user) {
+        localStorage.setItem(
+          "smartprix_user",
+          JSON.stringify(user),
+        );
+      }
+
+      /*
+       * Admin users go to the admin dashboard.
+       * Normal users go to the Smartprix home page.
+       */
+
+      const role = String(user?.role ?? "").toUpperCase();
+
+      const isAdmin =
+        user?.isAdmin === true ||
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN";
+
+      if (isAdmin) {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
+    } catch (err) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to login.",
+        err instanceof Error
+          ? err.message
+          : "Unable to log in. Please try again.",
       );
     } finally {
       setLoading(false);
     }
   }
 
-  /*
-   * Prevent the login form from briefly appearing
-   * while we check localStorage.
-   */
-  if (checkingAuth) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-sm text-gray-500">
-          Checking authentication...
-        </div>
-      </main>
-    );
+  /* =======================================================
+     PASSWORD EYE
+  ======================================================= */
+
+  function togglePassword() {
+    setEyeAnimating(true);
+
+    setShowPassword((value) => !value);
+
+    window.setTimeout(() => {
+      setEyeAnimating(false);
+    }, 180);
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-8 shadow-sm">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome back
-          </h1>
+    <main
+      className="
+        flex
+        min-h-screen
+        items-center
+        justify-center
+        bg-[#f0f2f5]
+        px-4
+        py-8
+        sm:py-12
+      "
+    >
+      <div className="w-full max-w-[460px]">
 
-          <p className="mt-2 text-sm text-gray-500">
-            Login to your Smartprix account.
-          </p>
+        {/* =================================================
+            SMARTPRIX BRAND
+        ================================================= */}
+
+        <div className="mb-5 text-center">
+          <Link
+            href="/"
+            className="
+              inline-block
+              text-[38px]
+              font-extrabold
+              tracking-[-1.8px]
+              text-[#1877f2]
+              transition
+              hover:opacity-90
+            "
+          >
+            Smartprix
+          </Link>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5"
+        {/* =================================================
+            LOGIN CARD
+        ================================================= */}
+
+        <div
+          className="
+            overflow-hidden
+            rounded-xl
+            bg-white
+            shadow-[0_2px_12px_rgba(0,0,0,0.16)]
+          "
         >
-          {/* Email */}
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-medium text-gray-700"
+          <div className="px-7 pb-8 pt-7 sm:px-9">
+
+            {/* TITLE */}
+
+            <h1
+              className="
+                text-center
+                text-[22px]
+                font-bold
+                tracking-[-0.2px]
+                text-[#1c1e21]
+              "
             >
-              Email address
-            </label>
+              Log in to Smartprix
+            </h1>
 
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              placeholder="you@example.com"
-              autoComplete="email"
-              disabled={loading}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-100"
-            />
-          </div>
+            {/* FORM */}
 
-          {/* Password */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+            <form
+              onSubmit={handleSubmit}
+              className="mt-5 space-y-3"
+            >
+
+              {/* EMAIL / MOBILE */}
+
+              {/* EMAIL / MOBILE — FLOATING INPUT */}
+<div className="relative">
+  <input
+    id="login-identifier"
+    type="text"
+    value={identifier}
+    onChange={(event) => {
+      setIdentifier(event.target.value);
+      setError("");
+    }}
+    placeholder=" "
+    autoComplete="username"
+    disabled={loading}
+    className="
+      peer
+      h-[54px]
+      w-full
+      rounded-md
+      border
+      border-[#ccd0d5]
+      bg-white
+      px-4
+      pt-3
+      text-[15px]
+      text-[#1c1e21]
+      outline-none
+      transition
+      focus:border-[#1877f2]
+      focus:ring-1
+      focus:ring-[#1877f2]
+      disabled:bg-[#f5f6f7]
+      disabled:text-[#8a8d91]
+    "
+  />
+
+  <label
+    htmlFor="login-identifier"
+    className="
+      pointer-events-none
+      absolute
+      left-4
+      top-1/2
+      -translate-y-1/2
+      bg-white
+      px-1
+      text-[15px]
+      text-[#8a8d91]
+      transition-all
+      duration-150
+      peer-focus:top-0
+      peer-focus:-translate-y-1/2
+      peer-focus:text-[12px]
+      peer-focus:font-medium
+      peer-focus:text-[#1877f2]
+      peer-[:not(:placeholder-shown)]:top-0
+      peer-[:not(:placeholder-shown)]:-translate-y-1/2
+      peer-[:not(:placeholder-shown)]:text-[12px]
+      peer-[:not(:placeholder-shown)]:font-medium
+      peer-[:not(:placeholder-shown)]:text-[#65676b]
+    "
+  >
+    Email address or mobile number
+  </label>
+</div>
+
+{/* PASSWORD — FLOATING INPUT */}
+<div className="relative">
+  <input
+    id="login-password"
+    type={showPassword ? "text" : "password"}
+    value={password}
+    onChange={(event) => {
+      setPassword(event.target.value);
+      setError("");
+    }}
+    placeholder=" "
+    autoComplete="current-password"
+    disabled={loading}
+    className="
+      peer
+      h-[54px]
+      w-full
+      rounded-md
+      border
+      border-[#ccd0d5]
+      bg-white
+      px-4
+      pt-3
+      pr-12
+      text-[15px]
+      text-[#1c1e21]
+      outline-none
+      transition
+      focus:border-[#1877f2]
+      focus:ring-1
+      focus:ring-[#1877f2]
+      disabled:bg-[#f5f6f7]
+      disabled:text-[#8a8d91]
+    "
+  />
+
+  <label
+    htmlFor="login-password"
+    className="
+      pointer-events-none
+      absolute
+      left-4
+      top-1/2
+      -translate-y-1/2
+      bg-white
+      px-1
+      text-[15px]
+      text-[#8a8d91]
+      transition-all
+      duration-150
+      peer-focus:top-0
+      peer-focus:-translate-y-1/2
+      peer-focus:text-[12px]
+      peer-focus:font-medium
+      peer-focus:text-[#1877f2]
+      peer-[:not(:placeholder-shown)]:top-0
+      peer-[:not(:placeholder-shown)]:-translate-y-1/2
+      peer-[:not(:placeholder-shown)]:text-[12px]
+      peer-[:not(:placeholder-shown)]:font-medium
+      peer-[:not(:placeholder-shown)]:text-[#65676b]
+    "
+  >
+    Password
+  </label>
+
+  {/* PASSWORD EYE — KEEP YOUR EXISTING CODE */}
+  <button
+    type="button"
+    onClick={togglePassword}
+    disabled={loading}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+    title={showPassword ? "Hide password" : "Show password"}
+    className="
+      absolute
+      right-2
+      top-1/2
+      flex
+      h-9
+      w-9
+      -translate-y-1/2
+      items-center
+      justify-center
+      rounded-full
+      text-[#65676b]
+      transition-colors
+      duration-200
+      hover:bg-[#f0f2f5]
+      hover:text-[#1877f2]
+      disabled:pointer-events-none
+    "
+  >
+    <span
+      className={`
+        flex
+        items-center
+        justify-center
+        transition-transform
+        duration-180
+        ease-out
+        ${eyeAnimating ? "scale-75" : "scale-100"}
+      `}
+    >
+      <EyeIcon off={!showPassword} />
+    </span>
+  </button>
+</div>
+
+              {/* ERROR */}
+
+              {error && (
+                <div
+                  className="
+                    rounded-md
+                    border
+                    border-[#f0b8b8]
+                    bg-[#fff4f4]
+                    px-3
+                    py-2.5
+                    text-[13px]
+                    leading-5
+                    text-[#c62828]
+                  "
+                >
+                  {error}
+                </div>
+              )}
+
+              {/* LOGIN BUTTON */}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="
+                  mt-1 flex h-[50px] w-full items-center justify-center
+  rounded-full bg-[#1877f2]
+  text-[16px] font-bold text-white
+  transition-all duration-150
+  hover:bg-[#166fe5] hover:shadow-md
+  active:scale-[0.98]
+  disabled:cursor-pointer disabled:opacity-70
+                "
               >
-                Password
-              </label>
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="
+                        h-4
+                        w-4
+                        animate-spin
+                        rounded-full
+                        border-2
+                        border-white/40
+                        border-t-white
+                      "
+                    />
+                    Logging in...
+                  </span>
+                ) : (
+                  "Log in"
+                )}
+              </button>
+            </form>
 
+            {/* FORGOTTEN PASSWORD */}
+
+            <div className="mt-4 text-center">
               <Link
                 href="/forgot-password"
-                className="text-sm font-medium text-gray-600 hover:text-black"
+                className="
+                  text-[14px]
+                  font-medium
+                  text-[#1877f2]
+                  hover:underline
+                "
               >
-                Forgot password?
+                Forgotten password?
               </Link>
             </div>
 
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) =>
-                setPassword(event.target.value)
-              }
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              disabled={loading}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:bg-gray-100"
-            />
+            {/* DIVIDER */}
+
+            <div className="my-5 flex items-center">
+              <div className="h-px flex-1 bg-[#dadde1]" />
+
+              <span
+                className="
+                  px-3
+                  text-[12px]
+                  font-medium
+                  text-[#8a8d91]
+                "
+              >
+                OR
+              </span>
+
+              <div className="h-px flex-1 bg-[#dadde1]" />
+            </div>
+
+            {/* CREATE ACCOUNT */}
+
+            <div className="flex justify-center">
+              <Link
+                href="/register"
+                className="
+   flex h-[50px] w-full items-center justify-center
+  rounded-full border border-[#1877f2] bg-white
+  px-6 text-[16px] font-bold text-[#1877f2]
+  transition-all duration-150
+  hover:bg-[#f0f2f5] hover:shadow-sm
+  active:scale-[0.98]
+"
+              >
+                Create new account
+              </Link>
+            </div>
           </div>
+        </div>
 
-          {/* Error */}
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+        {/* =================================================
+            FOOTNOTE
+        ================================================= */}
 
-          {/* Success */}
-          {success && (
-            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              {success}
-            </div>
-          )}
+        <p
+          className="
+            mt-6
+            text-center
+            text-[11px]
+            leading-5
+            text-[#8a8d91]
+          "
+        >
+          By continuing, you agree to use Smartprix in accordance
+          with our Terms and Privacy Policy.
+        </p>
 
-          {/* Login button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading
-              ? "Logging in..."
-              : "Login"}
-          </button>
-        </form>
-
-        {/* Register */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Don't have an account?{" "}
-
-            <Link
-              href="/register"
-              className="font-medium text-gray-900 hover:underline"
-            >
-              Create an account
-            </Link>
-          </p>
+        <div className="mt-3 text-center">
+          <span className="text-[11px] text-[#a0a3a7]">
+            © {new Date().getFullYear()} Smartprix
+          </span>
         </div>
       </div>
     </main>

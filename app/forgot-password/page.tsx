@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -18,9 +19,12 @@ const NO_ACCOUNT_MESSAGE =
 type Step =
   | "find"
   | "account"
+  | "loginPassword"
   | "code"
-  | "password"
+  | "newPassword"
   | "success";
+
+type RecoveryMethod = "password" | "email";
 
 interface RecoveryAccount {
   userId: string;
@@ -59,6 +63,18 @@ interface VerifyCodeData {
   expiresInSeconds: number;
 }
 
+interface VerifyPasswordData {
+  token: string;
+  user: {
+    id: string;
+    email?: string | null;
+    mobile?: string | null;
+    name?: string | null;
+    role?: string | null;
+    [key: string]: unknown;
+  };
+}
+
 function EyeIcon({ off = false }: { off?: boolean }) {
   if (off) {
     return (
@@ -75,7 +91,7 @@ function EyeIcon({ off = false }: { off?: boolean }) {
       >
         <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
         <circle cx="12" cy="12" r="3" />
-        <path d="M4 20L20 4" />
+        <path d="M4 20 20 4" />
       </svg>
     );
   }
@@ -132,6 +148,47 @@ function MailIcon() {
     >
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
+
+function KeyIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 8-8" />
+      <path d="m16 5 3 3" />
+      <path d="m13 9 3 3" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      <path d="M12 14v2" />
     </svg>
   );
 }
@@ -195,9 +252,10 @@ function formatTimer(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const remaining = seconds % 60;
 
-  return `${String(minutes).padStart(2, "0")}:${String(
-    remaining,
-  ).padStart(2, "0")}`;
+  return `${String(minutes).padStart(
+    2,
+    "0",
+  )}:${String(remaining).padStart(2, "0")}`;
 }
 
 function getPasswordStrength(password: string) {
@@ -241,17 +299,26 @@ function getPasswordStrength(password: string) {
 }
 
 export default function ForgotPasswordPage() {
-  const [step, setStep] = useState<Step>("find");
+  const router = useRouter();
 
-  const [identifier, setIdentifier] = useState("");
+  const [step, setStep] =
+    useState<Step>("find");
+
+  const [identifier, setIdentifier] =
+    useState("");
+
   const [account, setAccount] =
     useState<RecoveryAccount | null>(null);
 
   const [selectedMethod, setSelectedMethod] =
-    useState<"email">("email");
+    useState<RecoveryMethod>("email");
 
-  const [code, setCode] = useState("");
-  const [codeTimer, setCodeTimer] = useState(0);
+  const [code, setCode] =
+    useState("");
+
+  const [codeTimer, setCodeTimer] =
+    useState(0);
+
   const [resendTimer, setResendTimer] =
     useState(0);
 
@@ -260,31 +327,40 @@ export default function ForgotPasswordPage() {
 
   const [password, setPassword] =
     useState("");
+
   const [confirmPassword, setConfirmPassword] =
+    useState("");
+
+  const [loginPassword, setLoginPassword] =
     useState("");
 
   const [showPassword, setShowPassword] =
     useState(false);
+
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
+  const [showLoginPassword, setShowLoginPassword] =
+    useState(false);
+
   const [eyeAnimating, setEyeAnimating] =
-    useState<"password" | "confirm" | null>(
-      null,
-    );
+    useState<
+      "password" | "confirm" | "login" | null
+    >(null);
 
   const [loading, setLoading] =
     useState(false);
+
   const [error, setError] =
     useState("");
+
   const [accountNotFound, setAccountNotFound] =
     useState(false);
 
-  const strength =
-    useMemo(
-      () => getPasswordStrength(password),
-      [password],
-    );
+  const strength = useMemo(
+    () => getPasswordStrength(password),
+    [password],
+  );
 
   const passwordsMatch =
     password.length > 0 &&
@@ -300,7 +376,8 @@ export default function ForgotPasswordPage() {
       );
     }, 1000);
 
-    return () => window.clearInterval(timer);
+    return () =>
+      window.clearInterval(timer);
   }, [codeTimer]);
 
   useEffect(() => {
@@ -312,7 +389,8 @@ export default function ForgotPasswordPage() {
       );
     }, 1000);
 
-    return () => window.clearInterval(timer);
+    return () =>
+      window.clearInterval(timer);
   }, [resendTimer]);
 
   function clearError() {
@@ -328,12 +406,22 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    if (step === "code") {
+    if (step === "loginPassword") {
+      setLoginPassword("");
       setStep("account");
       return;
     }
 
-    if (step === "password") {
+    if (step === "code") {
+      setCode("");
+      setStep("account");
+      return;
+    }
+
+    if (step === "newPassword") {
+      setPassword("");
+      setConfirmPassword("");
+      setResetToken("");
       setStep("code");
       return;
     }
@@ -353,7 +441,8 @@ export default function ForgotPasswordPage() {
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
           Accept: "application/json",
         },
         body: JSON.stringify(body),
@@ -406,8 +495,7 @@ export default function ForgotPasswordPage() {
 
       if (
         response.status === 404 ||
-        result.message ===
-          NO_ACCOUNT_MESSAGE
+        result.message === NO_ACCOUNT_MESSAGE
       ) {
         setAccountNotFound(true);
         setError(NO_ACCOUNT_MESSAGE);
@@ -447,6 +535,99 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  function handleMethodContinue() {
+    clearError();
+
+    if (selectedMethod === "password") {
+      setLoginPassword("");
+      setStep("loginPassword");
+      return;
+    }
+
+    handleSendCode();
+  }
+
+  async function handleVerifyRecoveryPassword(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!loginPassword) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const {
+        response,
+        result,
+      } = await post<VerifyPasswordData>(
+        "/auth/password-reset/verify-password",
+        {
+          identifier:
+            identifier.trim(),
+          password: loginPassword,
+        },
+      );
+
+      if (!response.ok || !result.success) {
+        setError(
+          result.message ??
+            "Incorrect password. Please try again.",
+        );
+        return;
+      }
+
+      const data = result.data;
+
+      if (
+        !data?.token ||
+        !data?.user
+      ) {
+        setError(
+          "Password verified, but your login session could not be created.",
+        );
+        return;
+      }
+
+      localStorage.setItem(
+        "smartprix_token",
+        data.token,
+      );
+
+      localStorage.setItem(
+        "smartprix_user",
+        JSON.stringify(data.user),
+      );
+
+      setError("");
+      setLoginPassword("");
+
+      const role =
+        String(
+          data.user.role ?? "",
+        ).toUpperCase();
+
+      if (
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN"
+      ) {
+        router.replace("/admin");
+      } else {
+        router.replace("/");
+      }
+    } catch {
+      setError(
+        "Unable to connect to the server. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSendCode() {
     if (!identifier.trim()) return;
 
@@ -460,7 +641,8 @@ export default function ForgotPasswordPage() {
       } = await post<SendCodeData>(
         "/auth/password-reset/send-code",
         {
-          identifier: identifier.trim(),
+          identifier:
+            identifier.trim(),
         },
       );
 
@@ -516,7 +698,8 @@ export default function ForgotPasswordPage() {
       } = await post<VerifyCodeData>(
         "/auth/password-reset/verify-code",
         {
-          identifier: identifier.trim(),
+          identifier:
+            identifier.trim(),
           code,
         },
       );
@@ -543,7 +726,7 @@ export default function ForgotPasswordPage() {
       setCodeTimer(0);
       setResendTimer(0);
       setError("");
-      setStep("password");
+      setStep("newPassword");
     } catch {
       setError(
         "Unable to connect to the server. Please try again.",
@@ -568,7 +751,8 @@ export default function ForgotPasswordPage() {
       } = await post<SendCodeData>(
         "/auth/password-reset/resend-code",
         {
-          identifier: identifier.trim(),
+          identifier:
+            identifier.trim(),
         },
       );
 
@@ -581,10 +765,12 @@ export default function ForgotPasswordPage() {
       }
 
       setCode("");
+
       setCodeTimer(
         result.data?.expiresInSeconds ??
           600,
       );
+
       setResendTimer(
         result.data?.resendAfterSeconds ??
           60,
@@ -661,7 +847,10 @@ export default function ForgotPasswordPage() {
   }
 
   function togglePassword(
-    field: "password" | "confirm",
+    field:
+      | "password"
+      | "confirm"
+      | "login",
   ) {
     setEyeAnimating(field);
 
@@ -669,8 +858,12 @@ export default function ForgotPasswordPage() {
       setShowPassword(
         (value) => !value,
       );
-    } else {
+    } else if (field === "confirm") {
       setShowConfirmPassword(
+        (value) => !value,
+      );
+    } else {
+      setShowLoginPassword(
         (value) => !value,
       );
     }
@@ -686,16 +879,46 @@ export default function ForgotPasswordPage() {
     const digits =
       value.replace(/\D/g, "");
 
-    setCode(digits.slice(0, 6));
+    setCode(
+      digits.slice(0, 6),
+    );
 
     if (error) {
       setError("");
     }
   }
 
+  const progressSteps =
+    [
+      "find",
+      "account",
+      "method",
+      "finish",
+    ];
+
+  let currentProgressIndex = 0;
+
+  if (step === "account") {
+    currentProgressIndex = 1;
+  }
+
+  if (
+    step === "loginPassword" ||
+    step === "code"
+  ) {
+    currentProgressIndex = 2;
+  }
+
+  if (
+    step === "newPassword"
+  ) {
+    currentProgressIndex = 3;
+  }
+
   return (
     <main className="min-h-screen bg-[#f0f2f5] px-4 py-8 sm:py-12">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[520px] flex-col items-center justify-center">
+
         {/* Brand */}
         <Link
           href="/"
@@ -707,25 +930,11 @@ export default function ForgotPasswordPage() {
         {/* Progress */}
         {step !== "success" && (
           <div className="mb-5 flex w-full max-w-[460px] items-center justify-center gap-2">
-            {[
-              "find",
-              "account",
-              "code",
-              "password",
-            ].map(
+            {progressSteps.map(
               (item, index) => {
-                const steps = [
-                  "find",
-                  "account",
-                  "code",
-                  "password",
-                ];
-
-                const currentIndex =
-                  steps.indexOf(step);
-
                 const active =
-                  index <= currentIndex;
+                  index <=
+                  currentProgressIndex;
 
                 return (
                   <div
@@ -752,10 +961,15 @@ export default function ForgotPasswordPage() {
 
         {/* Card */}
         <section className="w-full overflow-hidden rounded-xl bg-white shadow-[0_2px_12px_rgba(0,0,0,0.12)]">
-          {/* Find account */}
+
+          {/* =====================================================
+              FIND ACCOUNT
+          ====================================================== */}
           {step === "find" && (
             <form
-              onSubmit={handleFindAccount}
+              onSubmit={
+                handleFindAccount
+              }
               className="px-7 pb-8 pt-7 sm:px-9"
             >
               <h1 className="text-center text-[24px] font-bold tracking-[-0.3px] text-[#1c1e21]">
@@ -833,7 +1047,9 @@ export default function ForgotPasswordPage() {
                       !
                     </span>
 
-                    <span>{error}</span>
+                    <span>
+                      {error}
+                    </span>
                   </div>
                 )}
               </div>
@@ -878,7 +1094,9 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          {/* Account found */}
+          {/* =====================================================
+              ACCOUNT FOUND
+          ====================================================== */}
           {step === "account" &&
             account && (
               <div className="px-7 pb-8 pt-7 sm:px-9">
@@ -896,10 +1114,11 @@ export default function ForgotPasswordPage() {
                 </h1>
 
                 <p className="mt-2 text-[15px] leading-6 text-[#65676b]">
-                  Choose where you'd like to
-                  receive your verification code.
+                  Choose how you'd like to
+                  continue.
                 </p>
 
+                {/* Account */}
                 <div className="mt-6 rounded-xl border border-[#e4e6eb] bg-[#f7f8fa] p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#e7f3ff] text-[#1877f2]">
@@ -918,17 +1137,90 @@ export default function ForgotPasswordPage() {
                   </div>
                 </div>
 
+                {/* Password option */}
                 <button
                   type="button"
-                  onClick={() =>
-                    setSelectedMethod("email")
-                  }
+                  onClick={() => {
+                    setSelectedMethod(
+                      "password",
+                    );
+                    clearError();
+                  }}
                   className={`
                     mt-5 flex w-full items-center
                     gap-3 rounded-xl border p-4
                     text-left transition-all
                     ${
-                      selectedMethod === "email"
+                      selectedMethod ===
+                      "password"
+                        ? "border-[#1877f2] bg-[#f0f6ff] shadow-sm"
+                        : "border-[#ccd0d5] bg-white hover:bg-[#f7f8fa]"
+                    }
+                  `}
+                >
+                  <div
+                    className={`
+                      flex h-5 w-5 shrink-0
+                      items-center justify-center
+                      rounded-full border-2
+                      ${
+                        selectedMethod ===
+                        "password"
+                          ? "border-[#1877f2]"
+                          : "border-[#8a8d91]"
+                      }
+                    `}
+                  >
+                    {selectedMethod ===
+                      "password" && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#1877f2]" />
+                    )}
+                  </div>
+
+                  <div
+                    className={`
+                      flex h-10 w-10 shrink-0
+                      items-center justify-center
+                      rounded-full
+                      ${
+                        selectedMethod ===
+                        "password"
+                          ? "bg-[#dcecff] text-[#1877f2]"
+                          : "bg-[#f0f2f5] text-[#65676b]"
+                      }
+                    `}
+                  >
+                    <KeyIcon />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-semibold text-[#1c1e21]">
+                      Continue with password
+                    </p>
+
+                    <p className="mt-0.5 text-[13px] text-[#65676b]">
+                      Use your password to
+                      continue
+                    </p>
+                  </div>
+                </button>
+
+                {/* Email option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMethod(
+                      "email",
+                    );
+                    clearError();
+                  }}
+                  className={`
+                    mt-3 flex w-full items-center
+                    gap-3 rounded-xl border p-4
+                    text-left transition-all
+                    ${
+                      selectedMethod ===
+                      "email"
                         ? "border-[#1877f2] bg-[#f0f6ff] shadow-sm"
                         : "border-[#ccd0d5] bg-white hover:bg-[#f7f8fa]"
                     }
@@ -953,18 +1245,30 @@ export default function ForgotPasswordPage() {
                     )}
                   </div>
 
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div
+                    className={`
+                      flex h-10 w-10 shrink-0
+                      items-center justify-center
+                      rounded-full
+                      ${
+                        selectedMethod ===
+                        "email"
+                          ? "bg-[#dcecff] text-[#1877f2]"
+                          : "bg-[#f0f2f5] text-[#65676b]"
+                      }
+                    `}
+                  >
                     <MailIcon />
+                  </div>
 
-                    <div>
-                      <p className="text-[15px] font-semibold text-[#1c1e21]">
-                        Send code to email
-                      </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-semibold text-[#1c1e21]">
+                      Send code to email
+                    </p>
 
-                      <p className="mt-0.5 text-[13px] text-[#65676b]">
-                        {account.maskedEmail}
-                      </p>
-                    </div>
+                    <p className="mt-0.5 text-[13px] text-[#65676b]">
+                      {account.maskedEmail}
+                    </p>
                   </div>
                 </button>
 
@@ -977,13 +1281,17 @@ export default function ForgotPasswordPage() {
                       !
                     </span>
 
-                    <span>{error}</span>
+                    <span>
+                      {error}
+                    </span>
                   </div>
                 )}
 
                 <button
                   type="button"
-                  onClick={handleSendCode}
+                  onClick={
+                    handleMethodContinue
+                  }
                   disabled={loading}
                   className="
                     mt-6 flex h-[50px] w-full
@@ -1010,7 +1318,219 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-          {/* Verification code */}
+          {/* =====================================================
+              CONTINUE WITH PASSWORD
+          ====================================================== */}
+          {step === "loginPassword" && (
+            <form
+              onSubmit={
+                handleVerifyRecoveryPassword
+              }
+              className="px-7 pb-8 pt-7 sm:px-9"
+            >
+              <button
+                type="button"
+                onClick={goBack}
+                className="mb-4 flex items-center gap-1 text-[14px] font-semibold text-[#65676b] transition-colors hover:text-[#1877f2]"
+              >
+                <ArrowLeftIcon />
+                Back
+              </button>
+
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e7f3ff] text-[#1877f2]">
+                <LockIcon />
+              </div>
+
+              <h1 className="mt-5 text-center text-[24px] font-bold tracking-[-0.3px] text-[#1c1e21]">
+                Enter your password
+              </h1>
+
+              <p className="mx-auto mt-2 max-w-[390px] text-center text-[15px] leading-6 text-[#65676b]">
+                Use your Smartprix password
+                to continue to your account.
+              </p>
+
+              <div className="mt-7">
+                <div className="relative">
+                  <input
+                    id="recovery-password"
+                    name="recovery_password"
+                    type={
+                      showLoginPassword
+                        ? "text"
+                        : "password"
+                    }
+                    value={loginPassword}
+                    onChange={(event) => {
+                      setLoginPassword(
+                        event.target.value,
+                      );
+
+                      if (error) {
+                        setError("");
+                      }
+                    }}
+                    autoComplete="current-password"
+                    placeholder=" "
+                    disabled={loading}
+                    autoFocus
+                    className="
+                      peer h-[58px] w-full
+                      rounded-lg border
+                      border-[#ccd0d5]
+                      bg-white px-4 pb-1
+                      pt-5 pr-12
+                      text-[16px] text-[#1c1e21]
+                      outline-none transition-all
+                      focus:border-[#1877f2]
+                      focus:ring-2
+                      focus:ring-[#1877f2]/10
+                    "
+                  />
+
+                  <label
+                    htmlFor="recovery-password"
+                    className={`
+                      pointer-events-none
+                      absolute left-4
+                      top-1/2
+                      -translate-y-1/2
+                      bg-white px-1
+                      text-[16px]
+                      text-[#65676b]
+                      transition-all
+                      duration-150
+                      peer-focus:top-0
+                      peer-focus:text-[12px]
+                      peer-focus:font-semibold
+                      peer-focus:text-[#1877f2]
+                      ${
+                        loginPassword
+                          ? "top-0 text-[12px]"
+                          : ""
+                      }
+                    `}
+                  >
+                    Password
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      togglePassword(
+                        "login",
+                      )
+                    }
+                    className="
+                      absolute right-3 top-1/2
+                      flex h-9 w-9
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-full
+                      text-[#65676b]
+                      transition-colors
+                      hover:bg-[#f0f2f5]
+                      hover:text-[#1877f2]
+                    "
+                    aria-label={
+                      showLoginPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                  >
+                    <span
+                      className={`
+                        flex items-center
+                        justify-center
+                        transition-transform
+                        duration-180
+                        ease-out
+                        ${
+                          eyeAnimating ===
+                          "login"
+                            ? "scale-75"
+                            : "scale-100"
+                        }
+                      `}
+                    >
+                      <EyeIcon
+                        off={
+                          !showLoginPassword
+                        }
+                      />
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  className="mt-4 flex items-start gap-2 text-[13px] leading-5 text-[#e41e3f]"
+                  role="alert"
+                >
+                  <span className="mt-[1px] flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full bg-[#e41e3f] text-[11px] font-bold text-white">
+                    !
+                  </span>
+
+                  <span>
+                    {error}
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  !loginPassword
+                }
+                className="
+                  mt-6 flex h-[50px] w-full
+                  items-center justify-center gap-2
+                  rounded-full bg-[#1877f2]
+                  text-[16px] font-bold text-white
+                  transition-all duration-150
+                  hover:bg-[#166fe5]
+                  hover:shadow-md
+                  active:scale-[0.98]
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
+              >
+                {loading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    Verifying...
+                  </>
+                ) : (
+                  "Continue"
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setLoginPassword("");
+                  setStep("account");
+                }}
+                className="
+                  mt-4 w-full
+                  text-center
+                  text-[14px]
+                  font-semibold
+                  text-[#1877f2]
+                  hover:underline
+                "
+              >
+                Try another way
+              </button>
+            </form>
+          )}
+
+          {/* =====================================================
+              VERIFICATION CODE
+          ====================================================== */}
           {step === "code" && (
             <form
               onSubmit={handleVerifyCode}
@@ -1070,8 +1590,7 @@ export default function ForgotPasswordPage() {
                     bg-white text-center
                     text-[25px] font-bold
                     tracking-[10px] text-[#1c1e21]
-                    outline-none
-                    transition-all
+                    outline-none transition-all
                     focus:border-[#1877f2]
                     focus:ring-2
                     focus:ring-[#1877f2]/10
@@ -1083,13 +1602,17 @@ export default function ForgotPasswordPage() {
               <div className="mt-4 flex items-center justify-between text-[13px]">
                 <span className="text-[#65676b]">
                   {codeTimer > 0
-                    ? `Code expires in ${formatTimer(codeTimer)}`
+                    ? `Code expires in ${formatTimer(
+                        codeTimer,
+                      )}`
                     : "Code has expired"}
                 </span>
 
                 <button
                   type="button"
-                  onClick={handleResendCode}
+                  onClick={
+                    handleResendCode
+                  }
                   disabled={
                     resendTimer > 0 ||
                     loading
@@ -1119,7 +1642,9 @@ export default function ForgotPasswordPage() {
                     !
                   </span>
 
-                  <span>{error}</span>
+                  <span>
+                    {error}
+                  </span>
                 </div>
               )}
 
@@ -1154,10 +1679,14 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          {/* New password */}
-          {step === "password" && (
+          {/* =====================================================
+              CREATE NEW PASSWORD
+          ====================================================== */}
+          {step === "newPassword" && (
             <form
-              onSubmit={handleResetPassword}
+              onSubmit={
+                handleResetPassword
+              }
               className="px-7 pb-8 pt-7 sm:px-9"
             >
               <button
@@ -1178,7 +1707,7 @@ export default function ForgotPasswordPage() {
                 you don't use anywhere else.
               </p>
 
-              {/* Password */}
+              {/* New password */}
               <div className="mt-7">
                 <div className="relative">
                   <input
@@ -1194,6 +1723,7 @@ export default function ForgotPasswordPage() {
                       setPassword(
                         event.target.value,
                       );
+
                       if (error) {
                         setError("");
                       }
@@ -1208,8 +1738,7 @@ export default function ForgotPasswordPage() {
                       bg-white px-4 pb-1
                       pt-5 pr-12
                       text-[16px] text-[#1c1e21]
-                      outline-none
-                      transition-all
+                      outline-none transition-all
                       focus:border-[#1877f2]
                       focus:ring-2
                       focus:ring-[#1877f2]/10
@@ -1248,7 +1777,17 @@ export default function ForgotPasswordPage() {
                         "password",
                       )
                     }
-                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#65676b] transition-colors hover:bg-[#f0f2f5] hover:text-[#1877f2]"
+                    className="
+                      absolute right-3 top-1/2
+                      flex h-9 w-9
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-full
+                      text-[#65676b]
+                      transition-colors
+                      hover:bg-[#f0f2f5]
+                      hover:text-[#1877f2]
+                    "
                     aria-label={
                       showPassword
                         ? "Hide password"
@@ -1271,7 +1810,9 @@ export default function ForgotPasswordPage() {
                       `}
                     >
                       <EyeIcon
-                        off={!showPassword}
+                        off={
+                          !showPassword
+                        }
                       />
                     </span>
                   </button>
@@ -1310,7 +1851,8 @@ export default function ForgotPasswordPage() {
 
                       <span
                         className={`
-                          shrink-0 text-[12px]
+                          shrink-0
+                          text-[12px]
                           font-bold
                           ${
                             strength.label ===
@@ -1318,8 +1860,8 @@ export default function ForgotPasswordPage() {
                               ? "text-[#31a24c]"
                               : strength.label ===
                                 "Good"
-                                ? "text-[#1877f2]"
-                                : "text-[#e41e3f]"
+                              ? "text-[#1877f2]"
+                              : "text-[#e41e3f]"
                           }
                         `}
                       >
@@ -1330,7 +1872,7 @@ export default function ForgotPasswordPage() {
                 )}
               </div>
 
-              {/* Confirm */}
+              {/* Confirm password */}
               <div className="mt-5">
                 <div className="relative">
                   <input
@@ -1346,6 +1888,7 @@ export default function ForgotPasswordPage() {
                       setConfirmPassword(
                         event.target.value,
                       );
+
                       if (error) {
                         setError("");
                       }
@@ -1359,8 +1902,7 @@ export default function ForgotPasswordPage() {
                       bg-white px-4 pb-1
                       pt-5 pr-12
                       text-[16px] text-[#1c1e21]
-                      outline-none
-                      transition-all
+                      outline-none transition-all
                       ${
                         confirmPassword &&
                         !passwordsMatch
@@ -1404,7 +1946,17 @@ export default function ForgotPasswordPage() {
                         "confirm",
                       )
                     }
-                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#65676b] transition-colors hover:bg-[#f0f2f5] hover:text-[#1877f2]"
+                    className="
+                      absolute right-3 top-1/2
+                      flex h-9 w-9
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-full
+                      text-[#65676b]
+                      transition-colors
+                      hover:bg-[#f0f2f5]
+                      hover:text-[#1877f2]
+                    "
                     aria-label={
                       showConfirmPassword
                         ? "Hide password"
@@ -1458,7 +2010,9 @@ export default function ForgotPasswordPage() {
                     !
                   </span>
 
-                  <span>{error}</span>
+                  <span>
+                    {error}
+                  </span>
                 </div>
               )}
 
@@ -1494,7 +2048,9 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          {/* Success */}
+          {/* =====================================================
+              SUCCESS
+          ====================================================== */}
           {step === "success" && (
             <div className="px-7 pb-9 pt-9 text-center sm:px-9">
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e7f7ed] text-[#31a24c]">

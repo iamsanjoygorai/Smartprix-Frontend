@@ -1583,14 +1583,16 @@ export default function MobileList({
           results
 
           {search.trim() && (
-            <>
-              {" "}
-              for{" "}
-              <span className="font-semibold text-slate-900">
-                "{search.trim()}"
-              </span>
-            </>
-          )}
+  <>
+    {" "}
+    for{" "}
+    <span className="font-semibold text-slate-900">
+      "{search.trim().length > 4
+        ? `${search.trim().slice(0, 4)}...`
+        : search.trim()}"
+    </span>
+  </>
+)}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

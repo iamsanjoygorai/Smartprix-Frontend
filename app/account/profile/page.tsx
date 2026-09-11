@@ -10,9 +10,11 @@ useState,
 import { useRouter } from "next/navigation";
 
 import {
-getUserProfile,
-updateUserProfile,
-type UserProfile,
+  getUserProfile,
+  updateUserProfile,
+  uploadProfileImage,
+  deleteProfileImage,
+  type UserProfile,
 } from "@/lib/api/user";
 
 /* =========================================================
@@ -84,6 +86,10 @@ useState("");
 
 const [success, setSuccess] =
 useState("");
+
+const [imageUploading, setImageUploading] = useState(false);
+const [imageDeleting, setImageDeleting] = useState(false);
+const [imagePreview, setImagePreview] = useState<string | null>(null);
 
 /* =======================================================
 FORM
@@ -230,6 +236,175 @@ user?.email ?? null,
 ),
 [user],
 );
+
+
+
+/* =======================================================
+   PROFILE IMAGE
+======================================================= */
+
+async function handleProfileImageChange(
+  event: React.ChangeEvent<HTMLInputElement>,
+) {
+  const file = event.target.files?.[0];
+
+  // Allow selecting the same file again later.
+  event.target.value = "";
+
+  if (!file) return;
+
+  setError("");
+  setSuccess("");
+
+  /* -------------------------------------------------------
+     FILE TYPE
+  ------------------------------------------------------- */
+
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    setError(
+      "Please choose a JPG, PNG, or WEBP image.",
+    );
+    return;
+  }
+
+  /* -------------------------------------------------------
+     FILE SIZE
+  ------------------------------------------------------- */
+
+  const maxSize = 5 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    setError(
+      "Profile picture must be smaller than 5 MB.",
+    );
+    return;
+  }
+
+  /* -------------------------------------------------------
+     LOCAL PREVIEW
+  ------------------------------------------------------- */
+
+  const previewUrl = URL.createObjectURL(file);
+
+  setImagePreview(previewUrl);
+  setImageUploading(true);
+
+  try {
+    const result = await uploadProfileImage(file);
+
+    if (!result.success) {
+      setImagePreview(null);
+
+      setError(
+        result.message ??
+          "Failed to upload profile picture.",
+      );
+
+      return;
+    }
+
+    if (result.data) {
+      setUser((previous) =>
+        previous
+          ? {
+              ...previous,
+              ...result.data,
+            }
+          : previous,
+      );
+
+      setImagePreview(
+        result.data.profileImageUrl ?? null,
+      );
+    }
+
+    setSuccess(
+      result.message ??
+        "Profile picture updated successfully.",
+    );
+
+    window.dispatchEvent(
+      new Event("smartprix-auth-changed"),
+    );
+  } catch (err) {
+    console.error(
+      "Profile image upload failed:",
+      err,
+    );
+
+    setImagePreview(null);
+
+    setError(
+      "Unable to upload profile picture.",
+    );
+  } finally {
+    setImageUploading(false);
+
+    URL.revokeObjectURL(previewUrl);
+  }
+}
+
+/* -------------------------------------------------------
+   REMOVE PROFILE IMAGE
+------------------------------------------------------- */
+
+async function handleRemoveProfileImage() {
+  setError("");
+  setSuccess("");
+  setImageDeleting(true);
+
+  try {
+    const result =
+      await deleteProfileImage();
+
+    if (!result.success) {
+      setError(
+        result.message ??
+          "Failed to remove profile picture.",
+      );
+      return;
+    }
+
+    setUser((previous) =>
+      previous
+        ? {
+            ...previous,
+            profileImageUrl: null,
+          }
+        : previous,
+    );
+
+    setImagePreview(null);
+
+    setSuccess(
+      result.message ??
+        "Profile picture removed successfully.",
+    );
+
+    window.dispatchEvent(
+      new Event("smartprix-auth-changed"),
+    );
+  } catch (err) {
+    console.error(
+      "Profile image deletion failed:",
+      err,
+    );
+
+    setError(
+      "Unable to remove profile picture.",
+    );
+  } finally {
+    setImageDeleting(false);
+  }
+}
+
+
 
 /* =======================================================
 SAVE
@@ -459,9 +634,66 @@ return ( <main className="min-h-[calc(100vh-140px)] bg-[#f1f3f6] px-4 py-7 sm:px
         <div className="absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-white/10" />
 
         <div className="relative flex items-center gap-5">
-          <div className="flex h-[78px] w-[78px] shrink-0 items-center justify-center rounded-full border-4 border-white/30 bg-white text-xl font-extrabold text-[#1877f2] shadow-lg">
-            {initials}
-          </div>
+         <div className="relative shrink-0">
+  <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-full border-4 border-white/40 bg-white text-2xl font-extrabold text-[#1877f2] shadow-xl">
+    {imagePreview ||
+    user.profileImageUrl ? (
+      <img
+        src={
+          imagePreview ??
+          user.profileImageUrl ??
+          ""
+        }
+        alt={
+          user.name
+            ? `${user.name} profile picture`
+            : "Profile picture"
+        }
+        className="h-full w-full object-cover"
+      />
+    ) : (
+      initials
+    )}
+  </div>
+
+  {/* CAMERA BUTTON */}
+  <label
+    htmlFor="profile-image-upload"
+    className={`absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-white text-[#1877f2] shadow-lg transition hover:scale-105 hover:bg-gray-50 ${
+      imageUploading
+        ? "pointer-events-none opacity-60"
+        : ""
+    }`}
+    title="Change profile picture"
+  >
+    {imageUploading ? (
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1877f2]/30 border-t-[#1877f2]" />
+    ) : (
+      <svg
+        width="17"
+        height="17"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M14.5 4h-5L8 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-1.5-3Z" />
+        <circle cx="12" cy="13" r="3" />
+      </svg>
+    )}
+  </label>
+
+  <input
+    id="profile-image-upload"
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    onChange={handleProfileImageChange}
+    className="hidden"
+    disabled={imageUploading}
+  />
+</div>
 
           <div className="min-w-0">
             <h2 className="truncate text-xl font-extrabold text-white">
@@ -472,6 +704,77 @@ return ( <main className="min-h-[calc(100vh-140px)] bg-[#f1f3f6] px-4 py-7 sm:px
             <p className="mt-1 truncate text-sm text-white/75">
               {user.email}
             </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+  <label
+    htmlFor="profile-image-upload"
+    className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-white/15 px-3 text-xs font-bold text-white backdrop-blur transition hover:bg-white/25 ${
+      imageUploading
+        ? "pointer-events-none opacity-60"
+        : ""
+    }`}
+  >
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+
+    {imageUploading
+      ? "Uploading..."
+      : user.profileImageUrl
+        ? "Change photo"
+        : "Add photo"}
+  </label>
+
+  {(user.profileImageUrl || imagePreview) && (
+    <button
+      type="button"
+      onClick={handleRemoveProfileImage}
+      disabled={
+        imageDeleting ||
+        imageUploading
+      }
+      className="inline-flex h-9 items-center gap-2 rounded-full bg-red-500/15 px-3 text-xs font-bold text-white transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {imageDeleting ? (
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+      ) : (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="M19 6l-1 14H6L5 6" />
+        </svg>
+      )}
+
+      {imageDeleting
+        ? "Removing..."
+        : "Remove"}
+    </button>
+  )}
+</div>
+
+<p className="mt-2 text-[10px] font-medium text-white/55">
+  JPG, PNG or WEBP • Maximum 5 MB
+</p>
+
 
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />

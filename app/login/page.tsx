@@ -1,16 +1,8 @@
 "use client";
 
-import {
-  FormEvent,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
 import Link from "next/link";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-
-import type { ConfirmationResult } from "firebase/auth";
 
 import {
   setupRecaptcha,
@@ -19,17 +11,28 @@ import {
   loginToSmartprixWithFirebase,
 } from "@/lib/firebaseAuth";
 
+import type { ConfirmationResult } from "firebase/auth";
+
+/* =========================================================
+   API
+========================================================= */
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
 /* =========================================================
    TYPES
 ========================================================= */
 
 interface LoginUser {
-  id?: string;
-  name?: string | null;
-  email?: string | null;
-  mobile?: string | null;
-  role?: string | null;
+  id: string;
+  name: string | null;
+  email: string | null;
+  mobile: string | null;
+  role: string;
   permissions?: string[];
+  isDisabled?: boolean;
 }
 
 interface LoginResponse {
@@ -44,19 +47,153 @@ interface LoginResponse {
 }
 
 /* =========================================================
-   CONSTANTS
+   EYE ICON
 ========================================================= */
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:5000/api";
+function EyeIcon({ off = false }: { off?: boolean }) {
+  if (off) {
+    return (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 3l18 18" />
+        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+        <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c7 0 10 8 10 8a17.4 17.4 0 0 1-3.1 4.4" />
+        <path d="M6.6 6.6C3.8 8.4 2 12 2 12s3 8 10 8a10.7 10.7 0 0 0 4.2-.8" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
 
 /* =========================================================
-   PAGE
+   USER ICON
+========================================================= */
+
+function UserIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c.7-4 3.3-6 8-6s7.3 2 8 6" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   PHONE ICON
+========================================================= */
+
+function PhoneIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.2-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.8 2.1Z" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   ARROW ICON
+========================================================= */
+
+function ArrowIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   GOOGLE-STYLE / PHONE OTP SWITCH ICON
+========================================================= */
+
+function ShieldIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3 20 6v5c0 5.2-3.3 8.8-8 10-4.7-1.2-8-4.8-8-10V6l8-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   LOGIN PAGE
 ========================================================= */
 
 export default function LoginPage() {
   const router = useRouter();
+
+  /* -------------------------------------------------------
+     AUTH CHECK
+  ------------------------------------------------------- */
+
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [alreadyLoggedIn, setAlreadyLoggedIn] = useState(false);
 
   /* -------------------------------------------------------
      LOGIN STATE
@@ -65,14 +202,10 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
-  const [showPassword, setShowPassword] =
-    useState(false);
-
-  const [eyeAnimating, setEyeAnimating] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [eyeAnimating, setEyeAnimating] = useState(false);
 
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
 
   /* -------------------------------------------------------
@@ -80,204 +213,354 @@ export default function LoginPage() {
   ------------------------------------------------------- */
 
   const [otpMode, setOtpMode] = useState(false);
-
   const [otp, setOtp] = useState("");
-
-  const [otpLoading, setOtpLoading] =
-    useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const confirmationResultRef =
     useRef<ConfirmationResult | null>(null);
 
-  /* -------------------------------------------------------
-     CLEANUP FIREBASE RECAPTCHA
-  ------------------------------------------------------- */
+  /* =======================================================
+     CHECK EXISTING LOGIN
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkExistingLogin() {
+      const token = localStorage.getItem("smartprix_token");
+
+      /*
+       * No token = user is logged out.
+       * Show the login page normally.
+       */
+      if (!token) {
+        if (!cancelled) {
+          setCheckingAuth(false);
+        }
+
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/auth/me`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+
+        /*
+         * Token is valid.
+         */
+        if (response.ok) {
+          const result = await response.json();
+
+          if (cancelled) return;
+
+          const user = result?.data;
+
+          /*
+           * Keep the latest user information locally.
+           */
+          if (user) {
+            const existingUser =
+              localStorage.getItem("smartprix_user");
+
+            let previousUser: Record<string, unknown> = {};
+
+            if (existingUser) {
+              try {
+                previousUser = JSON.parse(existingUser);
+              } catch {
+                previousUser = {};
+              }
+            }
+
+            localStorage.setItem(
+              "smartprix_user",
+              JSON.stringify({
+                ...previousUser,
+                ...user,
+              }),
+            );
+          }
+
+          /*
+           * Tell the UI that an authenticated user was found.
+           */
+          setAlreadyLoggedIn(true);
+
+          /*
+           * Admin users go to admin dashboard.
+           */
+          if (
+            user?.role === "SUPER_ADMIN" ||
+            user?.role === "ADMIN"
+          ) {
+            router.replace("/admin");
+          } else {
+            /*
+             * Normal users go to profile.
+             */
+            router.replace("/profile");
+          }
+
+          return;
+        }
+
+        /*
+         * Invalid / expired authentication.
+         */
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+          localStorage.removeItem("smartprix_token");
+          localStorage.removeItem("smartprix_user");
+        }
+      } catch (error) {
+        /*
+         * Network/server error:
+         *
+         * Do NOT delete the token because it may still
+         * be valid. Let the user use the login page.
+         */
+        console.error(
+          "Existing authentication check failed:",
+          error,
+        );
+      } finally {
+        if (!cancelled) {
+          setCheckingAuth(false);
+        }
+      }
+    }
+
+    checkExistingLogin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  /* =======================================================
+     FIREBASE RECAPTCHA CLEANUP
+  ======================================================= */
 
   useEffect(() => {
     return () => {
-      if (typeof window === "undefined") return;
-
-      const win = window as typeof window & {
-        recaptchaVerifier?: {
-          clear?: () => void;
-        };
-      };
-
       try {
-        win.recaptchaVerifier?.clear?.();
+        const verifier = (
+          window as typeof window & {
+            recaptchaVerifier?: {
+              clear?: () => void;
+            };
+          }
+        ).recaptchaVerifier;
+
+        if (verifier?.clear) {
+          verifier.clear();
+        }
       } catch {
         // Ignore cleanup errors.
       }
-
-      delete win.recaptchaVerifier;
     };
   }, []);
+
+  /* =======================================================
+     SAVE LOGIN DATA
+  ======================================================= */
+
+  function saveLoginData(
+    token: string,
+    user?: LoginUser,
+  ) {
+    localStorage.setItem("smartprix_token", token);
+
+    if (user) {
+      const existingUser =
+        localStorage.getItem("smartprix_user");
+
+      let previousUser: Record<string, unknown> = {};
+
+      if (existingUser) {
+        try {
+          previousUser = JSON.parse(existingUser);
+        } catch {
+          previousUser = {};
+        }
+      }
+
+      localStorage.setItem(
+        "smartprix_user",
+        JSON.stringify({
+          ...previousUser,
+          ...user,
+        }),
+      );
+    }
+
+    /*
+     * Notify Header and other components that authentication
+     * has changed.
+     */
+    window.dispatchEvent(
+      new Event("smartprix-auth-changed"),
+    );
+  }
+
+  /* =======================================================
+     REDIRECT AFTER LOGIN
+  ======================================================= */
+
+  function redirectAfterLogin(user?: LoginUser) {
+    if (
+      user?.role === "SUPER_ADMIN" ||
+      user?.role === "ADMIN"
+    ) {
+      router.replace("/admin");
+    } else {
+      router.replace("/profile");
+    }
+
+    router.refresh();
+  }
 
   /* =======================================================
      PASSWORD LOGIN
   ======================================================= */
 
-async function handleSubmit(
-  event: FormEvent<HTMLFormElement>,
-) {
-  event.preventDefault();
-
-  if (loading || otpLoading) return;
-
-  setError("");
-
-  const cleanIdentifier = identifier.trim();
-
-  if (!cleanIdentifier) {
-    setError("Please enter your email or mobile number.");
-    return;
-  }
-
-  if (!password) {
-    setError("Please enter your password.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        identifier: cleanIdentifier,
-        password,
-      }),
-    });
-
-    let result: LoginResponse = {};
-
-    try {
-      result = await response.json();
-    } catch {
-      // Server returned an invalid/non-JSON response.
-      result = {};
-    }
-
-    /*
-     * -------------------------------------------------------
-     * NORMAL LOGIN FAILURE
-     *
-     * Do NOT throw an Error here.
-     * Invalid credentials are an expected authentication state,
-     * not an application crash.
-     * -------------------------------------------------------
-     */
-    if (!response.ok || !result.success) {
-      setError(
-        result.message ||
-          "Invalid email/mobile or password.",
-      );
-      return;
-    }
-
-    /*
-     * -------------------------------------------------------
-     * GET AUTH DATA
-     * -------------------------------------------------------
-     */
-    const token =
-      result.data?.token ??
-      result.token;
-
-    const user =
-      result.data?.user ??
-      result.user;
-
-    /*
-     * -------------------------------------------------------
-     * UNEXPECTED SUCCESS RESPONSE
-     *
-     * The server said login succeeded, but didn't provide
-     * the required token. Treat this as a server problem,
-     * not as an authentication failure.
-     * -------------------------------------------------------
-     */
-    if (!token) {
-      setError(
-        "We couldn't complete your login. Please try again.",
-      );
-      return;
-    }
-
-    /*
-     * -------------------------------------------------------
-     * SAVE LOGIN
-     * -------------------------------------------------------
-     */
-    localStorage.setItem(
-      "smartprix_token",
-      token,
-    );
-
-    if (user) {
-      localStorage.setItem(
-        "smartprix_user",
-        JSON.stringify(user),
-      );
-    }
-
-    /*
-     * -------------------------------------------------------
-     * REDIRECT
-     * -------------------------------------------------------
-     */
-    if (
-      user?.role === "SUPER_ADMIN" ||
-      user?.role === "ADMIN"
-    ) {
-      router.push("/admin");
-    } else {
-      router.push("/");
-    }
-
-    router.refresh();
-  } catch {
-    /*
-     * -------------------------------------------------------
-     * NETWORK / SERVER CONNECTION FAILURE
-     *
-     * Don't expose technical errors to the user.
-     * -------------------------------------------------------
-     */
-    setError(
-      "Unable to connect right now. Please check your connection and try again.",
-    );
-  } finally {
-    setLoading(false);
-  }
-}
-
-  /* =======================================================
-     SEND PHONE OTP
-  ======================================================= */
-
-  async function handleSendOTP() {
-    if (loading || otpLoading) return;
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
 
     setError("");
 
-    const mobile =
-      identifier.replace(/\D/g, "");
+    const cleanIdentifier = identifier.trim();
 
-    if (!mobile) {
-      setError(
-        "Please enter your mobile number first.",
-      );
+    if (!cleanIdentifier) {
+      setError("Please enter your email or mobile number.");
       return;
     }
 
-    if (mobile.length !== 10) {
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            identifier: cleanIdentifier,
+            password,
+          }),
+        },
+      );
+
+      const result =
+        (await response.json()) as LoginResponse;
+
+      if (!response.ok) {
+        setError(
+          result.message ??
+            "Invalid email/mobile or password.",
+        );
+
+        return;
+      }
+
+      const token =
+        result.data?.token ?? result.token;
+
+      const user =
+        result.data?.user ?? result.user;
+
+      if (!token) {
+        setError(
+          "Login succeeded, but no authentication token was received.",
+        );
+
+        return;
+      }
+
+      /*
+       * Store token and user.
+       */
+      saveLoginData(token, user);
+
+      /*
+       * Redirect based on role.
+       */
+      redirectAfterLogin(user);
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      setError(
+        "Unable to connect to the server. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* =======================================================
+     PHONE NUMBER NORMALIZATION
+  ======================================================= */
+
+  function getIndianPhoneNumber() {
+    let phone = identifier.trim();
+
+    /*
+     * Remove spaces, hyphens and brackets.
+     */
+    phone = phone.replace(/[\s\-()]/g, "");
+
+    /*
+     * Convert +91XXXXXXXXXX to XXXXXXXXXX.
+     */
+    if (phone.startsWith("+91")) {
+      phone = phone.slice(3);
+    }
+
+    /*
+     * Convert 91XXXXXXXXXX to XXXXXXXXXX.
+     */
+    if (
+      phone.startsWith("91") &&
+      phone.length === 12
+    ) {
+      phone = phone.slice(2);
+    }
+
+    return phone;
+  }
+
+  /* =======================================================
+     SEND OTP
+  ======================================================= */
+
+  async function handleSendOTP() {
+    setError("");
+
+    const phone = getIndianPhoneNumber();
+
+    if (!/^[6-9]\d{9}$/.test(phone)) {
       setError(
         "Please enter a valid 10-digit Indian mobile number.",
       );
+
       return;
     }
 
@@ -285,121 +568,33 @@ async function handleSubmit(
 
     try {
       /*
-       * Firebase Phone Auth requires E.164 format.
-       * For India:
-       *
-       * 9876543210
-       * becomes
-       * +919876543210
+       * Make sure Firebase reCAPTCHA is ready.
        */
+      const verifier = await setupRecaptcha();
 
-      const phoneNumber = `+91${mobile}`;
-
-      /* ---------------------------------------------------
-         RECAPTCHA
-      --------------------------------------------------- */
-
-      const recaptcha =
-        setupRecaptcha(
-          "firebase-recaptcha",
-        );
-
-      /* ---------------------------------------------------
-         SEND OTP
-      --------------------------------------------------- */
-
-      const confirmation =
+      /*
+       * Firebase expects +91XXXXXXXXXX.
+       */
+      const confirmationResult =
         await sendPhoneOTP(
-          phoneNumber,
-          recaptcha,
+          `+91${phone}`,
+          verifier,
         );
 
       confirmationResultRef.current =
-        confirmation;
-
-      setOtp("");
+        confirmationResult;
 
       setOtpMode(true);
+      setOtp("");
 
-      setError("");
-    } catch (otpError) {
-      console.error(
-        "Send OTP failed:",
-        otpError,
+    } catch (error) {
+      console.error("Send OTP failed:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Unable to send OTP. Please try again.",
       );
-
-      confirmationResultRef.current =
-        null;
-
-      const message =
-        otpError instanceof Error
-          ? otpError.message
-          : "Unable to send OTP.";
-
-      /*
-       * Convert common Firebase messages
-       * into friendlier messages.
-       */
-
-      if (
-        message.includes(
-          "auth/invalid-phone-number",
-        )
-      ) {
-        setError(
-          "Invalid mobile number. Please check the number and try again.",
-        );
-      } else if (
-        message.includes(
-          "auth/too-many-requests",
-        )
-      ) {
-        setError(
-          "Too many OTP requests. Please wait a while and try again.",
-        );
-      } else if (
-        message.includes(
-          "auth/operation-not-allowed",
-        )
-      ) {
-        setError(
-          "Phone authentication is not enabled in Firebase.",
-        );
-      } else if (
-        message.includes(
-          "auth/captcha-check-failed",
-        )
-      ) {
-        setError(
-          "reCAPTCHA verification failed. Please refresh the page and try again.",
-        );
-      } else {
-        setError(
-          `Unable to send OTP. ${message}`,
-        );
-      }
-
-      /*
-       * Clear reCAPTCHA so another attempt
-       * can create a fresh verifier.
-       */
-
-      if (typeof window !== "undefined") {
-        const win =
-          window as typeof window & {
-            recaptchaVerifier?: {
-              clear?: () => void;
-            };
-          };
-
-        try {
-          win.recaptchaVerifier?.clear?.();
-        } catch {
-          // Ignore cleanup errors.
-        }
-
-        delete win.recaptchaVerifier;
-      }
     } finally {
       setOtpLoading(false);
     }
@@ -410,146 +605,200 @@ async function handleSubmit(
   ======================================================= */
 
   async function handleVerifyOTP() {
-    if (otpLoading) return;
-
     setError("");
+
+    const cleanOTP = otp.trim();
+
+    if (!/^\d{6}$/.test(cleanOTP)) {
+      setError("Please enter the 6-digit OTP.");
+      return;
+    }
 
     if (!confirmationResultRef.current) {
       setError(
         "OTP session expired. Please request a new OTP.",
       );
-      setOtpMode(false);
-      return;
-    }
 
-    if (otp.length !== 6) {
-      setError(
-        "Please enter the 6-digit OTP.",
-      );
       return;
     }
 
     setOtpLoading(true);
 
     try {
-      /* ---------------------------------------------------
-         VERIFY FIREBASE OTP
-      --------------------------------------------------- */
-
+      /*
+       * Verify Firebase OTP.
+       */
       await verifyPhoneOTP(
         confirmationResultRef.current,
-        otp,
+        cleanOTP,
       );
 
-      /* ---------------------------------------------------
-         LOGIN TO SMARTPRIX
-      --------------------------------------------------- */
-
-      const result =
+      /*
+       * Exchange Firebase authentication for a
+       * Smartprix backend token.
+       */
+      const loginResult =
         await loginToSmartprixWithFirebase();
 
+      /*
+       * loginToSmartprixWithFirebase may return the
+       * backend response in slightly different shapes,
+       * so support common formats.
+       */
+      const result = loginResult as
+        | LoginResponse
+        | {
+            success?: boolean;
+            token?: string;
+            user?: LoginUser;
+            data?: {
+              token?: string;
+              user?: LoginUser;
+            };
+          };
+
+      const token =
+        result.data?.token ??
+        result.token;
+
       const user =
-        result?.user as LoginUser | undefined;
+        result.data?.user ??
+        result.user;
 
-      confirmationResultRef.current =
-        null;
+      if (!token) {
+        /*
+         * In case the helper already saved the backend token,
+         * check localStorage before failing.
+         */
+        const storedToken =
+          localStorage.getItem("smartprix_token");
 
-      setOtp("");
+        if (!storedToken) {
+          setError(
+            "OTP verified, but Smartprix login could not be completed.",
+          );
 
-      setOtpMode(false);
+          return;
+        }
 
-      /* ---------------------------------------------------
-         REDIRECT
-      --------------------------------------------------- */
+        /*
+         * If helper saved token but did not return user,
+         * fetch current user from /auth/me.
+         */
+        try {
+          const meResponse = await fetch(
+            `${API_URL}/auth/me`,
+            {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${storedToken}`,
+              },
+              cache: "no-store",
+            },
+          );
 
-      if (
-        user?.role === "SUPER_ADMIN" ||
-        user?.role === "ADMIN"
-      ) {
-        router.push("/admin");
-      } else {
-        router.push("/");
+          if (meResponse.ok) {
+            const meResult =
+              await meResponse.json();
+
+            const meUser = meResult?.data;
+
+            if (meUser) {
+              const existingUser =
+                localStorage.getItem(
+                  "smartprix_user",
+                );
+
+              let previousUser: Record<
+                string,
+                unknown
+              > = {};
+
+              if (existingUser) {
+                try {
+                  previousUser =
+                    JSON.parse(existingUser);
+                } catch {
+                  previousUser = {};
+                }
+              }
+
+              localStorage.setItem(
+                "smartprix_user",
+                JSON.stringify({
+                  ...previousUser,
+                  ...meUser,
+                }),
+              );
+
+              window.dispatchEvent(
+                new Event(
+                  "smartprix-auth-changed",
+                ),
+              );
+
+              redirectAfterLogin(meUser);
+              return;
+            }
+          }
+        } catch (meError) {
+          console.error(
+            "Unable to fetch current user after OTP:",
+            meError,
+          );
+        }
+
+        /*
+         * Token exists, but user data could not be
+         * loaded. Redirect to profile as a normal user.
+         */
+        router.replace("/profile");
+        router.refresh();
+        return;
       }
 
-      router.refresh();
-    } catch (verifyError) {
-      console.error(
-        "OTP verification failed:",
-        verifyError,
+      /*
+       * Save backend token.
+       */
+      saveLoginData(token, user);
+
+      /*
+       * Redirect based on role.
+       */
+      redirectAfterLogin(user);
+    } catch (error) {
+      console.error("Verify OTP failed:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Invalid OTP. Please try again.",
       );
-
-      const message =
-        verifyError instanceof Error
-          ? verifyError.message
-          : "OTP verification failed.";
-
-      if (
-        message.includes(
-          "auth/invalid-verification-code",
-        )
-      ) {
-        setError(
-          "Incorrect OTP. Please check the code and try again.",
-        );
-      } else if (
-        message.includes(
-          "auth/code-expired",
-        )
-      ) {
-        setError(
-          "This OTP has expired. Please request a new OTP.",
-        );
-      } else if (
-        message.includes(
-          "Firebase authentication failed",
-        )
-      ) {
-        setError(
-          "Firebase login verification failed. Please try again.",
-        );
-      } else {
-        setError(
-          message ||
-            "OTP verification failed. Please try again.",
-        );
-      }
     } finally {
       setOtpLoading(false);
     }
   }
 
   /* =======================================================
-     SWITCH BACK TO PASSWORD
+     SWITCH TO PASSWORD LOGIN
   ======================================================= */
 
-  function handleUsePassword() {
-    if (otpLoading) return;
-
+  function switchToPasswordLogin() {
     setOtpMode(false);
-
     setOtp("");
-
     setError("");
+    confirmationResultRef.current = null;
+  }
 
-    confirmationResultRef.current =
-      null;
+  /* =======================================================
+     SWITCH TO OTP LOGIN
+  ======================================================= */
 
-    if (typeof window !== "undefined") {
-      const win =
-        window as typeof window & {
-          recaptchaVerifier?: {
-            clear?: () => void;
-          };
-        };
-
-      try {
-        win.recaptchaVerifier?.clear?.();
-      } catch {
-        // Ignore cleanup errors.
-      }
-
-      delete win.recaptchaVerifier;
-    }
+  function switchToOTPLogin() {
+    setOtpMode(true);
+    setError("");
+    setPassword("");
   }
 
   /* =======================================================
@@ -559,9 +808,7 @@ async function handleSubmit(
   function togglePasswordVisibility() {
     setEyeAnimating(true);
 
-    setShowPassword(
-      (current) => !current,
-    );
+    setShowPassword((previous) => !previous);
 
     window.setTimeout(() => {
       setEyeAnimating(false);
@@ -569,770 +816,481 @@ async function handleSubmit(
   }
 
   /* =======================================================
-     RENDER
+     AUTH CHECK LOADING
+  ======================================================= */
+
+  if (checkingAuth || alreadyLoggedIn) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f1f3f6] px-4">
+        <div className="flex flex-col items-center">
+
+          {/* Logo */}
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1877f2] text-[26px] font-black text-white shadow-[0_8px_24px_rgba(24,119,242,0.25)]">
+            S
+          </div>
+
+          {/* Spinner */}
+          <div className="mt-5 h-6 w-6 animate-spin rounded-full border-2 border-[#1877f2]/20 border-t-[#1877f2]" />
+
+          {/* Message */}
+          <p className="mt-4 text-sm font-semibold text-[#65676b]">
+            {alreadyLoggedIn
+              ? "You are already logged in. Redirecting..."
+              : "Checking your account..."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  /* =======================================================
+     LOGIN UI
   ======================================================= */
 
   return (
-    <main className="min-h-screen bg-[#f1f3f6] px-4 py-10">
-      <div className="mx-auto flex min-h-[calc(100vh-80px)] max-w-[460px] items-center justify-center">
-        <section
-          className="
-            w-full
-            overflow-hidden
-            rounded-2xl
-            border
-            border-[#e4e6eb]
-            bg-white
-            shadow-[0_10px_40px_rgba(0,0,0,0.08)]
-          "
-        >
+    <main className="min-h-screen bg-[#f1f3f6] px-4 py-8 sm:py-12">
+
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[470px] items-center justify-center">
+
+        <div className="w-full">
+
           {/* =================================================
-              HEADER
+              BRAND
           ================================================= */}
 
-          <div className="px-7 pb-3 pt-8 text-center">
+          <div className="mb-7 text-center">
+
             <Link
               href="/"
-              className="inline-flex items-center justify-center"
+              className="inline-flex items-center gap-2"
             >
-              <div
-                className="
-                  flex
-                  h-12
-                  w-12
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-[#1877f2]
-                  text-[24px]
-                  font-black
-                  text-white
-                  shadow-[0_6px_18px_rgba(24,119,242,0.25)]
-                "
-              >
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#1877f2] text-xl font-black text-white shadow-[0_8px_20px_rgba(24,119,242,0.22)]">
                 S
-              </div>
+              </span>
+
+              <span className="text-[24px] font-extrabold tracking-[-0.5px] text-[#1f2937]">
+                Smartprix
+              </span>
             </Link>
 
-            <h1
-              className="
-                mt-5
-                text-[25px]
-                font-bold
-                tracking-[-0.4px]
-                text-[#1c1e21]
-              "
-            >
-              Log in to Smartprix
-            </h1>
-
-            <p
-              className="
-                mt-2
-                text-[14px]
-                leading-6
-                text-[#65676b]
-              "
-            >
-              Compare products, discover the
-              best deals and manage your account.
+            <p className="mt-3 text-[14px] text-[#65676b]">
+              {otpMode
+                ? "Verify your mobile number"
+                : "Login to your Smartprix account"}
             </p>
           </div>
 
           {/* =================================================
-              FIREBASE RECAPTCHA
-
-              IMPORTANT:
-              Keep ONLY ONE element with this ID.
+              CARD
           ================================================= */}
 
-          <div id="firebase-recaptcha" />
+          <div className="overflow-hidden rounded-[18px] border border-[#e5e7eb] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
 
-          {/* =================================================
-              FORM
-          ================================================= */}
-
-          <form
-            onSubmit={handleSubmit}
-            autoComplete="off"
-            className="space-y-4 px-7 pb-8 pt-5"
-          >
             {/* =================================================
-                ERROR
+                CARD HEADER
             ================================================= */}
 
-            {error && (
-              <div
-                className="
-                  rounded-xl
-                  border
-                  border-[#f3b7b7]
-                  bg-[#fff5f5]
-                  px-4
-                  py-3
-                  text-[13px]
-                  leading-5
-                  text-[#c62828]
-                "
-              >
-                <div className="flex items-start gap-2">
-                  <span
-                    className="
-                      mt-[1px]
-                      flex
-                      h-5
-                      w-5
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-[#e53935]
-                      text-[11px]
-                      font-bold
-                      text-white
-                    "
-                  >
-                    !
-                  </span>
+            <div className="border-b border-[#eef0f2] px-6 py-5 sm:px-7">
 
-                  <p>{error}</p>
+              <div className="flex items-center justify-between">
+
+                <div>
+                  <h1 className="text-[21px] font-bold tracking-[-0.3px] text-[#1f2937]">
+                    {otpMode
+                      ? "Login with OTP"
+                      : "Welcome back"}
+                  </h1>
+
+                  <p className="mt-1 text-[13px] text-[#6b7280]">
+                    {otpMode
+                      ? "We’ll send a verification code to your mobile"
+                      : "Access your account and personalized experience"}
+                  </p>
                 </div>
-              </div>
-            )}
 
-            {/* =================================================
-                MOBILE / EMAIL
-            ================================================= */}
-
-            <div className="relative">
-              <input
-                id="login-identifier"
-                name="identifier"
-                type="text"
-                value={identifier}
-                onChange={(event) => {
-                  setIdentifier(
-                    event.target.value,
-                  );
-                  setError("");
-                }}
-                placeholder=" "
-                autoComplete="username"
-                disabled={
-                  loading || otpMode
-                }
-                className="
-                  peer
-                  h-[56px]
-                  w-full
-                  rounded-xl
-                  border
-                  border-[#ccd0d5]
-                  bg-white
-                  px-4
-                  pt-4
-                  text-[15px]
-                  text-[#1c1e21]
-                  outline-none
-                  transition-all
-                  focus:border-[#1877f2]
-                  focus:ring-2
-                  focus:ring-[#1877f2]/10
-                  disabled:cursor-not-allowed
-                  disabled:bg-[#f5f6f7]
-                  disabled:text-[#8a8d91]
-                "
-              />
-
-              <label
-                htmlFor="login-identifier"
-                className="
-                  pointer-events-none
-                  absolute
-                  left-4
-                  top-1/2
-                  -translate-y-1/2
-                  bg-white
-                  px-1
-                  text-[15px]
-                  text-[#65676b]
-                  transition-all
-                  peer-focus:top-0
-                  peer-focus:text-[12px]
-                  peer-focus:font-medium
-                  peer-focus:text-[#1877f2]
-                  peer-[:not(:placeholder-shown)]:top-0
-                  peer-[:not(:placeholder-shown)]:text-[12px]
-                  peer-[:not(:placeholder-shown)]:font-medium
-                "
-              >
-                Email or mobile number
-              </label>
-            </div>
-
-            {/* =================================================
-                PASSWORD
-            ================================================= */}
-
-            <div className="relative">
-              <input
-                id="login-password"
-                name="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
-                value={password}
-                onChange={(event) => {
-                  setPassword(
-                    event.target.value,
-                  );
-                  setError("");
-                }}
-                placeholder=" "
-                autoComplete="current-password"
-                disabled={
-                  loading || otpMode
-                }
-                className="
-                  peer
-                  h-[56px]
-                  w-full
-                  rounded-xl
-                  border
-                  border-[#ccd0d5]
-                  bg-white
-                  px-4
-                  pb-1
-                  pt-4
-                  pr-14
-                  text-[15px]
-                  text-[#1c1e21]
-                  outline-none
-                  transition-all
-                  focus:border-[#1877f2]
-                  focus:ring-2
-                  focus:ring-[#1877f2]/10
-                  disabled:cursor-not-allowed
-                  disabled:bg-[#f5f6f7]
-                  disabled:text-[#8a8d91]
-                "
-              />
-
-              <label
-                htmlFor="login-password"
-                className="
-                  pointer-events-none
-                  absolute
-                  left-4
-                  top-1/2
-                  -translate-y-1/2
-                  bg-white
-                  px-1
-                  text-[15px]
-                  text-[#65676b]
-                  transition-all
-                  peer-focus:top-0
-                  peer-focus:text-[12px]
-                  peer-focus:font-medium
-                  peer-focus:text-[#1877f2]
-                  peer-[:not(:placeholder-shown)]:top-0
-                  peer-[:not(:placeholder-shown)]:text-[12px]
-                  peer-[:not(:placeholder-shown)]:font-medium
-                "
-              >
-                Password
-              </label>
-
-              <button
-                type="button"
-                onClick={
-                  togglePasswordVisibility
-                }
-                disabled={
-                  loading || otpMode
-                }
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
-                className="
-                  absolute
-                  right-3
-                  top-1/2
-                  flex
-                  h-9
-                  w-9
-                  -translate-y-1/2
-                  items-center
-                  justify-center
-                  rounded-full
-                  text-[#65676b]
-                  transition-all
-                  hover:bg-[#f0f2f5]
-                  hover:text-[#1877f2]
-                  disabled:cursor-not-allowed
-                  disabled:opacity-40
-                "
-              >
-                <svg
-                  width="21"
-                  height="21"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={
-                    eyeAnimating
-                      ? "scale-90 opacity-50 transition-all"
-                      : "scale-100 opacity-100 transition-all"
-                  }
-                >
-                  {showPassword ? (
-                    <>
-                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="3"
-                      />
-                    </>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eff6ff] text-[#1877f2]">
+                  {otpMode ? (
+                    <PhoneIcon />
                   ) : (
-                    <>
-                      <path d="M3 3l18 18" />
-                      <path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.5 17.5 0 0 1-3.1 3.9" />
-                      <path d="M6.6 6.7C3.7 8.5 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 3.1-.5" />
-                    </>
+                    <UserIcon />
                   )}
-                </svg>
-              </button>
+                </div>
+
+              </div>
             </div>
 
             {/* =================================================
-                FORGOT PASSWORD
+                FORM
             ================================================= */}
 
-            {!otpMode && (
-              <div className="flex justify-end">
-                <Link
-                  href="/forgot-password"
-                  className="
-                    text-[14px]
-                    font-semibold
-                    text-[#1877f2]
-                    transition-colors
-                    hover:text-[#166fe5]
-                    hover:underline
-                  "
-                >
-                  Forgot password?
-                </Link>
-              </div>
-            )}
+            <div className="px-6 py-6 sm:px-7">
 
-            {/* =================================================
-                NORMAL LOGIN BUTTON
-            ================================================= */}
+              {/* =================================================
+                  ERROR
+              ================================================= */}
 
-            {!otpMode && (
-              <button
-                type="submit"
-                disabled={
-                  loading ||
-                  otpLoading
-                }
-                className="
-                  flex
-                  h-[52px]
-                  w-full
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-[#1877f2]
-                  text-[16px]
-                  font-bold
-                  text-white
-                  shadow-[0_5px_15px_rgba(24,119,242,0.22)]
-                  transition-all
-                  hover:bg-[#166fe5]
-                  hover:shadow-[0_7px_20px_rgba(24,119,242,0.28)]
-                  active:scale-[0.98]
-                  disabled:cursor-not-allowed
-                  disabled:opacity-70
-                "
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="
-                        h-5
-                        w-5
-                        animate-spin
-                        rounded-full
-                        border-2
-                        border-white/40
-                        border-t-white
-                      "
-                    />
-                    Logging in...
-                  </span>
-                ) : (
-                  "Log In"
-                )}
-              </button>
-            )}
+              {error && (
+                <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3">
 
-            {/* =================================================
-                OTP LOGIN
-            ================================================= */}
-
-            {!otpMode ? (
-              <button
-                type="button"
-                onClick={handleSendOTP}
-                disabled={
-                  loading ||
-                  otpLoading
-                }
-                className="
-                  mt-3
-                  flex
-                  h-[52px]
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-full
-                  border
-                  border-[#1877f2]
-                  bg-white
-                  text-[16px]
-                  font-bold
-                  text-[#1877f2]
-                  transition-all
-                  hover:bg-[#f0f7ff]
-                  hover:shadow-sm
-                  active:scale-[0.98]
-                  disabled:cursor-not-allowed
-                  disabled:opacity-70
-                "
-              >
-                {otpLoading ? (
-                  <>
-                    <span
-                      className="
-                        h-5
-                        w-5
-                        animate-spin
-                        rounded-full
-                        border-2
-                        border-[#1877f2]/30
-                        border-t-[#1877f2]
-                      "
-                    />
-                    Sending OTP...
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect
-                        x="5"
-                        y="2"
-                        width="14"
-                        height="20"
-                        rx="2"
-                      />
-                      <path d="M12 18h.01" />
-                    </svg>
-
-                    Log in with OTP
-                  </>
-                )}
-              </button>
-            ) : (
-              /* =================================================
-                 OTP VERIFICATION PANEL
-              ================================================= */
-
-              <div className="mt-3 space-y-4">
-                {/* ---------------------------------------------
-                    OTP SENT INFO
-                --------------------------------------------- */}
-
-                <div
-                  className="
-                    rounded-xl
-                    border
-                    border-[#d7e8ff]
-                    bg-[#f0f7ff]
-                    px-4
-                    py-4
-                    text-center
-                  "
-                >
-                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#dbeeff] text-[#1877f2]">
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect
-                        x="5"
-                        y="2"
-                        width="14"
-                        height="20"
-                        rx="2"
-                      />
-                      <path d="M12 18h.01" />
-                    </svg>
+                  <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#dc2626] text-[11px] font-bold text-white">
+                    !
                   </div>
 
-                  <p className="mt-3 text-[13px] text-[#65676b]">
-                    OTP sent to
+                  <p className="text-[13px] font-medium leading-5 text-[#b91c1c]">
+                    {error}
                   </p>
 
-                  <p className="mt-1 text-[15px] font-bold text-[#1c1e21]">
-                    +91{" "}
-                    {identifier.replace(
-                      /\D/g,
-                      "",
-                    )}
-                  </p>
                 </div>
+              )}
 
-                {/* ---------------------------------------------
-                    OTP INPUT
-                --------------------------------------------- */}
+              {/* =================================================
+                  OTP MODE
+              ================================================= */}
 
-                <div className="relative">
-                  <input
-                    id="login-otp"
-                    name="smartprix-otp"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(event) => {
-                      const value =
-                        event.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, 6);
+              {otpMode ? (
+                <div>
 
-                      setOtp(value);
-                      setError("");
-                    }}
-                    placeholder=" "
-                    autoComplete="one-time-code"
-                    disabled={otpLoading}
-                    autoFocus
-                    className="
-                      peer
-                      h-[58px]
-                      w-full
-                      rounded-xl
-                      border
-                      border-[#ccd0d5]
-                      bg-white
-                      px-4
-                      pt-3
-                      text-center
-                      text-[21px]
-                      font-bold
-                      tracking-[7px]
-                      text-[#1c1e21]
-                      outline-none
-                      transition-all
-                      focus:border-[#1877f2]
-                      focus:ring-2
-                      focus:ring-[#1877f2]/10
-                      disabled:cursor-not-allowed
-                      disabled:bg-[#f5f6f7]
-                    "
-                  />
-
+                  {/* Phone */}
                   <label
-                    htmlFor="login-otp"
-                    className="
-                      pointer-events-none
-                      absolute
-                      left-4
-                      top-0
-                      -translate-y-1/2
-                      bg-white
-                      px-1
-                      text-[12px]
-                      font-medium
-                      text-[#1877f2]
-                    "
+                    htmlFor="login-phone"
+                    className="mb-2 block text-[13px] font-semibold text-[#374151]"
                   >
-                    Enter 6-digit OTP
+                    Mobile number
                   </label>
+
+                  <div className="relative">
+
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[#9ca3af]">
+                      <PhoneIcon />
+                    </div>
+
+                    <div className="pointer-events-none absolute inset-y-0 left-[48px] flex items-center text-[14px] font-semibold text-[#374151]">
+                      +91
+                    </div>
+
+                    <input
+                      id="login-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      maxLength={10}
+                      value={identifier}
+                      onChange={(event) =>
+                        setIdentifier(
+                          event.target.value.replace(
+                            /\D/g,
+                            "",
+                          ),
+                        )
+                      }
+                      placeholder="Enter 10-digit mobile number"
+                      disabled={otpLoading}
+                      className="h-[48px] w-full rounded-xl border border-[#d9dde3] bg-white pl-[82px] pr-4 text-[14px] font-medium text-[#1f2937] outline-none transition placeholder:text-[#9ca3af] focus:border-[#1877f2] focus:ring-4 focus:ring-[#1877f2]/10 disabled:bg-[#f9fafb]"
+                    />
+
+                  </div>
+
+                  {/* OTP field */}
+                  {confirmationResultRef.current && (
+                    <div className="mt-5">
+
+                      <label
+                        htmlFor="login-otp"
+                        className="mb-2 block text-[13px] font-semibold text-[#374151]"
+                      >
+                        Verification code
+                      </label>
+
+                      <input
+                        id="login-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(event) =>
+                          setOtp(
+                            event.target.value.replace(
+                              /\D/g,
+                              "",
+                            ),
+                          )
+                        }
+                        placeholder="Enter 6-digit OTP"
+                        disabled={otpLoading}
+                        className="h-[48px] w-full rounded-xl border border-[#d9dde3] bg-white px-4 text-center text-[18px] font-bold tracking-[8px] text-[#1f2937] outline-none transition placeholder:text-[#9ca3af] placeholder:tracking-normal focus:border-[#1877f2] focus:ring-4 focus:ring-[#1877f2]/10 disabled:bg-[#f9fafb]"
+                      />
+
+                    </div>
+                  )}
+
+                  {/* OTP button */}
+                  <button
+                    type="button"
+                    onClick={
+                      confirmationResultRef.current
+                        ? handleVerifyOTP
+                        : handleSendOTP
+                    }
+                    disabled={otpLoading}
+                    className="mt-6 flex h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#1877f2] text-[14px] font-bold text-white shadow-[0_6px_16px_rgba(24,119,242,0.20)] transition hover:bg-[#166fe5] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {otpLoading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+
+                        <span>
+                          {confirmationResultRef.current
+                            ? "Verifying..."
+                            : "Sending OTP..."}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {confirmationResultRef.current
+                            ? "Verify & Login"
+                            : "Send OTP"}
+                        </span>
+
+                        <ArrowIcon />
+                      </>
+                    )}
+                  </button>
+
+                  {/* Change login method */}
+                  <button
+                    type="button"
+                    onClick={switchToPasswordLogin}
+                    disabled={otpLoading}
+                    className="mt-4 flex w-full items-center justify-center gap-2 text-[13px] font-semibold text-[#1877f2] transition hover:text-[#125fc4] disabled:opacity-50"
+                  >
+                    Login with password
+                  </button>
+
+                </div>
+              ) : (
+                /* =================================================
+                   PASSWORD MODE
+                ================================================= */
+                <form onSubmit={handleSubmit}>
+
+                  {/* Identifier */}
+                  <div>
+
+                    <label
+                      htmlFor="login-identifier"
+                      className="mb-2 block text-[13px] font-semibold text-[#374151]"
+                    >
+                      Email or mobile number
+                    </label>
+
+                    <div className="relative">
+
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-[#9ca3af]">
+                        <UserIcon />
+                      </div>
+
+                      <input
+                        id="login-identifier"
+                        type="text"
+                        autoComplete="username"
+                        value={identifier}
+                        onChange={(event) =>
+                          setIdentifier(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Enter email or mobile number"
+                        disabled={loading}
+                        className="h-[48px] w-full rounded-xl border border-[#d9dde3] bg-white pl-12 pr-4 text-[14px] font-medium text-[#1f2937] outline-none transition placeholder:text-[#9ca3af] focus:border-[#1877f2] focus:ring-4 focus:ring-[#1877f2]/10 disabled:bg-[#f9fafb]"
+                      />
+
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div className="mt-5">
+
+                    <div className="mb-2 flex items-center justify-between">
+
+                      <label
+                        htmlFor="login-password"
+                        className="block text-[13px] font-semibold text-[#374151]"
+                      >
+                        Password
+                      </label>
+
+                      <Link
+                        href="/forgot-password"
+                        className="text-[12px] font-semibold text-[#1877f2] transition hover:text-[#125fc4]"
+                      >
+                        Forgot password?
+                      </Link>
+
+                    </div>
+
+                    <div className="relative">
+
+                      <input
+                        id="login-password"
+                        type={
+                          showPassword
+                            ? "text"
+                            : "password"
+                        }
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) =>
+                          setPassword(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Enter your password"
+                        disabled={loading}
+                        className="h-[48px] w-full rounded-xl border border-[#d9dde3] bg-white px-4 pr-12 text-[14px] font-medium text-[#1f2937] outline-none transition placeholder:text-[#9ca3af] focus:border-[#1877f2] focus:ring-4 focus:ring-[#1877f2]/10 disabled:bg-[#f9fafb]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={
+                          togglePasswordVisibility
+                        }
+                        disabled={loading}
+                        aria-label={
+                          showPassword
+                            ? "Hide password"
+                            : "Show password"
+                        }
+                        className={`absolute right-0 top-0 flex h-[48px] w-12 items-center justify-center text-[#9ca3af] transition hover:text-[#374151] ${
+                          eyeAnimating
+                            ? "scale-90"
+                            : "scale-100"
+                        }`}
+                      >
+                        <EyeIcon
+                          off={!showPassword}
+                        />
+                      </button>
+
+                    </div>
+                  </div>
+
+                  {/* Login */}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="mt-6 flex h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#1877f2] text-[14px] font-bold text-white shadow-[0_6px_16px_rgba(24,119,242,0.20)] transition hover:bg-[#166fe5] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        <span>Logging in...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Login</span>
+                        <ArrowIcon />
+                      </>
+                    )}
+                  </button>
+
+                  {/* Divider */}
+                  <div className="my-6 flex items-center gap-3">
+
+                    <div className="h-px flex-1 bg-[#e5e7eb]" />
+
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9ca3af]">
+                      OR
+                    </span>
+
+                    <div className="h-px flex-1 bg-[#e5e7eb]" />
+
+                  </div>
+
+                  {/* OTP Login */}
+                  <button
+                    type="button"
+                    onClick={switchToOTPLogin}
+                    disabled={loading}
+                    className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl border border-[#d9dde3] bg-white text-[13px] font-bold text-[#374151] transition hover:border-[#1877f2]/40 hover:bg-[#f8fbff] hover:text-[#1877f2] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <PhoneIcon />
+                    Login with mobile OTP
+                  </button>
+
+                </form>
+              )}
+
+              {/* =================================================
+                  SECURITY NOTE
+              ================================================= */}
+
+              <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-[#f8fafc] px-3.5 py-3">
+
+                <div className="mt-0.5 shrink-0 text-[#1877f2]">
+                  <ShieldIcon />
                 </div>
 
-                {/* ---------------------------------------------
-                    VERIFY BUTTON
-                --------------------------------------------- */}
+                <p className="text-[11px] leading-[17px] text-[#6b7280]">
+                  Your account information is securely
+                  authenticated. Never share your password
+                  or verification code with anyone.
+                </p>
 
-                <button
-                  type="button"
-                  onClick={
-                    handleVerifyOTP
-                  }
-                  disabled={
-                    otpLoading ||
-                    otp.length !== 6
-                  }
-                  className="
-                    flex
-                    h-[52px]
-                    w-full
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-[#1877f2]
-                    text-[16px]
-                    font-bold
-                    text-white
-                    shadow-[0_5px_15px_rgba(24,119,242,0.22)]
-                    transition-all
-                    hover:bg-[#166fe5]
-                    hover:shadow-[0_7px_20px_rgba(24,119,242,0.28)]
-                    active:scale-[0.98]
-                    disabled:cursor-not-allowed
-                    disabled:opacity-60
-                  "
+              </div>
+
+              {/* =================================================
+                  REGISTER
+              ================================================= */}
+
+              <p className="mt-6 text-center text-[13px] text-[#6b7280]">
+
+                Don't have an account?{" "}
+
+                <Link
+                  href="/register"
+                  className="font-bold text-[#1877f2] transition hover:text-[#125fc4]"
                 >
-                  {otpLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="
-                          h-5
-                          w-5
-                          animate-spin
-                          rounded-full
-                          border-2
-                          border-white/40
-                          border-t-white
-                        "
-                      />
-                      Verifying...
-                    </span>
-                  ) : (
-                    "Verify OTP"
-                  )}
-                </button>
+                  Create account
+                </Link>
 
-                {/* ---------------------------------------------
-                    CHANGE NUMBER / PASSWORD
-                --------------------------------------------- */}
+              </p>
 
-                <button
-                  type="button"
-                  onClick={
-                    handleUsePassword
-                  }
-                  disabled={otpLoading}
-                  className="
-                    w-full
-                    py-2
-                    text-[14px]
-                    font-semibold
-                    text-[#1877f2]
-                    transition-colors
-                    hover:text-[#166fe5]
-                    hover:underline
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-                  "
-                >
-                  Use password instead
-                </button>
-              </div>
-            )}
-
-            {/* =================================================
-                DIVIDER
-            ================================================= */}
-
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#e4e6eb]" />
-              </div>
-
-              <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-[12px] font-medium uppercase tracking-wide text-[#8a8d91]">
-                  New to Smartprix?
-                </span>
-              </div>
             </div>
+          </div>
 
-            {/* =================================================
-                CREATE ACCOUNT
-            ================================================= */}
+          {/* =================================================
+              FOOTER
+          ================================================= */}
 
-            {!otpMode && (
-              <Link
-                href="/register"
-                className="
-                  flex
-                  h-[50px]
-                  w-full
-                  items-center
-                  justify-center
-                  rounded-full
-                  border
-                  border-[#42b72a]
-                  bg-white
-                  text-[15px]
-                  font-bold
-                  text-[#2e8b1d]
-                  transition-all
-                  hover:bg-[#f1faef]
-                  hover:shadow-sm
-                  active:scale-[0.98]
-                "
-              >
-                Create new account
-              </Link>
-            )}
-
-            {/* =================================================
-                SECURITY NOTE
-            ================================================= */}
-
-            <p
-              className="
-                pt-1
-                text-center
-                text-[11px]
-                leading-5
-                text-[#8a8d91]
-              "
+          <p className="mt-6 text-center text-[11px] leading-5 text-[#9ca3af]">
+            By continuing, you agree to Smartprix's{" "}
+            <Link
+              href="/terms"
+              className="font-medium hover:text-[#6b7280]"
             >
-              By continuing, you agree to Smartprix's
-              terms and privacy policy.
-            </p>
-          </form>
-        </section>
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy"
+              className="font-medium hover:text-[#6b7280]"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
+
+        </div>
       </div>
+
+      {/* =====================================================
+          FIREBASE RECAPTCHA CONTAINER
+      ===================================================== */}
+
+      <div id="recaptcha-container" />
+
     </main>
   );
 }

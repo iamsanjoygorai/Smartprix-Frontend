@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string | null;
   email: string;
   mobile: string | null;
+  profileImageUrl: string | null;
   dateOfBirth: string | null;
   gender: string | null;
   role: string;
@@ -14,7 +15,7 @@ export interface UserProfile {
   createdAt: string;
   updatedAt: string;
 
-    stats: {
+  stats: {
     reviews: number;
     favorites: number;
     comparisons: number;
@@ -116,6 +117,181 @@ export async function getUserProfile(): Promise<{
     };
   }
 }
+
+
+export async function uploadProfileImage(
+  file: File,
+): Promise<{
+  success: boolean;
+  message?: string;
+  data?: UserProfile;
+}> {
+  const token = getToken();
+
+  if (!token) {
+    return {
+      success: false,
+      message: "Authentication required",
+    };
+  }
+
+  try {
+    const formData = new FormData();
+
+    formData.append("image", file);
+
+    const response = await fetch(
+      `${API_URL}/user/profile/image`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message:
+          result.message ??
+          "Failed to upload profile picture",
+      };
+    }
+
+    if (result.success && result.data) {
+      const existingUser =
+        localStorage.getItem("smartprix_user");
+
+      let previousUser: Record<string, unknown> = {};
+
+      if (existingUser) {
+        try {
+          previousUser = JSON.parse(existingUser);
+        } catch {
+          previousUser = {};
+        }
+      }
+
+      localStorage.setItem(
+        "smartprix_user",
+        JSON.stringify({
+          ...previousUser,
+          ...result.data,
+        }),
+      );
+
+      window.dispatchEvent(
+        new Event("smartprix-auth-changed"),
+      );
+    }
+
+    return {
+      success: result.success === true,
+      message: result.message,
+      data: result.data,
+    };
+  } catch (error) {
+    console.error(
+      "Upload profile image failed:",
+      error,
+    );
+
+    return {
+      success: false,
+      message: "Unable to connect to the server",
+    };
+  }
+}
+
+
+export async function deleteProfileImage(): Promise<{
+  success: boolean;
+  message?: string;
+  data?: {
+    profileImageUrl: null;
+  };
+}> {
+  const token = getToken();
+
+  if (!token) {
+    return {
+      success: false,
+      message: "Authentication required",
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/user/profile/image`,
+      {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message:
+          result.message ??
+          "Failed to remove profile picture",
+      };
+    }
+
+    if (result.success) {
+      const existingUser =
+        localStorage.getItem("smartprix_user");
+
+      if (existingUser) {
+        try {
+          const previousUser =
+            JSON.parse(existingUser);
+
+          localStorage.setItem(
+            "smartprix_user",
+            JSON.stringify({
+              ...previousUser,
+              profileImageUrl: null,
+            }),
+          );
+        } catch {
+          // Ignore invalid localStorage data.
+        }
+      }
+
+      window.dispatchEvent(
+        new Event("smartprix-auth-changed"),
+      );
+    }
+
+    return {
+      success: result.success === true,
+      message: result.message,
+      data: result.data,
+    };
+  } catch (error) {
+    console.error(
+      "Delete profile image failed:",
+      error,
+    );
+
+    return {
+      success: false,
+      message: "Unable to connect to the server",
+    };
+  }
+}
+
+
 
 /* =========================================================
    UPDATE PROFILE

@@ -67,6 +67,16 @@ interface SearchSuggestionResponse {
   popular: unknown[];
 }
 
+interface HeaderUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  mobile?: string | null;
+  role?: string | null;
+  avatarUrl?: string | null;
+  image?: string | null;
+}
+
 type SuggestionType =
   | "product"
   | "brand"
@@ -222,6 +232,99 @@ export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
 
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [user, setUser] = useState<HeaderUser | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  /*
+ * =========================================================
+ * LOAD LOGGED-IN USER
+ * =========================================================
+ */
+useEffect(() => {
+  let cancelled = false;
+
+  const loadCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem("smartprix_token");
+
+      if (!token) {
+        if (!cancelled) {
+          setUser(null);
+          setUserLoading(false);
+        }
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        // Token is invalid/expired.
+        localStorage.removeItem("smartprix_token");
+
+        if (!cancelled) {
+          setUser(null);
+        }
+
+        return;
+      }
+
+      const result = await response.json();
+
+      if (cancelled) return;
+
+      /*
+       * Supports:
+       * { success: true, data: {...} }
+       */
+      const currentUser = result?.data;
+
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Failed to load current user:", error);
+
+      if (!cancelled) {
+        setUser(null);
+      }
+    } finally {
+      if (!cancelled) {
+        setUserLoading(false);
+      }
+    }
+  };
+
+  void loadCurrentUser();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+/*
+ * =========================================================
+ * LOGOUT
+ * =========================================================
+ */
+const handleLogout = () => {
+  localStorage.removeItem("smartprix_token");
+
+  setUser(null);
+  setShowProfileMenu(false);
+
+  router.push("/");
+  router.refresh();
+};
 
   /*
    * =========================================================
@@ -769,6 +872,21 @@ export default function Header() {
   const showSuggestions =
     search.trim().length > 0 &&
     (loading || hasSuggestionResults);
+
+
+    const profileImage =
+  user?.avatarUrl || user?.image || null;
+
+const profileName =
+  user?.name?.trim() ||
+  user?.email?.split("@")[0] ||
+  user?.mobile ||
+  "User";
+
+const profileInitial =
+  profileName.charAt(0).toUpperCase();
+
+
 
   /*
    * =========================================================
@@ -1421,31 +1539,228 @@ export default function Header() {
           )}
         </div>
 
-        {/* LOGIN */}
-        <Link
-          href="/login"
-          className="hidden shrink-0 items-center gap-2 rounded-[9px] px-3 py-2 text-[14px] font-semibold text-[#374151] transition hover:bg-[#f3f4f6] lg:flex"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle
-              cx="12"
-              cy="8"
-              r="4"
-            />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
+        {/* =========================================================
+    ACCOUNT / LOGIN
+========================================================= */}
+{!userLoading && !user ? (
+  <Link
+    href="/login"
+    className="hidden shrink-0 items-center gap-2 rounded-[10px] px-3 py-2 text-[14px] font-semibold text-[#374151] transition hover:bg-[#f3f4f6] lg:flex"
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle
+        cx="12"
+        cy="8"
+        r="4"
+      />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
 
-          Login
-        </Link>
+    Login
+  </Link>
+) : !userLoading && user ? (
+  <div className="relative hidden lg:block">
+    <button
+      type="button"
+      onClick={() =>
+        setShowProfileMenu((previous) => !previous)
+      }
+      className="group flex items-center gap-2 rounded-[11px] px-2.5 py-1.5 transition hover:bg-[#f3f4f6]"
+      aria-label="Open profile menu"
+      aria-expanded={showProfileMenu}
+    >
+      {/* PROFILE IMAGE / INITIAL */}
+      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-[14px] font-bold text-white shadow-sm ring-2 ring-white">
+        {profileImage ? (
+          <img
+            src={profileImage}
+            alt={profileName}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          profileInitial
+        )}
+
+        {/* Online indicator */}
+        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#22c55e]" />
+      </div>
+
+      {/* USER NAME */}
+      <div className="hidden max-w-[120px] text-left xl:block">
+        <div className="truncate text-[13px] font-bold text-[#1f2937]">
+          {profileName}
+        </div>
+
+        <div className="text-[10px] font-medium text-[#8b95a5]">
+          My Account
+        </div>
+      </div>
+
+      {/* ARROW */}
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`text-[#7b8493] transition-transform ${
+          showProfileMenu ? "rotate-180" : ""
+        }`}
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </button>
+
+    {/* PROFILE DROPDOWN */}
+    {showProfileMenu && (
+      <>
+        {/* Backdrop */}
+        <button
+          type="button"
+          aria-label="Close profile menu"
+          className="fixed inset-0 z-[90] h-full w-full cursor-default bg-transparent"
+          onClick={() =>
+            setShowProfileMenu(false)
+          }
+        />
+
+        {/* Menu */}
+        <div className="absolute right-0 top-[50px] z-[100] w-[260px] overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
+          {/* USER HEADER */}
+          <div className="border-b border-[#eef0f3] bg-gradient-to-br from-[#f8fbff] to-[#f7f4ff] px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#2563eb] to-[#7c3aed] text-[16px] font-bold text-white">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt={profileName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  profileInitial
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <div className="truncate text-[14px] font-bold text-[#111827]">
+                  {profileName}
+                </div>
+
+                <div className="mt-0.5 truncate text-[11px] text-[#7b8493]">
+                  {user.email ||
+                    user.mobile ||
+                    "Smartprix Account"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* MENU ITEMS */}
+          <div className="p-2">
+            <Link
+              href="/profile"
+              onClick={() =>
+                setShowProfileMenu(false)
+              }
+              className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[#374151] transition hover:bg-[#f3f6ff] hover:text-[#2563eb]"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle
+                    cx="12"
+                    cy="8"
+                    r="4"
+                  />
+                  <path d="M4 21a8 8 0 0 1 16 0" />
+                </svg>
+              </span>
+
+              My Profile
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowProfileMenu(false);
+                router.push("/profile");
+              }}
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-semibold text-[#374151] transition hover:bg-[#f8fafc]"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f8fafc] text-[#64748b]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+                  <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.44 15a1.7 1.7 0 0 0-1.56-1.04H6.7v-2.4h.18A1.7 1.7 0 0 0 8.44 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.72 5.2V5h2.4v.2a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.04h.18v2.4h-.18A1.7 1.7 0 0 0 19.4 15Z" />
+                </svg>
+              </span>
+
+              Account Settings
+            </button>
+
+            <div className="my-1.5 h-px bg-[#eef0f3]" />
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-semibold text-[#ef4444] transition hover:bg-[#fff1f2]"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1f2] text-[#ef4444]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M10 17l5-5-5-5" />
+                  <path d="M15 12H3" />
+                  <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
+                </svg>
+              </span>
+
+              Logout
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+) : (
+  /* Small loading placeholder prevents Login from flashing */
+  <div className="hidden h-10 w-[92px] animate-pulse rounded-[10px] bg-[#f3f4f6] lg:block" />
+)}
 
         {/* MORE */}
         <button

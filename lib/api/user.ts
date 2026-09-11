@@ -121,111 +121,137 @@ export async function getUserProfile(): Promise<{
    UPDATE PROFILE
 ========================================================= */
 
+/* =========================================================
+UPDATE PROFILE
+========================================================= */
+
 export async function updateUserProfile(
-  data: {
-    name: string;
-    email: string;
-    mobile: string;
-    dateOfBirth: string;
-    gender: string;
-  },
+data: {
+name: string;
+email?: string;
+mobile: string;
+dateOfBirth: string;
+gender: string;
+},
 ): Promise<{
-  success: boolean;
-  message?: string;
-  data?: UserProfile;
+success: boolean;
+message?: string;
+data?: UserProfile;
 }> {
-  const token = getToken();
+const token = getToken();
 
-  if (!token) {
-    return {
-      success: false,
-      message: "Authentication required",
-    };
-  }
-
-  try {
-    const response = await fetch(
-      `${API_URL}/user/profile`,
-      {
-        method: "PUT",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-
-        body: JSON.stringify(data),
-      },
-    );
-
-    const result =
-      (await response.json()) as UpdateProfileResponse;
-
-    if (!response.ok) {
-      return {
-        success: false,
-        message:
-          result.message ??
-          "Failed to update profile",
-      };
-    }
-
-    /*
-     * Keep the local user information
-     * synchronized with the database.
-     */
-    if (
-      result.success &&
-      result.data
-    ) {
-      const existingUser =
-        localStorage.getItem(
-          "smartprix_user",
-        );
-
-      let previousUser: Record<
-        string,
-        unknown
-      > = {};
-
-      if (existingUser) {
-        try {
-          previousUser =
-            JSON.parse(existingUser);
-        } catch {
-          previousUser = {};
-        }
-      }
-
-      localStorage.setItem(
-        "smartprix_user",
-        JSON.stringify({
-          ...previousUser,
-          ...result.data,
-        }),
-      );
-    }
-
-    return {
-      success: result.success === true,
-      message: result.message,
-      data: result.data,
-    };
-  } catch (error) {
-    console.error(
-      "Update user profile failed:",
-      error,
-    );
-
-    return {
-      success: false,
-      message:
-        "Unable to connect to the server",
-    };
-  }
+if (!token) {
+return {
+success: false,
+message: "Authentication required",
+};
 }
+
+try {
+const response = await fetch(
+`${API_URL}/auth/profile`,
+{
+method: "PATCH",
+headers: {
+"Content-Type": "application/json",
+Accept: "application/json",
+Authorization: `Bearer ${token}`,
+},
+body: JSON.stringify({
+name: data.name,
+mobile: data.mobile,
+dateOfBirth:
+data.dateOfBirth || null,
+gender:
+data.gender || null,
+}),
+},
+);
+
+ 
+const result =
+  (await response.json()) as UpdateProfileResponse;
+
+if (!response.ok) {
+  return {
+    success: false,
+    message:
+      result.message ??
+      "Failed to update profile",
+  };
+}
+
+/*
+ * Keep local user information synchronized
+ * with the database.
+ */
+if (
+  result.success &&
+  result.data
+) {
+  const existingUser =
+    localStorage.getItem(
+      "smartprix_user",
+    );
+
+  let previousUser: Record<
+    string,
+    unknown
+  > = {};
+
+  if (existingUser) {
+    try {
+      previousUser =
+        JSON.parse(existingUser);
+    } catch {
+      previousUser = {};
+    }
+  }
+
+  localStorage.setItem(
+    "smartprix_user",
+    JSON.stringify({
+      ...previousUser,
+      ...result.data,
+    }),
+  );
+
+  /*
+   * Tell Header and other authenticated
+   * components that the user changed.
+   */
+  window.dispatchEvent(
+    new Event(
+      "smartprix-auth-changed",
+    ),
+  );
+}
+
+return {
+  success:
+    result.success === true,
+  message: result.message,
+  data: result.data,
+};
+ 
+
+} catch (error) {
+console.error(
+"Update user profile failed:",
+error,
+);
+
+ 
+return {
+  success: false,
+  message:
+    "Unable to connect to the server",
+};
+ 
+
+}
+}
+
 
 /* =========================================================
    CHANGE PASSWORD

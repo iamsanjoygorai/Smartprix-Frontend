@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { Product } from "@/types/product";
+import FavoriteButton from "@/components/products/FavoriteButton";
 
 interface ProductCardProps {
   product: Product;
@@ -28,6 +29,8 @@ export default function ProductCard({
   const imageUrl = product.images[0]?.url
     ? getImageUrl(product.images[0].url)
     : null;
+    
+    <FavoriteButton productId={product.id} />
 
   return (
     <Link

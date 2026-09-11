@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 /* =========================================================
    ICON
@@ -33,6 +36,32 @@ export default function AccountSettingsPage() {
   const [newsOffers, setNewsOffers] = useState(false);
   const [productEmails, setProductEmails] = useState(true);
   const [promotionalEmails, setPromotionalEmails] = useState(false);
+
+  const router = useRouter();
+
+const {
+  data: user,
+  isLoading,
+} = useCurrentUser();
+
+useEffect(() => {
+  if (!isLoading && !user) {
+    router.replace("/profile");
+  }
+}, [user, isLoading, router]);
+
+
+
+
+
+if (isLoading) {
+  return null;
+}
+
+if (!user) {
+  return null;
+}
+
 
   return (
     <main className="min-h-[calc(100vh-140px)] bg-[#f1f3f6] px-4 py-7 sm:px-6 sm:py-9">

@@ -1,3 +1,5 @@
+import { apiFetch } from "@/lib/api";
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:5000/api";
@@ -14,7 +16,6 @@ export interface UserProfile {
   isDisabled: boolean;
   createdAt: string;
   updatedAt: string;
-
   stats: {
     reviews: number;
     favorites: number;

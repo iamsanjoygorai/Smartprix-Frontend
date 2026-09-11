@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useQueryClient } from "@tanstack/react-query";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
@@ -227,90 +229,23 @@ export default function Header() {
 
   const [loading, setLoading] = useState(false);
 
-  const [recentSearches, setRecentSearches] =
-    useState<string[]>([]);
+const [recentSearches, setRecentSearches] =
+  useState<string[]>([]);
+const [showDropdown, setShowDropdown] = useState(false);
+const [selectedIndex, setSelectedIndex] = useState(-1);
+const [showProfileMenu, setShowProfileMenu] = useState(false);
+const queryClient = useQueryClient();
 
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [user, setUser] = useState<HeaderUser | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  /*
+/*
  * =========================================================
  * LOAD LOGGED-IN USER
  * =========================================================
  */
-useEffect(() => {
-  let cancelled = false;
 
-  const loadCurrentUser = async () => {
-    try {
-      const token = localStorage.getItem("smartprix_token");
-
-      if (!token) {
-        if (!cancelled) {
-          setUser(null);
-          setUserLoading(false);
-        }
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/auth/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        // Token is invalid/expired.
-        localStorage.removeItem("smartprix_token");
-
-        if (!cancelled) {
-          setUser(null);
-        }
-
-        return;
-      }
-
-      const result = await response.json();
-
-      if (cancelled) return;
-
-      /*
-       * Supports:
-       * { success: true, data: {...} }
-       */
-      const currentUser = result?.data;
-
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error("Failed to load current user:", error);
-
-      if (!cancelled) {
-        setUser(null);
-      }
-    } finally {
-      if (!cancelled) {
-        setUserLoading(false);
-      }
-    }
-  };
-
-  void loadCurrentUser();
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
+const {
+  data: user,
+  isLoading: userLoading,
+} = useCurrentUser();
 
 /*
  * =========================================================
@@ -320,7 +255,11 @@ useEffect(() => {
 const handleLogout = () => {
   localStorage.removeItem("smartprix_token");
 
-  setUser(null);
+  queryClient.setQueryData(["current-user"], null);
+  queryClient.removeQueries({
+    queryKey: ["current-user"],
+  });
+
   setShowProfileMenu(false);
 
   router.push("/");
@@ -875,11 +814,11 @@ const handleLogout = () => {
     (loading || hasSuggestionResults);
 
 
-   const profileImage =
-  user?.profileImageUrl ||
-  user?.avatarUrl ||
-  user?.image ||
-  null;
+   const profileImage = user?.profileImageUrl
+  ? user.profileImageUrl.startsWith("http")
+    ? user.profileImageUrl
+    : `${API_URL.replace("/api", "")}${user.profileImageUrl}`
+  : null;
 
 const profileName =
   user?.name?.trim() ||

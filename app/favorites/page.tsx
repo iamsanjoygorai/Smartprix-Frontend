@@ -1007,7 +1007,7 @@ export default function FavoritesPage() {
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm">
           <Link
-            href="/account"
+            href="/profile"
             className="text-[11px] font-bold text-slate-500 transition hover:text-indigo-600"
           >
             ← Back to My Account

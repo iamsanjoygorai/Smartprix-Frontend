@@ -428,7 +428,7 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
 
                 <Link
-                  href="/account/profile"
+                  href="/profile/edit"
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#1877f2] px-6 text-sm font-bold text-white shadow-[0_5px_16px_rgba(24,119,242,0.2)] transition hover:bg-[#166fe5] hover:shadow-[0_7px_20px_rgba(24,119,242,0.28)] active:scale-[0.98]"
                 >
                   <Icon>
@@ -451,7 +451,7 @@ export default function ProfilePage() {
                 </Link>
 
                 <Link
-                  href="/account"
+                  href="/profile/settings"
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-6 text-sm font-bold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
                 >
                   Account settings
@@ -665,7 +665,7 @@ export default function ProfilePage() {
               </div>
 
               <Link
-                href="/account/profile"
+                href="/profile/edit"
                 className="hidden items-center gap-1.5 text-xs font-bold text-[#1877f2] transition hover:text-[#166fe5] sm:inline-flex"
               >
                 Edit
@@ -876,7 +876,7 @@ export default function ProfilePage() {
             </div>
 
             <Link
-              href="/account/profile"
+              href="/profile/edit"
               className="mt-5 flex h-11 w-full items-center justify-center rounded-full border border-gray-200 bg-white text-sm font-bold text-gray-700 transition hover:border-[#1877f2] hover:bg-blue-50 hover:text-[#1877f2] sm:hidden"
             >
               Edit profile
@@ -937,7 +937,7 @@ export default function ProfilePage() {
               </div>
 
               <Link
-                href="/account/security"
+                href="/profile/security"
                 className="mt-4 flex h-10 items-center justify-center rounded-full border border-gray-200 text-xs font-bold text-gray-700 transition hover:border-[#1877f2] hover:bg-blue-50 hover:text-[#1877f2]"
               >
                 Security settings
@@ -1037,7 +1037,7 @@ export default function ProfilePage() {
                 </Link>
 
                 <Link
-                  href="/account/security"
+                  href="/profile/security"
                   className="group flex items-center justify-between rounded-xl border border-transparent px-3 py-3 transition hover:border-gray-100 hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">

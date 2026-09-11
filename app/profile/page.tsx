@@ -358,15 +358,17 @@ export default function ProfilePage() {
               {/* User identity */}
               <div className="flex min-w-0 items-center gap-5">
 
-                <div className="relative shrink-0">
-
-                  <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-[5px] border-white bg-gradient-to-br from-[#1877f2] to-[#6c5ce7] text-[25px] font-extrabold text-white shadow-[0_8px_25px_rgba(24,119,242,0.25)] sm:h-[100px] sm:w-[100px] sm:text-[28px]">
-                    {getInitials(user.name)}
-                  </div>
-
-                  {/* Online indicator */}
-                  <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-[4px] border-white bg-emerald-500" />
-                </div>
+                <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-full border-[5px] border-white bg-gradient-to-br from-[#1877f2] to-[#6c5ce7] text-[25px] font-extrabold text-white shadow-[0_8px_25px_rgba(24,119,242,0.25)] sm:h-[100px] sm:w-[100px] sm:text-[28px]">
+  {user.profileImageUrl ? (
+    <img
+      src={user.profileImageUrl}
+      alt={user.name || "Profile"}
+      className="h-full w-full object-cover"
+    />
+  ) : (
+    getInitials(user.name)
+  )}
+</div>
 
                 <div className="min-w-0">
 

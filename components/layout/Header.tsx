@@ -73,6 +73,7 @@ interface HeaderUser {
   email?: string | null;
   mobile?: string | null;
   role?: string | null;
+  profileImageUrl?: string | null;
   avatarUrl?: string | null;
   image?: string | null;
 }
@@ -874,8 +875,11 @@ const handleLogout = () => {
     (loading || hasSuggestionResults);
 
 
-    const profileImage =
-  user?.avatarUrl || user?.image || null;
+   const profileImage =
+  user?.profileImageUrl ||
+  user?.avatarUrl ||
+  user?.image ||
+  null;
 
 const profileName =
   user?.name?.trim() ||
@@ -1669,90 +1673,88 @@ const profileInitial =
 
           {/* MENU ITEMS */}
           <div className="p-2">
-            <Link
-              href="/profile"
-              onClick={() =>
-                setShowProfileMenu(false)
-              }
-              className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[#374151] transition hover:bg-[#f3f6ff] hover:text-[#2563eb]"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle
-                    cx="12"
-                    cy="8"
-                    r="4"
-                  />
-                  <path d="M4 21a8 8 0 0 1 16 0" />
-                </svg>
-              </span>
+  {/* My Profile */}
+  <Link
+    href="/profile"
+    onClick={() => setShowProfileMenu(false)}
+    className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[#374151] transition-all duration-200 hover:bg-[#f3f6ff] hover:text-[#2563eb]"
+  >
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb] transition-colors duration-200">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </svg>
+    </span>
 
-              My Profile
-            </Link>
+    <span className="flex-1">My Profile</span>
+  </Link>
 
-            <button
-              type="button"
-              onClick={() => {
-                setShowProfileMenu(false);
-                router.push("/profile");
-              }}
-              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-semibold text-[#374151] transition hover:bg-[#f8fafc]"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f8fafc] text-[#64748b]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-                  <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.44 15a1.7 1.7 0 0 0-1.56-1.04H6.7v-2.4h.18A1.7 1.7 0 0 0 8.44 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.72 5.2V5h2.4v.2a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.04h.18v2.4h-.18A1.7 1.7 0 0 0 19.4 15Z" />
-                </svg>
-              </span>
+  {/* Account Settings */}
+  <Link
+    href="/profile/settings"
+    onClick={() => setShowProfileMenu(false)}
+    className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[#374151] transition-all duration-200 hover:bg-[#f3f6ff] hover:text-[#2563eb]"
+  >
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb] transition-colors duration-200">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path
+          d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+        />
+        <path
+          d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.9 1.9-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.7v-.09a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.9-1.9.06-.06A1.7 1.7 0 0 0 7.76 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.7h.2a1.7 1.7 0 0 0 1.56-1.03 1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.9-1.9.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V5h2.7v.24a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.9 1.9-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H20v2.7h-.2A1.7 1.7 0 0 0 19.4 15Z"
+        />
+      </svg>
+    </span>
 
-              Account Settings
-            </button>
+    <span className="flex-1">Account settings</span>
+  </Link>
 
-            <div className="my-1.5 h-px bg-[#eef0f3]" />
+  <div className="my-1.5 h-px bg-[#eef0f3]" />
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-semibold text-[#ef4444] transition hover:bg-[#fff1f2]"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1f2] text-[#ef4444]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M10 17l5-5-5-5" />
-                  <path d="M15 12H3" />
-                  <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
-                </svg>
-              </span>
+  {/* Logout */}
+  <button
+    type="button"
+    onClick={handleLogout}
+    className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-semibold text-[#ef4444] transition-all duration-200 hover:bg-[#fff1f2]"
+  >
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fff1f2] text-[#ef4444]">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 17l5-5-5-5" />
+        <path d="M15 12H3" />
+        <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
+      </svg>
+    </span>
 
-              Logout
-            </button>
-          </div>
+    Logout
+  </button>
+</div>
         </div>
       </>
     )}

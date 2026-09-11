@@ -458,14 +458,11 @@ export async function changeUserPassword(
       `${API_URL}/user/password`,
       {
         method: "PUT",
-
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type": "application/json",
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
-
         body: JSON.stringify(data),
       },
     );
@@ -489,6 +486,66 @@ export async function changeUserPassword(
   } catch (error) {
     console.error(
       "Change password failed:",
+      error,
+    );
+
+    return {
+      success: false,
+      message:
+        "Unable to connect to the server",
+    };
+  }
+}
+
+export async function deleteUserAccount(
+  currentPassword: string,
+): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  const token = getToken();
+
+  if (!token) {
+    return {
+      success: false,
+      message: "Authentication required",
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/user/account`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+        }),
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message:
+          result.message ??
+          "Failed to delete account",
+      };
+    }
+
+    return {
+      success: result.success === true,
+      message: result.message,
+    };
+  } catch (error) {
+    console.error(
+      "Delete account failed:",
       error,
     );
 

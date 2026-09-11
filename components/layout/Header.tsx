@@ -247,6 +247,35 @@ const {
   isLoading: userLoading,
 } = useCurrentUser();
 
+useEffect(() => {
+  const handleAuthChanged = async () => {
+    // Remove the old cached user (usually null after logout/initial load)
+    queryClient.removeQueries({
+      queryKey: ["current-user"],
+    });
+
+    // Fetch the logged-in user again immediately
+    await queryClient.refetchQueries({
+      queryKey: ["current-user"],
+      type: "active",
+    });
+  };
+
+  window.addEventListener(
+    "smartprix-auth-changed",
+    handleAuthChanged,
+  );
+
+  return () => {
+    window.removeEventListener(
+      "smartprix-auth-changed",
+      handleAuthChanged,
+    );
+  };
+}, [queryClient]);
+
+
+
 /*
  * =========================================================
  * LOGOUT

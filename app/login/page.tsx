@@ -12,6 +12,7 @@ import {
 } from "@/lib/firebaseAuth";
 
 import type { ConfirmationResult } from "firebase/auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 /* =========================================================
    API
@@ -187,6 +188,7 @@ function ShieldIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   /* -------------------------------------------------------
      AUTH CHECK
@@ -296,16 +298,16 @@ export default function LoginPage() {
            * Admin users go to admin dashboard.
            */
           if (
-            user?.role === "SUPER_ADMIN" ||
-            user?.role === "ADMIN"
-          ) {
-            router.replace("/admin");
-          } else {
-            /*
-             * Normal users go to profile.
-             */
-            router.replace("/profile");
-          }
+  user?.role === "SUPER_ADMIN" ||
+  user?.role === "ADMIN"
+) {
+  router.replace("/admin");
+} else {
+  /*
+   * Normal users go to home.
+   */
+  router.replace("/");
+}
 
           return;
         }
@@ -422,7 +424,7 @@ export default function LoginPage() {
     ) {
       router.replace("/admin");
     } else {
-      router.replace("/profile");
+      router.replace("/");
     }
 
     router.refresh();
@@ -499,6 +501,14 @@ export default function LoginPage() {
        * Store token and user.
        */
       saveLoginData(token, user);
+
+      queryClient.removeQueries({
+  queryKey: ["current-user"],
+});
+
+queryClient.invalidateQueries({
+  queryKey: ["current-user"],
+});
 
       /*
        * Redirect based on role.
@@ -753,7 +763,7 @@ export default function LoginPage() {
          * Token exists, but user data could not be
          * loaded. Redirect to profile as a normal user.
          */
-        router.replace("/profile");
+        router.replace("/");
         router.refresh();
         return;
       }

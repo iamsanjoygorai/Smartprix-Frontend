@@ -435,95 +435,99 @@ export default function LoginPage() {
   ======================================================= */
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
+  event: FormEvent<HTMLFormElement>,
+) {
+  event.preventDefault();
 
-    setError("");
+  setError("");
 
-    const cleanIdentifier = identifier.trim();
+  const cleanIdentifier = identifier.trim();
 
-    if (!cleanIdentifier) {
-      setError("Please enter your email or mobile number.");
-      return;
-    }
-
-    if (!password) {
-      setError("Please enter your password.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const response = await fetch(
-        `${API_URL}/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            identifier: cleanIdentifier,
-            password,
-          }),
-        },
-      );
-
-      const result =
-        (await response.json()) as LoginResponse;
-
-      if (!response.ok) {
-        setError(
-          result.message ??
-            "Invalid email/mobile or password.",
-        );
-
-        return;
-      }
-
-      const token =
-        result.data?.token ?? result.token;
-
-      const user =
-        result.data?.user ?? result.user;
-
-      if (!token) {
-        setError(
-          "Login succeeded, but no authentication token was received.",
-        );
-
-        return;
-      }
-
-      /*
-       * Store token and user.
-       */
-      saveLoginData(token, user);
-
-      queryClient.removeQueries({
-  queryKey: ["current-user"],
-});
-
-queryClient.invalidateQueries({
-  queryKey: ["current-user"],
-});
-
-      /*
-       * Redirect based on role.
-       */
-      redirectAfterLogin(user);
-    } catch (error) {
-      console.error("Login failed:", error);
-
-      setError(
-        "Unable to connect to the server. Please try again.",
-      );
-    } finally {
-      setLoading(false);
-    }
+  if (!cleanIdentifier) {
+    setError("Please enter your email or mobile number.");
+    return;
   }
+
+  if (!password) {
+    setError("Please enter your password.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(
+      `${API_URL}/auth/login`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          identifier: cleanIdentifier,
+          password,
+        }),
+      },
+    );
+
+    const result =
+      (await response.json()) as LoginResponse;
+
+    if (!response.ok) {
+      setError(
+        result.message ??
+          "Invalid email/mobile or password.",
+      );
+      return;
+    }
+
+    const token =
+      result.data?.token ?? result.token;
+
+    const user =
+      result.data?.user ?? result.user;
+
+    if (!token) {
+      setError(
+        "Login succeeded, but no authentication token was received.",
+      );
+      return;
+    }
+
+    /*
+     * Store the new token and user information.
+     */
+   saveLoginData(token, user);
+
+queryClient.setQueryData(
+  ["current-user"],
+  user ?? null,
+);
+
+redirectAfterLogin(user);
+ 
+
+void queryClient.invalidateQueries({
+  queryKey: ["current-user"],
+});
+
+    /*
+     * Redirect based on the user's role.
+     */
+    redirectAfterLogin(user);
+  } catch (error) {
+    console.error("Login failed:", error);
+
+    setError(
+      "Unable to connect to the server. Please try again.",
+    );
+  } finally {
+    setLoading(false);
+  }
+}
+
+
 
   /* =======================================================
      PHONE NUMBER NORMALIZATION
@@ -609,6 +613,8 @@ queryClient.invalidateQueries({
       setOtpLoading(false);
     }
   }
+
+  
 
   /* =======================================================
      VERIFY OTP

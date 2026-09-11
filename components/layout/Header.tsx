@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getUserProfile } from "@/lib/api/user";
 import { useQueryClient } from "@tanstack/react-query";
 
 const API_URL =
@@ -249,16 +250,34 @@ const {
 
 useEffect(() => {
   const handleAuthChanged = async () => {
-    // Remove the old cached user (usually null after logout/initial load)
-    queryClient.removeQueries({
-      queryKey: ["current-user"],
-    });
+    try {
+      const response = await getUserProfile();
 
-    // Fetch the logged-in user again immediately
-    await queryClient.refetchQueries({
-      queryKey: ["current-user"],
-      type: "active",
-    });
+      if (
+        response.success &&
+        response.data
+      ) {
+        queryClient.setQueryData(
+          ["current-user"],
+          response.data,
+        );
+      } else {
+        queryClient.setQueryData(
+          ["current-user"],
+          null,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Failed to refresh current user:",
+        error,
+      );
+
+      queryClient.setQueryData(
+        ["current-user"],
+        null,
+      );
+    }
   };
 
   window.addEventListener(
@@ -283,16 +302,24 @@ useEffect(() => {
  */
 const handleLogout = () => {
   localStorage.removeItem("smartprix_token");
+  localStorage.removeItem("smartprix_user");
 
-  queryClient.setQueryData(["current-user"], null);
+  queryClient.setQueryData(
+    ["current-user"],
+    null,
+  );
+
   queryClient.removeQueries({
     queryKey: ["current-user"],
   });
 
   setShowProfileMenu(false);
 
+  window.dispatchEvent(
+    new Event("smartprix-auth-changed"),
+  );
+
   router.push("/");
-  router.refresh();
 };
 
   /*

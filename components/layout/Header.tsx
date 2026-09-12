@@ -185,14 +185,21 @@ function getPopularText(item: unknown) {
 
 const recordSearch = async (query: string) => {
   try {
+    const token = localStorage.getItem("smartprix_token");
+
     await fetch(`${API_URL}/search/record`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
       },
       body: JSON.stringify({
-        query,
+        query: query.trim(),
       }),
     });
   } catch (error) {

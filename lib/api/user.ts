@@ -556,3 +556,116 @@ export async function deleteUserAccount(
     };
   }
 }
+
+
+
+/* =========================================================
+   USER HISTORY
+========================================================= */
+
+export interface UserHistoryActor {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+  profileImageUrl: string | null;
+}
+
+export interface UserHistoryLog {
+  id: string;
+  actorUserId: string | null;
+  targetUserId: string | null;
+  action: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actor: UserHistoryActor | null;
+}
+
+export interface UserHistoryStats {
+  total: number;
+  registered: number;
+  logins: number;
+  logouts: number;
+  profileUpdates: number;
+  profileImageUpdates: number;
+  profileImageDeletes: number;
+  deleted: number;
+  adminActions: number;
+}
+
+export interface UserHistoryUser {
+  id: string;
+  name: string | null;
+  email: string | null;
+  mobile: string | null;
+  role: string;
+  isDisabled: boolean;
+  profileImageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserHistoryResponse {
+  success: boolean;
+  message?: string;
+
+  data?: {
+    user: UserHistoryUser | null;
+    logs: UserHistoryLog[];
+    stats: UserHistoryStats;
+  };
+}
+
+export async function getUserHistory(
+  userId: string,
+): Promise<UserHistoryResponse> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("smartprix_token")
+      : null;
+
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://localhost:5000/api";
+
+  const response = await fetch(
+    `${API_URL}/admin/users/${encodeURIComponent(
+      userId,
+    )}/history`,
+    {
+      method: "GET",
+
+      headers: {
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
+      },
+
+      cache: "no-store",
+    },
+  );
+
+  let result: UserHistoryResponse;
+
+  try {
+    result =
+      (await response.json()) as UserHistoryResponse;
+  } catch {
+    throw new Error(
+      "Invalid response from server",
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      result.message ??
+        "Failed to load user history",
+    );
+  }
+
+  return result;
+}
+
+

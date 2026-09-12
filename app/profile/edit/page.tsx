@@ -465,14 +465,31 @@ try {
     return;
   }
 
-  if (result.data) {
-    setUser(
-      (previous) => ({
-        ...previous,
-        ...result.data,
-      }),
-    );
-  }
+ if (result.data) {
+  const updatedUser = {
+    ...(user ?? {}),
+    ...result.data,
+  };
+
+  // Update this page immediately
+  setUser(updatedUser);
+
+  // Keep localStorage in sync
+  localStorage.setItem(
+    "smartprix_user",
+    JSON.stringify(updatedUser),
+  );
+}
+
+setSuccess(
+  result.message ??
+    "Profile updated successfully",
+);
+
+// Tell Header/Profile to reload the latest user
+window.dispatchEvent(
+  new Event("smartprix-auth-changed"),
+);
 
   setSuccess(
     result.message ??

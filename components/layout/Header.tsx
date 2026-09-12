@@ -300,28 +300,58 @@ useEffect(() => {
  * LOGOUT
  * =========================================================
  */
-const handleLogout = () => {
-  localStorage.removeItem("smartprix_token");
-  localStorage.removeItem("smartprix_user");
+const handleLogout = async () => {
+  try {
+    const token =
+      localStorage.getItem(
+        "smartprix_token",
+      );
 
-  queryClient.setQueryData(
-    ["current-user"],
-    null,
-  );
+    if (token) {
+      await fetch(
+        `${API_URL}/auth/logout`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Logout audit request failed:",
+      error,
+    );
+  } finally {
+    localStorage.removeItem(
+      "smartprix_token",
+    );
 
-  queryClient.removeQueries({
-    queryKey: ["current-user"],
-  });
+    localStorage.removeItem(
+      "smartprix_user",
+    );
 
-  setShowProfileMenu(false);
+    queryClient.setQueryData(
+      ["current-user"],
+      null,
+    );
 
-  window.dispatchEvent(
-    new Event("smartprix-auth-changed"),
-  );
+    queryClient.removeQueries({
+      queryKey: ["current-user"],
+    });
 
-  router.push("/");
+    setShowProfileMenu(false);
+
+    window.dispatchEvent(
+      new Event(
+        "smartprix-auth-changed",
+      ),
+    );
+
+    router.push("/");
+  }
 };
-
   /*
    * =========================================================
    * LOAD RECENT SEARCHES

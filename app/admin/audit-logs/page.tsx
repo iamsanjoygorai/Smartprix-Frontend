@@ -86,6 +86,101 @@ interface AuditResponse {
    HELPERS
 ========================================================= */
 
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function getDeletedUserMetadata(
+  log: AuditLog,
+): Record<string, any> | null {
+  if (!log.metadata) {
+    return null;
+  }
+
+  let metadata: any = log.metadata;
+
+  // Metadata may arrive as JSON text
+  if (typeof metadata === "string") {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+
+  // Normal format
+  if (
+    metadata.name ||
+    metadata.email ||
+    metadata.deletedUserId ||
+    metadata.reason
+  ) {
+    return metadata;
+  }
+
+  // Nested format
+  if (
+    metadata.metadata &&
+    typeof metadata.metadata === "object"
+  ) {
+    return metadata.metadata;
+  }
+
+  return null;
+}
+
+function getActorName(log: AuditLog) {
+  const metadata = getDeletedUserMetadata(log);
+
+  // Deleted user — always prefer saved metadata
+  if (
+    metadata &&
+    typeof metadata.name === "string" &&
+    metadata.name.trim()
+  ) {
+    return metadata.name.trim();
+  }
+
+  // Existing user
+  if (
+    typeof log.actor?.name === "string" &&
+    log.actor.name.trim()
+  ) {
+    return log.actor.name.trim();
+  }
+
+  return "Unknown";
+}
+
+function getActorEmail(log: AuditLog) {
+  const metadata = getDeletedUserMetadata(log);
+
+  // Deleted user — always prefer saved metadata
+  if (
+    metadata &&
+    typeof metadata.email === "string" &&
+    metadata.email.trim()
+  ) {
+    return metadata.email.trim();
+  }
+
+  // Existing user
+  if (
+    typeof log.actor?.email === "string" &&
+    log.actor.email.trim()
+  ) {
+    return log.actor.email.trim();
+  }
+
+  return "Deleted account";
+}
+
+ 
 function formatAction(action: string) {
   return action
     .replaceAll("_", " ")
@@ -333,6 +428,7 @@ export default function AuditLogsPage() {
         }
 
         const data = result.data;
+  
 
         if (!data) {
           throw new Error(
@@ -340,31 +436,33 @@ export default function AuditLogsPage() {
           );
         }
 
+
         setLogs(data.logs ?? []);
-        setStats(
-          data.stats ?? {
-            total: 0,
-            today: 0,
-            adminActions: 0,
-            failed: 0,
-          },
-        );
 
-        setActions(
-          data.filters?.actions ?? [],
-        );
+setStats(
+  data.stats ?? {
+    total: 0,
+    today: 0,
+    adminActions: 0,
+    failed: 0,
+  },
+);
 
-        setAdmins(
-          data.filters?.admins ?? [],
-        );
+setActions(
+  data.filters?.actions ?? [],
+);
 
-        setTotal(
-          data.pagination?.total ?? 0,
-        );
+setAdmins(
+  data.filters?.admins ?? [],
+);
 
-        setTotalPages(
-          data.pagination?.totalPages ?? 1,
-        );
+setTotal(
+  data.pagination?.total ?? 0,
+);
+
+setTotalPages(
+  data.pagination?.totalPages ?? 1,
+);
       } catch (err) {
         console.error(
           "Audit logs error:",
@@ -421,12 +519,14 @@ export default function AuditLogsPage() {
 
     const exportData = logs.map((log) => ({
       Time: formatDate(log.createdAt),
-      Admin:
-        log.actor?.name ??
-        log.actor?.email ??
-        "Unknown",
-      Email: log.actor?.email ?? "",
-      Role: log.actor?.role ?? "",
+      Admin: getActorName(log),
+Email: getActorEmail(log),
+Role:
+  log.actor?.role ??
+  (log.action === "USER_DELETED" &&
+  typeof log.metadata?.role === "string"
+    ? log.metadata.role
+    : ""),
       Action: formatAction(log.action),
       Resource: getResource(log.action),
       Status: "Success",
@@ -943,6 +1043,15 @@ export default function AuditLogsPage() {
                           getActionStyle(
                             log.action,
                           );
+                          {console.log(
+  "FINAL LOGS USED BY TABLE:",
+  logs.map((log) => ({
+    action: log.action,
+    metadata: log.metadata,
+    name: getActorName(log),
+    email: getActorEmail(log),
+  })),
+)}
 
                         return (
                           <tr
@@ -999,11 +1108,8 @@ export default function AuditLogsPage() {
                                   />
                                 ) : (
                                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 text-xs font-bold text-white">
-                                    {(
-                                      log.actor
-                                        ?.name ??
-                                      "A"
-                                    )
+                                    {getActorName(log)
+                                      .trim()
                                       .charAt(0)
                                       .toUpperCase()}
                                   </div>
@@ -1011,15 +1117,11 @@ export default function AuditLogsPage() {
 
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-semibold text-slate-800">
-                                    {log.actor
-                                      ?.name ??
-                                      "Unknown"}
+                                    {getActorName(log)}
                                   </p>
 
                                   <p className="truncate text-xs text-slate-400">
-                                    {log.actor
-                                      ?.email ??
-                                      "—"}
+                                    {getActorEmail(log)}
                                   </p>
                                 </div>
                               </div>
@@ -1266,35 +1368,28 @@ export default function AuditLogsPage() {
                     />
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 font-bold text-white">
-                      {(
-                        selectedLog
-                          .actor?.name ??
-                        "A"
-                      )
-                        .charAt(0)
-                        .toUpperCase()}
+                      {getActorName(selectedLog)
+  .charAt(0)
+  .toUpperCase()}
                     </div>
                   )}
 
                   <div>
-                    <p className="font-bold text-slate-800">
-                      {selectedLog.actor
-                        ?.name ??
-                        "Unknown"}
-                    </p>
+  <p className="font-bold text-slate-800">
+    {getActorName(selectedLog)}
+  </p>
 
-                    <p className="text-sm text-slate-500">
-                      {selectedLog.actor
-                        ?.email ??
-                        "—"}
-                    </p>
+  <p className="text-sm text-slate-500">
+    {getActorEmail(selectedLog)}
+  </p>
 
-                    <span className="mt-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">
-                      {selectedLog.actor
-                        ?.role ??
-                        "UNKNOWN"}
-                    </span>
-                  </div>
+  <span className="mt-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">
+    {selectedLog.action === "USER_DELETED" &&
+typeof getDeletedUserMetadata(selectedLog)?.role === "string"
+  ? getDeletedUserMetadata(selectedLog)?.role
+  : selectedLog.actor?.role ?? "UNKNOWN"}
+  </span>
+</div>
                 </div>
               </div>
 

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useCallback,
   useEffect,
@@ -102,6 +104,7 @@ function Icon({
     | "mail"
     | "phone"
     | "shield"
+    | "history"
     | "sort"
     | "user"
     | "close";
@@ -281,6 +284,15 @@ function Icon({
           <path d="M4 21a8 8 0 0 1 16 0" />
         </svg>
       );
+
+      case "history":
+  return (
+    <svg {...common}>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
 
     default:
       return null;
@@ -1550,6 +1562,16 @@ export default function AdminUsersPage() {
                                 size={15}
                               />
                             </ActionButton>
+                            <Link
+  href={`/admin/users/${user.id}/history`}
+  title="History"
+  aria-label={`View history for ${
+    user.name || "this user"
+  }`}
+  className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-100 bg-cyan-50 text-cyan-600 transition hover:border-cyan-200 hover:bg-cyan-100"
+>
+  <Icon name="history" size={15} />
+</Link>
 
                             {canEdit &&
                               (!isTargetSuperAdmin ||

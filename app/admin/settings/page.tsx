@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { changeUserPassword } from "@/lib/api/user";
+import { apiFetch } from "@/lib/api";
 
 function EyeIcon({ off = false }: { off?: boolean }) {
   return off ? (
@@ -244,6 +245,75 @@ if (newPassword !== confirmPassword) {
 
   const profileInitial =
     profileName.charAt(0).toUpperCase();
+
+
+    const handleChangePassword = async (
+  e: React.FormEvent<HTMLFormElement>,
+) => {
+  e.preventDefault();
+
+  setPasswordMessage("");
+
+  if (!currentPassword.trim()) {
+    setPasswordMessage("Please enter your current password.");
+    return;
+  }
+
+  if (!newPassword.trim()) {
+    setPasswordMessage("Please enter a new password.");
+    return;
+  }
+
+  if (newPassword.length < 8) {
+    setPasswordMessage(
+      "New password must be at least 8 characters long.",
+    );
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    setPasswordMessage("New passwords do not match.");
+    return;
+  }
+
+  try {
+    setPasswordLoading(true);
+
+    // Replace this endpoint only if your backend uses a different
+    // authenticated change-password endpoint.
+  const response = await apiFetch("/auth/change-password", {
+  method: "POST",
+  body: JSON.stringify({
+    currentPassword,
+    newPassword,
+  }),
+});
+
+const data = await response.json();
+
+if (!response.ok || !data?.success) {
+  throw new Error(
+    data?.message || "Failed to change password.",
+  );
+}
+
+    setPasswordMessage(
+      "Password updated successfully.",
+    );
+
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  } catch (error) {
+    setPasswordMessage(
+      error instanceof Error
+        ? error.message
+        : "Failed to change password.",
+    );
+  } finally {
+    setPasswordLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-[#f5f7fa] px-4 py-7 sm:px-6 lg:px-8">

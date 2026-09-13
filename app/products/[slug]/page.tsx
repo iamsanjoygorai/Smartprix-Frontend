@@ -338,31 +338,43 @@ export default async function ProductPage({
 );
 
   const rawSpecifications =
-    specificationsResponse.data ?? [];
+  (specificationsResponse.data ?? []) as any[];
 
   const specifications: SpecificationItem[] =
-    rawSpecifications.map((item: any) => ({
-      id: item.id,
-      key:
-        item.specification?.slug ??
-        item.specification?.name ??
-        "",
-      value:
-        item.customValue ??
-        item.value?.value ??
-        "N/A",
-    }));
+  rawSpecifications.map((item) => ({
+    id: String(item.id ?? ""),
+    key:
+      item.specification?.slug ??
+      item.specification?.name ??
+      "",
+    value:
+      item.customValue ??
+      item.value?.value ??
+      "N/A",
+  }));
 
   const priceHistory =
-    priceHistoryResponse.data.history ?? [];
+  (priceHistoryResponse.data.history ?? []) as unknown as Array<{
+  id: string;
+  recordedAt: string;
+  price: number | string;
+}>
 
-  const startingPrice = product.prices[0]?.amount
-    ? Number(product.prices[0].amount)
-    : null;
+const prices = product.prices as Array<
+  (typeof product.prices)[number] & {
+    currency?: string;
+  }
+>;
+
+const startingPrice = prices[0]?.amount
+  ? Number(prices[0].amount)
+  : null;
 
   const primaryImage =
-    product.images.find((image) => image.isPrimary) ??
-    product.images[0];
+  product.images.find(
+    (image) =>
+      (image as { isPrimary?: boolean }).isPrimary === true,
+  ) ?? product.images[0];
 
   const specificationCount = specifications.length;
 
@@ -564,22 +576,22 @@ export default async function ProductPage({
           </section>
         )}
 
-        {/* Specifications */}
-        <section className="mt-6">
-          <div className="mb-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-              Complete information
-            </p>
+       {/* Specifications */}
+<section className="mt-6">
+  <div className="mb-5">
+    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+      Complete information
+    </p>
 
-            <h2 className="mt-1 text-2xl font-extrabold text-gray-950 sm:text-3xl">
-              Specifications
-            </h2>
+    <h2 className="mt-1 text-2xl font-extrabold text-gray-950 sm:text-3xl">
+      Specifications
+    </h2>
 
-            <p className="mt-2 text-sm text-gray-500">
-              Detailed technical specifications of the{" "}
-              {product.name}.
-            </p>
-          </div>
+    <p className="mt-2 text-sm text-gray-500">
+      Detailed technical specifications of the{" "}
+      {product?.name}.
+    </p>
+  </div>
 
           {specifications.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center">
@@ -658,9 +670,7 @@ export default async function ProductPage({
 
                       <td className="px-6 py-4 text-lg font-extrabold text-gray-950">
                         ₹
-                        {Number(
-                          item.price,
-                        ).toLocaleString("en-IN")}
+{Number(item.price).toLocaleString("en-IN")}
                       </td>
                     </tr>
                   ))}
@@ -683,58 +693,56 @@ export default async function ProductPage({
           </div>
 
           <div className="divide-y divide-gray-100">
-            {product.prices.map((price) => (
-              <div
-                key={price.id}
-                className="flex flex-col gap-4 px-6 py-5 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 font-bold text-gray-700">
-                    {price.seller.name.charAt(0)}
-                  </div>
+           {prices.map((price) => (
+  <div
+    key={price.id}
+    className="flex flex-col gap-4 px-6 py-5 transition hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div className="flex items-center gap-4">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 font-bold text-gray-700">
+        {price.seller.name.charAt(0)}
+      </div>
 
-                  <div>
-                    <p className="font-bold text-gray-900">
-                      {price.seller.name}
-                    </p>
+      <div>
+        <p className="font-bold text-gray-900">
+          {price.seller.name}
+        </p>
 
-                    <p
-                      className={`mt-1 text-xs font-semibold ${
-                        price.inStock
-                          ? "text-green-600"
-                          : "text-red-500"
-                      }`}
-                    >
-                      {price.inStock
-                        ? "✓ In Stock"
-                        : "✕ Out of Stock"}
-                    </p>
-                  </div>
-                </div>
+        <p
+          className={`mt-1 text-xs font-semibold ${
+            price.inStock
+              ? "text-green-600"
+              : "text-red-500"
+          }`}
+        >
+          {price.inStock
+            ? "✓ In Stock"
+            : "✕ Out of Stock"}
+        </p>
+      </div>
+    </div>
 
-                <div className="flex items-center justify-between gap-6 sm:justify-end">
-                  <div className="text-right">
-                    <p className="text-xl font-extrabold text-gray-950">
-                      ₹
-                      {Number(
-                        price.amount,
-                      ).toLocaleString("en-IN")}
-                    </p>
+    <div className="flex items-center justify-between gap-6 sm:justify-end">
+      <div className="text-right">
+        <p className="text-xl font-extrabold text-gray-950">
+          ₹
+          {Number(price.amount).toLocaleString("en-IN")}
+        </p>
 
-                    <p className="text-xs text-gray-400">
-                      {price.currency}
-                    </p>
-                  </div>
+        <p className="text-xs text-gray-400">
+          {price.currency}
+        </p>
+      </div>
 
-                  <button
-                    type="button"
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700"
-                  >
-                    View Deal
-                  </button>
-                </div>
-              </div>
-            ))}
+      <button
+        type="button"
+        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700"
+      >
+        View Deal
+      </button>
+    </div>
+  </div>
+))}
           </div>
         </section>
       </div>

@@ -1,32 +1,27 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Suspense } from "react";
 
-interface SiteChromeProps {
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+
+export default function SiteChrome({
+  children,
+}: {
   children: React.ReactNode;
-}
-
-export default function SiteChrome({ children }: SiteChromeProps) {
-  const pathname = usePathname();
-
-  // Pages that must be completely standalone
-  const isAuthPage =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/forgot-password";
-
-  // Don't render Header, Navbar or Footer
-  if (isAuthPage) {
-    return <>{children}</>;
-  }
-
-  // Normal website pages
+}) {
   return (
     <>
-      <Header />
+      <Suspense
+        fallback={
+          <div className="min-h-16" />
+        }
+      >
+        <Header />
+      </Suspense>
+
       {children}
+
       <Footer />
     </>
   );

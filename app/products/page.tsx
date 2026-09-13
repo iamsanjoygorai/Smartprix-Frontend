@@ -31,10 +31,7 @@ export default async function ProductsPage({
   let products: Product[] = [];
 
   try {
-    const response =
-      (await getProducts({
-        search: params.search,
-      })) as ProductsResponse;
+   const response = (await getProducts()) as ProductsResponse;
 
     products = Array.isArray(response.data?.products)
       ? response.data.products

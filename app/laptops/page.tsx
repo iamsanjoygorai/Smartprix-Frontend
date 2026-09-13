@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState,Suspense } from "react";
 import {
   useRouter,
   useSearchParams,
@@ -108,19 +108,59 @@ function convertProduct(product: Product): Laptop {
 
     brand: product.brand,
 
-    images: product.images,
+    images: (product.images ?? []).map(
+      (image) => ({
+        id: image.id ?? "",
+        url: image.url,
+        altText: image.altText ?? null,
+      }),
+    ),
 
     variants: product.variants,
 
-    prices: product.prices,
+    prices: (product.prices ?? []).map(
+      (price) => ({
+        id: price.id ?? "",
+        amount: price.amount,
+        currency:
+          price.currency ?? "INR",
 
-    specifications:
-      product.specifications,
+        seller: price.seller
+          ? {
+              id: price.seller.id ?? "",
+              name: price.seller.name,
+              logoUrl:
+                price.seller.logoUrl ?? null,
+            }
+          : null,
+
+        inStock:
+          price.inStock ?? true,
+      }),
+    ),
+
+    specifications: (
+      product.specifications ?? []
+    ).map((specification, index) => ({
+      id: `${product.id}-spec-${index}`,
+
+      specification:
+        specification.specification,
+
+      value:
+        specification.value,
+
+      customValue:
+        specification.customValue,
+    })),
 
     releaseDate:
       product.releaseDate,
   };
 }
+
+
+
 
 function CloseIcon() {
   return (
@@ -188,7 +228,7 @@ function ChevronRightIcon() {
   );
 }
 
-export default function LaptopsPage() {
+function LaptopsPageContent() {
   const router = useRouter();
 
   const searchParams = useSearchParams();
@@ -1340,5 +1380,14 @@ export default function LaptopsPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+
+export default function LaptopsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LaptopsPageContent />
+    </Suspense>
   );
 }

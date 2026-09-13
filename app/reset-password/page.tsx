@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import {  Suspense,
+  useEffect,
+  useState, } from "react";
 
 import { resetPassword } from "@/lib/api/auth";
 
@@ -194,7 +196,7 @@ function PasswordField({
    PAGE
 ========================================================= */
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -663,5 +665,14 @@ export default function ResetPasswordPage() {
 
       </div>
     </main>
+  );
+}
+
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {  Suspense,
+  useEffect,
+  useMemo,
+  useState,  } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import MobilePageHeader from "@/components/mobiles/MobilePageHeader";
@@ -10,7 +13,7 @@ import PopularFeatures from "@/components/mobiles/PopularFeatures";
 import MobileFilters from "@/components/mobiles/MobileFilters";
 import MobileList from "@/components/mobiles/MobileList";
 
-export default function MobilesPage() {
+ function MobilesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -682,4 +685,12 @@ useEffect(() => {
     )}
   </div>
 );
+}
+
+export default function MobilesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MobilesPageContent />
+    </Suspense>
+  );
 }

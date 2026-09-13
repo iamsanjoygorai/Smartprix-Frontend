@@ -96,7 +96,7 @@ function getLowestPrice(
     favorite.product.prices ?? [];
 
   const validPrices = prices
-    .map((price) => Number(price.price))
+    .map((price) => Number(price.amount))
     .filter(
       (price) =>
         Number.isFinite(price) &&
@@ -118,7 +118,7 @@ function getSellerName(
 
   const lowest = prices
     .filter((price) => {
-      const value = Number(price.price);
+      const value = Number(price.amount);
 
       return (
         Number.isFinite(value) &&
@@ -127,8 +127,8 @@ function getSellerName(
     })
     .sort(
       (a, b) =>
-        Number(a.price) -
-        Number(b.price),
+        Number(a.amount) -
+        Number(b.amount),
     )[0];
 
   return (
@@ -136,6 +136,7 @@ function getSellerName(
     null
   );
 }
+
 
 function formatDate(
   value: string,

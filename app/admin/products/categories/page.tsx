@@ -198,7 +198,7 @@ export default function ProductCategoriesPage() {
   };
 
   return (
-    <AdminPermissionGuard permission="categories.view">
+    <AdminPermissionGuard permission="products.view">
       <div className="mx-auto w-full max-w-[1400px]">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

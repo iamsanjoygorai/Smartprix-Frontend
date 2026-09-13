@@ -1,20 +1,19 @@
+import { Suspense } from "react";
+
 import Header from "@/components/layout/Header";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
 
 export default function PublicLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <>
-      <Header />
-      <Navbar />
+      <Suspense fallback={null}>
+        <Header />
+      </Suspense>
 
-      <main>{children}</main>
-
-      <Footer />
+      {children}
     </>
   );
 }

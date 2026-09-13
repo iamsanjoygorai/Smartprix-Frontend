@@ -643,6 +643,25 @@ function SearchHistorySection() {
   );
 }
 
+function InfoBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-medium text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export default function AdminAuditPage() {
   const [tab, setTab] = useState<"audit" | "sessions" | "search">("audit");
@@ -964,35 +983,28 @@ STATISTICS
 ================================================= */}
 
  
-  <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <StatCard
-      label="Total Events"
-      value={statistics.total}
-      icon="◉"
-      description="All recorded activity"
-    />
+ <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  <StatCard
+    label="Total Sessions"
+    value={statistics.total}
+    icon="◉"
+    description="All recorded user sessions"
+  />
 
-    <StatCard
-      label="Authentication"
-      value={statistics.auth}
-      icon="↪"
-      description="Login & account activity"
-    />
+  <StatCard
+    label="Active Sessions"
+    value={statistics.active}
+    icon="●"
+    description="Currently active sessions"
+  />
 
-    <StatCard
-      label="Security"
-      value={statistics.security}
-      icon="◆"
-      description="Security-related events"
-    />
-
-    <StatCard
-      label="Admin Activity"
-      value={statistics.admin}
-      icon="★"
-      description="Administrative actions"
-    />
-  </section>
+  <StatCard
+    label="Ended Sessions"
+    value={statistics.ended}
+    icon="✓"
+    description="Completed or ended sessions"
+  />
+</section>
 
   {/* =================================================
       FILTERS

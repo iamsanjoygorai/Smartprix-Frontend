@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   FormEvent,
@@ -9,10 +10,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getUserProfile } from "@/lib/api/user";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
@@ -231,7 +236,7 @@ const recordSearch = async (
 
 
 
-export default function Header() {
+function HeaderContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -943,7 +948,7 @@ const profileInitial =
    * =========================================================
    * RENDER
    * =========================================================
-   */
+   */ 
 
   return (
     <header className="sticky top-0 z-[100] w-full bg-white shadow-sm">
@@ -1833,5 +1838,14 @@ const profileInitial =
         </button>
       </div>
     </header>
+  );
+}
+
+
+export default function Header() {
+  return (
+    <Suspense fallback={null}>
+      <HeaderContent />
+    </Suspense>
   );
 }

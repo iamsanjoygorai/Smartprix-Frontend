@@ -1077,43 +1077,43 @@ export default function MobileDetailPage() {
 
     let active = true;
 
-    async function loadReviews() {
-      try {
-        const response =
-          await fetch(
-            `${API_URL}/reviews/product/${product.id}`
-          );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data =
-          await response.json();
-
-        const loadedReviews =
-          data?.reviews ??
-          data?.data ??
-          data ??
-          [];
-
-        if (
-          active &&
-          Array.isArray(
-            loadedReviews
-          )
-        ) {
-          setReviews(
-            loadedReviews
-          );
-        }
-      } catch (err) {
-        console.error(
-          "Failed to load reviews:",
-          err
-        );
-      }
+async function loadReviews() {
+  try {
+    // Product has not loaded yet
+    if (!product?.id) {
+      return;
     }
+
+    const response = await fetch(
+      `${API_URL}/reviews/product/${product.id}`,
+    );
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = await response.json();
+
+    const loadedReviews =
+      data?.reviews ??
+      data?.data ??
+      data ??
+      [];
+
+    if (
+      active &&
+      Array.isArray(loadedReviews)
+    ) {
+      setReviews(loadedReviews);
+    }
+  } catch (err) {
+    console.error(
+      "Failed to load reviews:",
+      err,
+    );
+  }
+}
+
 
     loadReviews();
 

@@ -92,82 +92,141 @@ export default function EditNewsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
+useEffect(() => {
+  if (!id) return;
 
-    const loadNews = async () => {
-      try {
-        setLoading(true);
-        setError("");
+  const loadNews = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        console.log("Loading news ID:", id);
+      console.log("Loading news ID:", id);
 
-        const response = await apiFetch(
-          `/admin/news/${id}`,
+      const response = await apiFetch<
+        | {
+            data?: NewsPost;
+          }
+        | NewsPost
+      >(`/admin/news/${id}`);
+
+      console.log(
+        "News API response:",
+        response,
+      );
+
+      /*
+       * Normalize API response.
+       *
+       * Backend may return either:
+       * {
+       *   data: NewsPost
+       * }
+       *
+       * OR:
+       * {
+       *   id: "...",
+       *   title: "..."
+       * }
+       */
+
+      const responseWithData =
+        response as {
+          data?: NewsPost;
+        };
+
+      const news =
+        responseWithData.data ??
+        (response as NewsPost);
+
+      if (!news?.id) {
+        throw new Error(
+          "News post was not found.",
         );
+      }
 
-        console.log(
-          "News API response:",
-          response,
-        );
+      setPost(news);
 
-        const news: NewsPost =
-          response?.data ?? response;
+      setTitle(
+        news.title ?? "",
+      );
 
-        if (!news || !news.id) {
-          throw new Error(
-            "News post was not found.",
-          );
-        }
+      setAuthorName(
+        news.authorName ?? "",
+      );
 
-        setPost(news);
+      setFeaturedImage(
+        news.featuredImage ?? "",
+      );
 
-        setTitle(news.title ?? "");
-        setAuthorName(news.authorName ?? "");
-        setFeaturedImage(
-          news.featuredImage ?? "",
-        );
+      setStatus(
+        news.status ?? "DRAFT",
+      );
 
-        setStatus(news.status ?? "DRAFT");
+      setAllowLikes(
+        news.allowLikes ?? true,
+      );
 
-        setAllowLikes(
-          news.allowLikes ?? true,
-        );
+      setAllowComments(
+        news.allowComments ?? true,
+      );
 
-        setAllowComments(
-          news.allowComments ?? true,
-        );
+      setAllowSharing(
+        news.allowSharing ?? true,
+      );
 
-        setAllowSharing(
-          news.allowSharing ?? true,
-        );
+      /*
+       * Sort blocks by position
+       */
+      const sortedBlocks = [
+        ...(news.blocks ?? []),
+      ].sort(
+        (a, b) =>
+          a.position - b.position,
+      );
 
-        const sortedBlocks = [
-          ...(news.blocks ?? []),
-        ].sort(
-          (a, b) => a.position - b.position,
-        );
-
-        const combinedHtml = sortedBlocks
+      /*
+       * Convert blocks into editor HTML
+       */
+      const combinedHtml =
+        sortedBlocks
           .map((block) => {
-            if (block.type === "rich-text") {
+            /*
+             * Rich text
+             */
+            if (
+              block.type ===
+              "rich-text"
+            ) {
               return (
-                block.content?.html ?? ""
+                block.content?.html ??
+                ""
               );
             }
 
-            if (block.type === "image") {
+            /*
+             * Image
+             */
+            if (
+              block.type === "image"
+            ) {
               const src =
                 block.content?.src;
 
               if (!src) return "";
 
-              return `<img src="${src}" alt="${
-                block.content?.alt ?? ""
-              }" />`;
+              const alt =
+                block.content?.alt ??
+                "";
+
+              return `<img src="${src}" alt="${alt}" />`;
             }
 
-            if (block.type === "video") {
+            /*
+             * Video
+             */
+            if (
+              block.type === "video"
+            ) {
               const src =
                 block.content?.src;
 
@@ -176,7 +235,12 @@ export default function EditNewsPage() {
               return `<video src="${src}" controls></video>`;
             }
 
-            if (block.type === "audio") {
+            /*
+             * Audio
+             */
+            if (
+              block.type === "audio"
+            ) {
               const src =
                 block.content?.src;
 
@@ -185,9 +249,15 @@ export default function EditNewsPage() {
               return `<audio src="${src}" controls preload="metadata"></audio>`;
             }
 
-            if (block.type === "table") {
+            /*
+             * Table
+             */
+            if (
+              block.type === "table"
+            ) {
               return (
-                block.content?.html ?? ""
+                block.content?.html ??
+                ""
               );
             }
 
@@ -195,32 +265,38 @@ export default function EditNewsPage() {
           })
           .join("");
 
-        setContent(combinedHtml);
+      setContent(combinedHtml);
 
-        setSelectedCategoryIds(
-          news.categories?.map(
-            (item) => item.category.id,
-          ) ?? [],
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load news:",
-          error,
-        );
+      /*
+       * Selected categories
+       */
+      setSelectedCategoryIds(
+        news.categories?.map(
+          (item) =>
+            item.category.id,
+        ) ?? [],
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load news:",
+        error,
+      );
 
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to load news.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to load news.";
 
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadNews();
-  }, [id]);
+  loadNews();
+}, [id]);
+
+
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -456,37 +532,32 @@ export default function EditNewsPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Save Draft */}
-              <AdminPermission permission="news.update">
-                <button
-                  type="button"
-                  onClick={() =>
-                    savePost("DRAFT")
-                  }
-                  disabled={saving}
-                  className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {saving
-                    ? "Saving..."
-                    : "Save Draft"}
-                </button>
-              </AdminPermission>
+             <AdminPermission
+  permission="news.publish"
+  fallback={
+    <p className="mt-4 text-sm text-gray-500">
+      You do not have permission to change publication status.
+    </p>
+  }
+>
+  <select
+    value={status}
+    onChange={(e) =>
+      setStatus(
+        e.target.value as "DRAFT" | "PUBLISHED",
+      )
+    }
+    className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none"
+  >
+    <option value="DRAFT">
+      Draft
+    </option>
 
-              {/* Publish */}
-              <AdminPermission permission="news.publish">
-                <button
-                  type="button"
-                  onClick={() =>
-                    savePost("PUBLISHED")
-                  }
-                  disabled={saving}
-                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {saving
-                    ? "Saving..."
-                    : "Publish"}
-                </button>
-              </AdminPermission>
+    <option value="PUBLISHED">
+      Published
+    </option>
+  </select>
+</AdminPermission>
             </div>
           </div>
         </div>
@@ -657,39 +728,28 @@ export default function EditNewsPage() {
                   Status
                 </h2>
 
-                <AdminPermission permission="news.publish">
-                  <select
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(
-                        e.target
-                          .value as
-                          | "DRAFT"
-                          | "PUBLISHED",
-                      )
-                    }
-                    className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none"
-                  >
-                    <option value="DRAFT">
-                      Draft
-                    </option>
+<AdminPermission permission="news.publish">
+  <select
+    value={status}
+    onChange={(e) =>
+      setStatus(
+        e.target.value as
+          | "DRAFT"
+          | "PUBLISHED",
+      )
+    }
+    className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none"
+  >
+    <option value="DRAFT">
+      Draft
+    </option>
 
-                    <option value="PUBLISHED">
-                      Published
-                    </option>
-                  </select>
-                </AdminPermission>
+    <option value="PUBLISHED">
+      Published
+    </option>
+  </select>
+</AdminPermission>
 
-                <AdminPermission
-                  permission="news.publish"
-                  fallback={
-                    <p className="mt-4 text-sm text-gray-500">
-                      You do not have
-                      permission to change
-                      publication status.
-                    </p>
-                  }
-                />
               </div>
 
               {/* Settings */}

@@ -1,7 +1,8 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api/client";
+
 
 /* =========================================================
-   AUDIT LOG TYPES
+   AUDIT LOG
 ========================================================= */
 
 export interface AuditLog {
@@ -41,15 +42,12 @@ export interface AuditLog {
 
   session?: {
     id: string;
-
     deviceType: string | null;
     browser: string | null;
     operatingSystem: string | null;
-
     startedAt: string;
     lastSeenAt: string | null;
     endedAt: string | null;
-
     isActive: boolean;
   } | null;
 }
@@ -71,8 +69,31 @@ export interface AuditPagination {
 
 export interface AuditResponse {
   success: boolean;
-  data: AuditLog[];
-  pagination: AuditPagination;
+
+  data: {
+    logs: AuditLog[];
+
+    stats: {
+      total: number;
+      today: number;
+      adminActions: number;
+      failed: number;
+    };
+
+    filters: {
+      actions: string[];
+      resources: string[];
+      admins: Array<{
+        id: string;
+        name?: string | null;
+        email?: string | null;
+        role?: string | null;
+      }>;
+    };
+
+    pagination: AuditPagination;
+  };
+
   message?: string;
 }
 
@@ -105,6 +126,8 @@ export interface AuditFilters {
 export async function getAuditLogs(
   filters: AuditFilters = {},
 ): Promise<AuditResponse> {
+  console.log("🔥🔥 NEW getAuditLogs FUNCTION RUNNING");
+
   const params = new URLSearchParams();
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -119,186 +142,16 @@ export async function getAuditLogs(
 
   const query = params.toString();
 
-  const response = await apiFetch(
+  return apiFetch<AuditResponse>(
     `/admin/audit${query ? `?${query}` : ""}`,
     {
       method: "GET",
     },
   );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || "Failed to load audit history",
-    );
-  }
-
-  return data;
 }
-
 /* =========================================================
    USER SESSION
 ========================================================= */
-
-export interface UserSession {
-  id: string;
-
-  startedAt: string;
-  lastSeenAt: string | null;
-  endedAt: string | null;
-
-  isActive: boolean;
-
-  deviceType: string | null;
-  browser: string | null;
-  operatingSystem: string | null;
-
-  ipAddress: string | null;
-  userAgent: string | null;
-
-  country: string | null;
-  state: string | null;
-  city: string | null;
-  timezone: string | null;
-
-  createdAt: string;
-  updatedAt: string;
-
-  user: {
-    id: string;
-
-    name: string | null;
-    email: string | null;
-    mobile: string | null;
-
-    role: string;
-
-    isDisabled: boolean;
-    isDeleted: boolean;
-
-    profileImageUrl: string | null;
-  };
-}
-
-/* =========================================================
-   SESSION PAGINATION
-========================================================= */
-
-
-/* =========================================================
-   ALL SESSIONS RESPONSE
-========================================================= */
-
-export interface SessionsResponse {
-  success: boolean;
-  data: UserSession[];
-
-  statistics: {
-    total: number;
-    active: number;
-    ended: number;
-  };
-
-  filteredStatistics: {
-    total: number;
-    active: number;
-    ended: number;
-  };
-
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-/* =========================================================
-   SESSION FILTERS
-========================================================= */
-
-export interface SessionFilters {
-  page?: number;
-  limit?: number;
-
-  search?: string;
-
-  status?: "active" | "ended";
-}
-
-/* =========================================================
-   GET ALL SESSIONS
-========================================================= */
-
-export async function getAllSessions(
-  filters: SessionFilters = {},
-): Promise<SessionsResponse> {
-  const params = new URLSearchParams();
-
-  Object.entries(filters).forEach(([key, value]) => {
-    if (
-      value !== undefined &&
-      value !== null &&
-      String(value).trim() !== ""
-    ) {
-      params.set(key, String(value));
-    }
-  });
-
-  const query = params.toString();
-
-  const response = await apiFetch(
-    `/admin/audit/sessions${query ? `?${query}` : ""}`,
-    {
-      method: "GET",
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || "Failed to load sessions",
-    );
-  }
-
-  return data;
-}
-
-/* =========================================================
-   GET SESSIONS FOR ONE USER
-========================================================= */
-
-export async function getUserSessions(
-  userId: string,
-): Promise<{
-  success: boolean;
-  data: UserSession[];
-  message?: string;
-}> {
-  const response = await apiFetch(
-    `/admin/audit/sessions/${encodeURIComponent(userId)}`,
-    {
-      method: "GET",
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || "Failed to load user sessions",
-    );
-  }
-
-  return data;
-}
-
-
-// =========================================================
-// USER SESSION TYPES
-// =========================================================
 
 export interface UserSession {
   id: string;
@@ -338,6 +191,10 @@ export interface UserSession {
   } | null;
 }
 
+/* =========================================================
+   SESSION PAGINATION
+========================================================= */
+
 export interface SessionPagination {
   page: number;
   limit: number;
@@ -345,12 +202,35 @@ export interface SessionPagination {
   totalPages: number;
 }
 
-export interface SessionResponse {
+/* =========================================================
+   SESSIONS RESPONSE
+========================================================= */
+
+export interface SessionsResponse {
   success: boolean;
+
   data: UserSession[];
+
+  statistics: {
+    total: number;
+    active: number;
+    ended: number;
+  };
+
+  filteredStatistics: {
+    total: number;
+    active: number;
+    ended: number;
+  };
+
   pagination: SessionPagination;
+
   message?: string;
 }
+
+/* =========================================================
+   SESSION FILTERS
+========================================================= */
 
 export interface SessionFilters {
   page?: number;
@@ -359,26 +239,110 @@ export interface SessionFilters {
   status?: "active" | "ended" | "";
 }
 
+/* =========================================================
+   GET ALL SESSIONS
+========================================================= */
+
+export async function getAllSessions(
+  filters: SessionFilters = {},
+): Promise<SessionsResponse> {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ""
+    ) {
+      params.set(key, String(value));
+    }
+  });
+
+  const query = params.toString();
+
+  const endpoint =
+    `/admin/audit/sessions${query ? `?${query}` : ""}`;
+
+  return apiFetch<SessionsResponse>(endpoint, {
+    method: "GET",
+  });
+}
+
+/* =========================================================
+   GET SESSIONS FOR ONE USER
+========================================================= */
+
+export async function getUserSessions(
+  userId: string,
+): Promise<{
+  success: boolean;
+  data: UserSession[];
+  message?: string;
+}> {
+  return apiFetch<{
+    success: boolean;
+    data: UserSession[];
+    message?: string;
+  }>(
+    `/admin/audit/sessions/${encodeURIComponent(userId)}`,
+    {
+      method: "GET",
+    },
+  );
+}
+
+/* =========================================================
+   SEARCH HISTORY USER
+========================================================= */
+
 export interface SearchHistoryUser {
   id: string;
+
   name: string | null;
   email: string | null;
   mobile: string | null;
+
   role: string;
+
   isDisabled: boolean;
   isDeleted: boolean;
+
   profileImageUrl: string | null;
 }
 
+/* =========================================================
+   SEARCH HISTORY SESSION
+========================================================= */
+
+export interface SearchHistorySession {
+  id: string;
+
+  startedAt: string;
+  lastSeenAt: string | null;
+  endedAt: string | null;
+
+  isActive: boolean;
+
+  deviceType: string | null;
+  browser: string | null;
+  operatingSystem: string | null;
+}
+
+/* =========================================================
+   SEARCH HISTORY ITEM
+========================================================= */
 
 export interface SearchHistoryItem {
   id: string;
+
   query: string;
   normalized: string;
+
   filters: Record<string, unknown> | null;
 
   ipAddress: string | null;
   userAgent: string | null;
+
   country: string | null;
   state: string | null;
   city: string | null;
@@ -387,8 +351,13 @@ export interface SearchHistoryItem {
   createdAt: string;
 
   user: SearchHistoryUser | null;
+
   session: SearchHistorySession | null;
 }
+
+/* =========================================================
+   SEARCH HISTORY PAGINATION
+========================================================= */
 
 export interface SearchHistoryPagination {
   page: number;
@@ -397,12 +366,33 @@ export interface SearchHistoryPagination {
   totalPages: number;
 }
 
+/* =========================================================
+   SEARCH HISTORY RESPONSE
+========================================================= */
 
+export interface SearchHistoryResponse {
+  success: boolean;
 
-// =========================================================
-// GET ALL SESSIONS
-// =========================================================
+  data: SearchHistoryItem[];
 
+  pagination: SearchHistoryPagination;
+
+  message?: string;
+}
+
+/* =========================================================
+   SEARCH HISTORY FILTERS
+========================================================= */
+
+export interface SearchHistoryFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+/* =========================================================
+   GET ALL SEARCH HISTORY
+========================================================= */
 
 export async function getAllSearchHistory(
   filters: SearchHistoryFilters = {},
@@ -421,72 +411,25 @@ export async function getAllSearchHistory(
 
   const query = params.toString();
 
-  const response = await apiFetch(
+  return apiFetch<SearchHistoryResponse>(
     `/admin/audit/search${query ? `?${query}` : ""}`,
     {
       method: "GET",
     },
   );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message || "Failed to load search history",
-    );
-  }
-
-  return data;
 }
 
+/* =========================================================
+   GET SEARCH HISTORY FOR ONE USER
+========================================================= */
 
-
-
-
-
-
-export interface SearchHistorySession {
-  id: string;
-  startedAt: string;
-  lastSeenAt: string | null;
-  endedAt: string | null;
-  isActive: boolean;
-  deviceType: string | null;
-  browser: string | null;
-  operatingSystem: string | null;
+export async function getUserSearchHistory(
+  userId: string,
+): Promise<SearchHistoryResponse> {
+  return apiFetch<SearchHistoryResponse>(
+    `/admin/audit/search/${encodeURIComponent(userId)}`,
+    {
+      method: "GET",
+    },
+  );
 }
-
-export interface SearchHistoryItem {
-  id: string;
-  query: string;
-  normalized: string;
-  filters: Record<string, unknown> | null;
-
-  ipAddress: string | null;
-  userAgent: string | null;
-  country: string | null;
-  state: string | null;
-  city: string | null;
-  timezone: string | null;
-
-  createdAt: string;
-
-  user: SearchHistoryUser | null;
-  session: SearchHistorySession | null;
-}
-
-
-
-export interface SearchHistoryResponse {
-  success: boolean;
-  data: SearchHistoryItem[];
-  pagination: SearchHistoryPagination;
-  message?: string;
-}
-
-export interface SearchHistoryFilters {
-  page?: number;
-  limit?: number;
-  search?: string;
-}
-

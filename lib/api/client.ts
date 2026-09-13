@@ -52,9 +52,11 @@ console.log(
       ...options,
       headers,
     });
+    console.log("🔥 API FETCH FUNCTION RUNNING");
+console.log("🔥 RAW RESPONSE:", response);
 
     const responseText = await response.text();
-
+console.log("🔥 RESPONSE TEXT:", responseText.slice(0, 300));
     if (!response.ok) {
       console.error(
   "API REQUEST FAILED",

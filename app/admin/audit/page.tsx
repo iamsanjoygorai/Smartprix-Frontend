@@ -645,7 +645,7 @@ function SearchHistorySection() {
 
 
 export default function AdminAuditPage() {
-  const [tab, setTab] = useState<Tab>("audit");
+  const [tab, setTab] = useState<"audit" | "sessions" | "search">("audit");
 
   return (
     <>
@@ -656,14 +656,21 @@ export default function AdminAuditPage() {
             MAIN TABS
         ================================================= */}
 
+        
+
         <div className="rounded-2xl border bg-white p-1.5 shadow-sm">
           <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
+          
             <TabButton
-  active={tab === "audit"}
+            
+  active={
+    tab === "audit"}
   icon="◉"
   label="Audit Logs"
   description="Activity & security events"
-  onClick={() => setTab("audit")}
+  onClick={() => {
+  console.log("🔥 SESSIONS TAB CLICKED");
+  setTab("audit")}}
 />
 
 <TabButton
@@ -840,50 +847,48 @@ LOAD AUDIT LOGS
 ======================================================= */
 
 const loadLogs = useCallback(async () => {
-try {
-setLoading(true);
-setError("");
+  try {
+    setLoading(true);
+    setError("");
 
- 
-  const response = await getAuditLogs({
-    page,
-    limit: 50,
-    user: search.trim() || undefined,
-    category: category || undefined,
-    action: action || undefined,
-  });
-
-  if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to load audit history",
-    );
-  }
-
-  setLogs(response.data || []);
-
-  setPagination(
-    response.pagination || {
+    const response = await getAuditLogs({
       page,
       limit: 50,
-      total: 0,
-      totalPages: 0,
-    },
-  );
-} catch (err) {
-  console.error("Failed to load audit logs:", err);
+      user: search.trim() || undefined,
+      category: category || undefined,
+      action: action || undefined,
+    });
+    console.log("🔥 AUDIT RESPONSE:", response);
 
-  setError(
-    err instanceof Error
-      ? err.message
-      : "Failed to load audit history",
-  );
-} finally {
-  setLoading(false);
-}
- 
+    if (!response.success) {
+      throw new Error(
+        response.message || "Failed to load audit logs",
+      );
+    }
 
+    setLogs(response.data?.logs || []);
+
+    setPagination(
+      response.data?.pagination || {
+        page,
+        limit: 50,
+        total: 0,
+        totalPages: 0,
+      },
+    );
+  } catch (err) {
+    console.error("Failed to load audit logs:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Failed to load audit history",
+    );
+  } finally {
+    setLoading(false);
+  }
 }, [page, search, category, action]);
+ 
 
 useEffect(() => {
 loadLogs();
@@ -1471,7 +1476,7 @@ const [statistics, setStatistics] = useState({
       },
     );
   } catch (err) {
-    console.error(err);
+    console.error("Failed to load sessions:", err);
 
     setError(
       err instanceof Error

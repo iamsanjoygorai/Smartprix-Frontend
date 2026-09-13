@@ -512,15 +512,26 @@ export default function AdminLayout({
               )}
 
               {hasPermission("audit.view") && (
-                <SidebarLink
-                  href="/admin/audit-logs"
-                  label="Audit Logs"
-                  icon="◷"
-                  active={isActive(
-                    "/admin/audit-logs",
-                  )}
-                />
-              )}
+  <>
+    <SidebarLink
+      href="/admin/audit-logs"
+      label="Audit Logs"
+      icon="◷"
+      active={isActive(
+        "/admin/audit-logs",
+      )}
+    />
+
+    <SidebarLink
+      href="/admin/audit"
+      label="Audit & Security"
+      icon="◉"
+      active={isActive(
+        "/admin/audit",
+      )}
+    />
+  </>
+)}
 
               {hasPermission(
                 "settings.view",

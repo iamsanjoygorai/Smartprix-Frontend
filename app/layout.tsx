@@ -5,10 +5,15 @@ import "./globals.css";
 import SiteLayout from "@/components/layout/SiteLayout";
 import ScrollToTop from "@/components/ScrollToTop";
 import Providers from "./providers";
+
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   title: "Smartprix Clone",
@@ -25,8 +30,10 @@ export default function RootLayout({
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="min-h-screen bg-gray-100 text-gray-900">
         <Providers>
-          <ScrollToTop />
-          <SiteLayout>{children}</SiteLayout>
+          <TooltipProvider>
+            <ScrollToTop />
+            <SiteLayout>{children}</SiteLayout>
+          </TooltipProvider>
         </Providers>
       </body>
     </html>

@@ -4,9 +4,40 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import {
    getAuditLogs,
@@ -16,6 +47,9 @@ import {
   type UserSession,
   type SearchHistoryItem,
 } from "@/lib/api/audit";
+import AuditTabs from "@/components/admin/audit/AuditTabs";
+import AuditStats from "@/components/admin/audit/AuditStats";
+import AuditFilters from "@/components/admin/audit/AuditFilters";
 
 /* =========================================================
    TYPES
@@ -670,57 +704,22 @@ export default function AdminAuditPage() {
     <>
       <div className="space-y-7">
         <PageHeader />
+           <AuditTabs
+            activeTab={tab}
+            onChange={setTab}
+           />       
 
-        {/* =================================================
-            MAIN TABS
-        ================================================= */}
-
-        
-
-        <div className="rounded-2xl border bg-white p-1.5 shadow-sm">
-          <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
-          
-            <TabButton
-            
-  active={
-    tab === "audit"}
-  icon="◉"
-  label="Audit Logs"
-  description="Activity & security events"
-  onClick={() => {
-  console.log("🔥 SESSIONS TAB CLICKED");
-  setTab("audit")}}
-/>
-
-<TabButton
-  active={tab === "sessions"}
-  icon="◷"
-  label="Sessions"
-  description="Login & device sessions"
-  onClick={() => setTab("sessions")}
-/>
-
-<TabButton
-  active={tab === "search"}
-  icon="⌕"
-  label="Search History"
-  description="User search activity"
-  onClick={() => setTab("search")}
-/>
-          </div>
-        </div>
-
-       {tab === "audit" ? (
-  <AuditLogsSection />
-) : tab === "sessions" ? (
-  <SessionsSection />
-) : (
-  <SearchHistorySection />
-)}
-      </div>
-    </>
-  );
-}
+           {tab === "audit" ? (
+            <AuditLogsSection />
+          ) : tab === "sessions" ? (
+            <SessionsSection />
+          ) : (
+            <SearchHistorySection />
+          )}
+                </div>
+              </>
+            );
+          }
 
 /* =========================================================
    PAGE HEADER
@@ -877,7 +876,30 @@ const loadLogs = useCallback(async () => {
       category: category || undefined,
       action: action || undefined,
     });
-    console.log("🔥 AUDIT RESPONSE:", response);
+
+    console.log(
+  "🚨🚨🚨 NEW AUDIT CODE IS RUNNING 🚨🚨🚨",
+  JSON.stringify(response),
+);
+
+    console.log("🔥 AUDIT SUCCESS:", response.success);
+    console.log("🔥 AUDIT DATA:", response.data);
+    console.log(
+      "🔥 AUDIT DATA IS ARRAY:",
+      Array.isArray(response.data),
+    );
+    console.log(
+      "🔥 AUDIT DATA LENGTH:",
+      Array.isArray(response.data)
+        ? response.data.length
+        : "NOT ARRAY",
+    );
+    console.log(
+      "🔥 FIRST AUDIT RECORD:",
+      Array.isArray(response.data)
+        ? response.data[0]
+        : response.data,
+    );
 
     if (!response.success) {
       throw new Error(
@@ -885,16 +907,24 @@ const loadLogs = useCallback(async () => {
       );
     }
 
-    setLogs(response.data?.logs || []);
+    const auditLogs = Array.isArray(response.data)
+      ? response.data
+      : response.data?.logs || [];
+
+    setLogs(auditLogs);
 
     setPagination(
-      response.data?.pagination || {
-        page,
-        limit: 50,
-        total: 0,
-        totalPages: 0,
-      },
+      !Array.isArray(response.data) &&
+      response.data?.pagination
+        ? response.data.pagination
+        : {
+            page,
+            limit: 50,
+            total: auditLogs.length,
+            totalPages: auditLogs.length > 0 ? 1 : 0,
+          },
     );
+
   } catch (err) {
     console.error("Failed to load audit logs:", err);
 
@@ -917,7 +947,27 @@ loadLogs();
 STATISTICS
 ======================================================= */
 
-
+<AuditStats
+  total={logs.length}
+  authentication={
+    logs.filter((log) => log.category === "AUTH").length
+  }
+  account={
+    logs.filter(
+      (log) =>
+        log.category === "ACCOUNT" ||
+        log.category === "PROFILE",
+    ).length
+  }
+  security={
+    logs.filter(
+      (log) =>
+        log.category === "SECURITY" ||
+        log.category === "PERMISSION" ||
+        log.category === "ADMIN",
+    ).length
+  }
+/>
 
 /* =======================================================
 FILTER STATE
@@ -983,28 +1033,27 @@ STATISTICS
 ================================================= */}
 
  
- <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-  <StatCard
-    label="Total Sessions"
-    value={statistics.total}
-    icon="◉"
-    description="All recorded user sessions"
-  />
-
-  <StatCard
-    label="Active Sessions"
-    value={statistics.active}
-    icon="●"
-    description="Currently active sessions"
-  />
-
-  <StatCard
-    label="Ended Sessions"
-    value={statistics.ended}
-    icon="✓"
-    description="Completed or ended sessions"
-  />
-</section>
+<AuditStats
+  total={logs.length}
+  authentication={
+    logs.filter((log) => log.category === "AUTH").length
+  }
+  account={
+    logs.filter(
+      (log) =>
+        log.category === "ACCOUNT" ||
+        log.category === "PROFILE",
+    ).length
+  }
+  security={
+    logs.filter(
+      (log) =>
+        log.category === "SECURITY" ||
+        log.category === "PERMISSION" ||
+        log.category === "ADMIN",
+    ).length
+  }
+/>
 
   {/* =================================================
       FILTERS
@@ -1340,25 +1389,38 @@ STATISTICS
       </div>
     </div>
 
-    {error && logs.length > 0 && (
-      <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-medium text-red-700">
-        {error}
-      </div>
-    )}
+   {error && logs.length > 0 && (
+  <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-medium text-red-700">
+    {error}
+  </div>
+)}
 
-    {logs.length === 0 ? (
-      <EmptyState />
-    ) : (
-      <div className="divide-y divide-gray-100">
-        {logs.map((log) => (
-          <AuditRow
-            key={log.id}
-            log={log}
-            onClick={() => setSelectedLog(log)}
-          />
-        ))}
-      </div>
-    )}
+{logs.length > 0 ? (
+  <div className="divide-y divide-gray-100">
+    {logs.map((log) => (
+      <AuditRow
+        key={log.id}
+        log={log}
+        onClick={() => setSelectedLog(log)}
+      />
+    ))}
+  </div>
+) : (
+  <EmptyState />
+)}
+{logs.length === 0 ? (
+  <EmptyState />
+) : (
+  <div className="divide-y divide-gray-100">
+    {logs.map((log) => (
+      <AuditRow
+        key={log.id}
+        log={log}
+        onClick={() => setSelectedLog(log)}
+      />
+    ))}
+  </div>
+)}
   </section>
 
   {/* =================================================
@@ -1395,48 +1457,32 @@ STATISTICS
 ========================================================= */
 
 function SessionsSection() {
+  const [statistics, setStatistics] = useState({
+    total: 0,
+    active: 0,
+    ended: 0,
+  });
 
-const [statistics, setStatistics] = useState({
-  total: 0,
-  active: 0,
-  ended: 0,
-});
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<SessionStatus>("");
+  const [page, setPage] = useState(1);
+  const [now, setNow] = useState(() => Date.now());
 
-  const [sessions, setSessions] =
-    useState<UserSession[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const [search, setSearch] =
-    useState("");
-
-  const [status, setStatus] =
-    useState<SessionStatus>("");
-
-  const [page, setPage] =
-    useState(1);
-
-  const [now, setNow] =
-    useState(() => Date.now());
-
-  const [pagination, setPagination] =
-    useState({
-      page: 1,
-      limit: 50,
-      total: 0,
-      totalPages: 0,
-    });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+  });
 
   const [selectedSession, setSelectedSession] =
     useState<UserSession | null>(null);
 
   /* =======================================================
      LIVE CLOCK
-     Updates active session duration automatically
   ======================================================= */
 
   useEffect(() => {
@@ -1454,55 +1500,55 @@ const [statistics, setStatistics] = useState({
   ======================================================= */
 
   const loadSessions = useCallback(async () => {
-  try {
-    setLoading(true);
-    setError("");
+    try {
+      setLoading(true);
+      setError("");
 
-    const response = await getAllSessions({
-      page,
-      limit: 50,
-      search: search.trim() || undefined,
-      status: status || undefined,
-    });
-
-    if (!response.success) {
-      throw new Error(
-        response.message || "Failed to load sessions",
-      );
-    }
-
-    setSessions(response.data || []);
-
-    setStatistics({
-      total: Number(response.statistics?.total ?? 0),
-      active: Number(response.statistics?.active ?? 0),
-      ended: Number(response.statistics?.ended ?? 0),
-    });
-
-    setPagination(
-      response.pagination || {
+      const response = await getAllSessions({
         page,
         limit: 50,
-        total: 0,
-        totalPages: 0,
-      },
-    );
-  } catch (err) {
-    console.error("Failed to load sessions:", err);
+        search: search.trim() || undefined,
+        status: status || undefined,
+      });
 
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Failed to load sessions",
-    );
-  } finally {
-    setLoading(false);
-  }
-}, [page, search, status]);
+      if (!response.success) {
+        throw new Error(
+          response.message || "Failed to load sessions",
+        );
+      }
 
-useEffect(() => {
-  loadSessions();
-}, [loadSessions]);
+      setSessions(response.data || []);
+
+      setStatistics({
+        total: Number(response.statistics?.total ?? 0),
+        active: Number(response.statistics?.active ?? 0),
+        ended: Number(response.statistics?.ended ?? 0),
+      });
+
+      setPagination(
+        response.pagination || {
+          page,
+          limit: 50,
+          total: 0,
+          totalPages: 0,
+        },
+      );
+    } catch (err) {
+      console.error("Failed to load sessions:", err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load sessions",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search, status]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   /* =======================================================
      CLEAR FILTERS
@@ -1513,6 +1559,9 @@ useEffect(() => {
     setStatus("");
     setPage(1);
   }
+
+  const hasFilters =
+    Boolean(search.trim()) || Boolean(status);
 
   /* =======================================================
      LOADING
@@ -1528,154 +1577,227 @@ useEffect(() => {
 
   if (error && sessions.length === 0) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-            !
+      <Card className="border-red-200 bg-red-50/60">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 font-bold text-red-600">
+              !
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-red-900">
+                Unable to load sessions
+              </h2>
+
+              <p className="mt-1 text-sm text-red-700">
+                {error}
+              </p>
+
+              <Button
+                type="button"
+                onClick={loadSessions}
+                className="mt-4 bg-red-600 text-white hover:bg-red-700"
+              >
+                Retry
+              </Button>
+            </div>
           </div>
-
-          <div>
-            <h2 className="font-semibold text-red-900">
-              Unable to load sessions
-            </h2>
-
-            <p className="mt-1 text-sm text-red-700">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadSessions}
-              className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <>
       {/* =================================================
-          SESSION STATISTICS
+          STATISTICS
       ================================================= */}
 
       <section className="grid gap-4 sm:grid-cols-3">
-  <SessionStatCard
-    label="Total Sessions"
-    value={statistics.total}
-    icon="◌"
-    description="All recorded sessions"
-  />
+        <SessionStatCard
+          label="Total Sessions"
+          value={statistics.total}
+          icon="◌"
+          description="All recorded sessions"
+        />
 
-  <SessionStatCard
-    label="Active Sessions"
-    value={statistics.active}
-    icon="●"
-    description="Currently active"
-  />
+        <SessionStatCard
+          label="Active Sessions"
+          value={statistics.active}
+          icon="●"
+          description="Currently active"
+        />
 
-  <SessionStatCard
-    label="Ended Sessions"
-    value={statistics.ended}
-    icon="✓"
-    description="Completed sessions"
-  />
-</section>
+        <SessionStatCard
+          label="Ended Sessions"
+          value={statistics.ended}
+          icon="✓"
+          description="Completed sessions"
+        />
+      </section>
 
       {/* =================================================
-          SESSION FILTERS
+          FILTERS
       ================================================= */}
 
-      <section className="rounded-2xl border bg-white shadow-sm">
-        <div className="border-b px-5 py-4">
-          <h2 className="font-semibold text-gray-900">
-            Session Monitor
-          </h2>
+      <Card className="overflow-hidden border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/70 px-5 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base">
+                Session Monitor
+              </CardTitle>
 
-          <p className="mt-1 text-xs text-gray-500">
-            Super Admin view of user login sessions and
-            connection details.
-          </p>
-        </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Super Admin view of user login sessions and connection details.
+              </p>
+            </div>
 
-        <div className="p-5">
-          <div className="grid gap-3 lg:grid-cols-[1fr_190px_auto]">
+            <Badge
+              variant="outline"
+              className="w-fit border-violet-200 bg-violet-50 text-violet-700"
+            >
+              <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" />
+              Security Console
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-5">
+          <div className="grid gap-3 lg:grid-cols-[1fr_200px_auto]">
+            {/* SEARCH */}
+
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400">
                 ⌕
               </span>
 
-              <input
+              <Input
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
                   setPage(1);
                 }}
                 placeholder="Search user, email or mobile..."
-                className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                className="h-11 bg-slate-50 pl-9 focus:bg-white"
               />
             </div>
 
-            <select
-              value={status}
-              onChange={(event) => {
+            {/* STATUS */}
+
+            <Select
+              value={status || "all"}
+              onValueChange={(value) => {
                 setStatus(
-                  event.target.value as SessionStatus,
+                  value === "all"
+                    ? ""
+                    : (value as SessionStatus),
                 );
                 setPage(1);
               }}
-              className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             >
-              <option value="">
-                All Sessions
-              </option>
+              <SelectTrigger className="h-11 bg-slate-50">
+                <SelectValue placeholder="All Sessions" />
+              </SelectTrigger>
 
-              <option value="active">
-                Active Only
-              </option>
+              <SelectContent>
+                <SelectItem value="all">
+                  All Sessions
+                </SelectItem>
 
-              <option value="ended">
-                Ended Only
-              </option>
-            </select>
+                <SelectItem value="active">
+                  Active Only
+                </SelectItem>
 
-            <button
+                <SelectItem value="ended">
+                  Ended Only
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* CLEAR */}
+
+            <Button
               type="button"
+              variant="outline"
               onClick={clearSessionFilters}
-              className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+              disabled={!hasFilters}
+              className="h-11"
             >
               Clear
-            </button>
+            </Button>
           </div>
-        </div>
-      </section>
+
+          {hasFilters && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Active filters
+              </span>
+
+              {search.trim() && (
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-50 text-blue-700 hover:bg-blue-50"
+                >
+                  Search: {search.trim()}
+                </Badge>
+              )}
+
+              {status && (
+                <Badge
+                  variant="secondary"
+                  className="bg-violet-50 text-violet-700 hover:bg-violet-50"
+                >
+                  Status: {status}
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* =================================================
           SESSION TABLE
       ================================================= */}
 
-      <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">
-              User Sessions
-            </h2>
+      <Card className="overflow-hidden border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">
+                User Sessions
+              </CardTitle>
 
-            <p className="mt-1 text-xs text-gray-500">
-              {pagination.total.toLocaleString("en-IN")}{" "}
-              sessions recorded
-            </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {pagination.total.toLocaleString("en-IN")} sessions recorded
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {loading && (
+                <Badge
+                  variant="outline"
+                  className="border-blue-200 bg-blue-50 text-blue-600"
+                >
+                  Refreshing...
+                </Badge>
+              )}
+
+              <Badge
+                variant="outline"
+                className="hidden border-slate-200 bg-slate-50 text-slate-500 sm:inline-flex"
+              >
+                Read Only
+              </Badge>
+            </div>
           </div>
+        </CardHeader>
 
-          {loading && (
-            <span className="text-xs font-medium text-blue-600">
-              Refreshing...
-            </span>
-          )}
-        </div>
+        {error && sessions.length > 0 && (
+          <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
         {sessions.length === 0 ? (
           <SessionsEmptyState />
@@ -1683,32 +1805,32 @@ useEffect(() => {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1180px]">
               <thead>
-                <tr className="border-b bg-gray-50/80 text-left">
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                <tr className="border-b bg-slate-50/80 text-left">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     User
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Device
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Browser / OS
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Network
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Last Activity
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Duration
                   </th>
 
-                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Status
                   </th>
 
@@ -1716,21 +1838,19 @@ useEffect(() => {
                 </tr>
               </thead>
 
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-slate-100">
                 {sessions.map((session) => (
                   <SessionRow
-  key={session.id}
-  session={session}
-  onClick={() =>
-    setSelectedSession(session)
-  }
-/>
+                    key={session.id}
+                    session={session}
+                    onClick={() => setSelectedSession(session)}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </section>
+      </Card>
 
       {/* =================================================
           PAGINATION
@@ -1752,9 +1872,7 @@ useEffect(() => {
         <SessionDetailDrawer
           session={selectedSession}
           now={now}
-          onClose={() =>
-            setSelectedSession(null)
-          }
+          onClose={() => setSelectedSession(null)}
         />
       )}
     </>
@@ -1777,27 +1895,31 @@ function SessionStatCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            {label}
-          </p>
+    <Card className="group overflow-hidden border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <CardContent className="relative p-5">
+        <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-slate-100/70 transition-transform duration-300 group-hover:scale-125" />
 
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {Number(value ?? 0).toLocaleString()}
-          </p>
+        <div className="relative flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500">
+              {label}
+            </p>
 
-          <p className="mt-1 text-xs text-slate-500">
-            {description}
-          </p>
+            <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+              {Number(value ?? 0).toLocaleString("en-IN")}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {description}
+            </p>
+          </div>
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-lg shadow-sm transition-colors group-hover:bg-slate-900 group-hover:text-white">
+            {icon}
+          </div>
         </div>
-
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl">
-          {icon}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1821,7 +1943,7 @@ function SessionRow({
   return (
     <tr
       onClick={onClick}
-      className="group cursor-pointer transition hover:bg-gray-50"
+      className="group cursor-pointer transition-colors hover:bg-slate-50/80"
     >
       {/* USER */}
 
@@ -1833,19 +1955,22 @@ function SessionRow({
           />
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">
+            <p className="truncate text-sm font-semibold text-slate-900">
               {userName}
             </p>
 
-            <p className="mt-0.5 truncate text-xs text-gray-400">
+            <p className="mt-0.5 truncate text-xs text-slate-400">
               {session.user?.email ||
                 session.user?.mobile ||
                 shortId(session.user?.id)}
             </p>
 
-            <span className="mt-1 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold uppercase text-gray-500">
+            <Badge
+              variant="secondary"
+              className="mt-1 h-5 rounded-full bg-slate-100 px-2 text-[9px] font-bold uppercase text-slate-500 hover:bg-slate-100"
+            >
               {session.user?.role || "USER"}
-            </span>
+            </Badge>
           </div>
         </div>
       </td>
@@ -1854,11 +1979,11 @@ function SessionRow({
 
       <td className="px-5 py-4">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
             {getDeviceIcon(session.deviceType)}
-          </span>
+          </div>
 
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-slate-700">
             {session.deviceType || "Unknown"}
           </span>
         </div>
@@ -1867,11 +1992,11 @@ function SessionRow({
       {/* BROWSER / OS */}
 
       <td className="px-5 py-4">
-        <p className="text-sm font-medium text-gray-700">
+        <p className="text-sm font-medium text-slate-700">
           {session.browser || "Unknown"}
         </p>
 
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-slate-400">
           {session.operatingSystem || "Unknown"}
         </p>
       </td>
@@ -1879,41 +2004,57 @@ function SessionRow({
       {/* NETWORK */}
 
       <td className="px-5 py-4">
-        <p className="font-mono text-xs font-medium text-gray-600">
-          {session.ipAddress || "—"}
-        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="w-fit">
+              <p className="font-mono text-xs font-medium text-slate-600">
+                {session.ipAddress || "—"}
+              </p>
 
-        <p className="mt-1 max-w-[180px] truncate text-xs text-gray-400">
-          {formatLocation(session)}
-        </p>
+              <p className="mt-1 max-w-[180px] truncate text-xs text-slate-400">
+                {formatLocation(session)}
+              </p>
+            </div>
+          </TooltipTrigger>
+
+          <TooltipContent>
+            <p>{formatLocation(session)}</p>
+          </TooltipContent>
+        </Tooltip>
       </td>
 
-      {/* LAST SEEN */}
+      {/* LAST ACTIVITY */}
 
       <td className="px-5 py-4">
-        <p className="text-xs font-medium text-gray-700">
+        <p className="text-xs font-medium text-slate-700">
           {session.lastSeenAt
             ? formatDateTime(session.lastSeenAt)
             : "—"}
         </p>
 
-        <p className="mt-1 text-[10px] text-gray-400">
+        <p className="mt-1 text-[10px] text-slate-400">
           Started {formatDateTime(session.startedAt)}
         </p>
+      </td>
+
+      {/* DURATION */}
+
+      <td className="px-5 py-4">
+        <span className="font-mono text-xs font-semibold text-slate-700">
+          {getSessionDuration(session, Date.now())}
+        </span>
       </td>
 
       {/* STATUS */}
 
       <td className="px-5 py-4">
-        <SessionStatusBadge
-          active={session.isActive}
-        />
+        <SessionStatusBadge active={session.isActive} />
       </td>
 
       {/* ARROW */}
 
       <td className="px-3 py-4">
-        <span className="text-gray-300 transition group-hover:translate-x-1 group-hover:text-gray-600">
+        <span className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-slate-600">
           →
         </span>
       </td>
@@ -1934,23 +2075,21 @@ function UserAvatar({
 }) {
   const initials = getInitials(name);
 
-  if (image) {
-    return (
-      <div className="relative h-10 w-10 shrink-0">
-        <img
-          src={image}
-          alt={name}
-          className="h-10 w-10 rounded-xl object-cover ring-1 ring-gray-200"
-        />
-
-        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
-      </div>
-    );
-  }
-
   return (
-    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-      {initials}
+    <div className="relative shrink-0">
+      <Avatar className="h-10 w-10 rounded-xl ring-1 ring-slate-200">
+        {image && (
+          <AvatarImage
+            src={image}
+            alt={name}
+            className="object-cover"
+          />
+        )}
+
+        <AvatarFallback className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
 
       <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
     </div>
@@ -1967,23 +2106,24 @@ function SessionStatusBadge({
   active: boolean;
 }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+    <Badge
+      variant="secondary"
+      className={
         active
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-gray-100 text-gray-500"
-      }`}
+          ? "gap-1.5 border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+          : "gap-1.5 border border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-100"
+      }
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           active
             ? "animate-pulse bg-emerald-500"
-            : "bg-gray-400"
+            : "bg-slate-400"
         }`}
       />
 
       {active ? "Active" : "Ended"}
-    </span>
+    </Badge>
   );
 }
 
@@ -2006,96 +2146,84 @@ function SessionDetailDrawer({
     session.user?.mobile ||
     "Unknown User";
 
-  const duration = getSessionDuration(
-    session,
-    now,
-  );
+  const duration = getSessionDuration(session, now);
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close session details"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-      />
-
-      <aside className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl">
+    <Sheet
+      open={Boolean(session)}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <SheetContent
+        side="right"
+        className="w-full overflow-y-auto p-0 sm:max-w-xl"
+      >
         {/* HEADER */}
 
-        <div className="sticky top-0 z-10 border-b bg-white/95 px-6 py-5 backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <UserAvatar
-                name={userName}
-                image={session.user?.profileImageUrl}
-              />
+        <SheetHeader className="border-b bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-6 text-white">
+          <div className="flex items-center gap-3">
+            <UserAvatar
+              name={userName}
+              image={session.user?.profileImageUrl}
+            />
 
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Session Details
-                </p>
+            <div className="min-w-0">
+              <SheetTitle className="truncate text-lg text-white">
+                {userName}
+              </SheetTitle>
 
-                <h2 className="mt-1 text-xl font-bold text-gray-900">
-                  {userName}
-                </h2>
-              </div>
+              <SheetDescription className="mt-1 text-slate-300">
+                Session security details
+              </SheetDescription>
             </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-            >
-              ×
-            </button>
           </div>
-        </div>
-
-        {/* CONTENT */}
+        </SheetHeader>
 
         <div className="space-y-6 p-6">
-          {/* STATUS + DURATION */}
+          {/* STATUS */}
 
-          <div
-            className={`rounded-2xl border p-5 ${
+          <Card
+            className={
               session.isActive
-                ? "border-emerald-200 bg-emerald-50"
-                : "border-gray-200 bg-gray-50"
-            }`}
+                ? "border-emerald-200 bg-emerald-50/70"
+                : "border-slate-200 bg-slate-50"
+            }
           >
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium text-gray-500">
-                  Session Status
-                </p>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500">
+                    Session Status
+                  </p>
 
-                <div className="mt-2">
-                  <SessionStatusBadge
-                    active={session.isActive}
-                  />
+                  <div className="mt-2">
+                    <SessionStatusBadge
+                      active={session.isActive}
+                    />
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs font-medium text-slate-500">
+                    Duration
+                  </p>
+
+                  <p
+                    className={`mt-1 font-mono text-xl font-bold ${
+                      session.isActive
+                        ? "text-emerald-700"
+                        : "text-slate-800"
+                    }`}
+                  >
+                    {duration}
+                  </p>
                 </div>
               </div>
-
-              <div className="text-right">
-                <p className="text-xs font-medium text-gray-500">
-                  Duration
-                </p>
-
-                <p
-                  className={`mt-1 text-xl font-bold ${
-                    session.isActive
-                      ? "text-emerald-700"
-                      : "text-gray-800"
-                  }`}
-                >
-                  {duration}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* USER */}
+            </CardContent>
+          </Card>
 
           <DetailSection title="User">
             <DetailRow
@@ -2125,8 +2253,6 @@ function SessionDetailDrawer({
             />
           </DetailSection>
 
-          {/* SESSION */}
-
           <DetailSection title="Session">
             <DetailRow
               label="Session ID"
@@ -2136,9 +2262,7 @@ function SessionDetailDrawer({
 
             <DetailRow
               label="Started"
-              value={formatDateTime(
-                session.startedAt,
-              )}
+              value={formatDateTime(session.startedAt)}
             />
 
             <DetailRow
@@ -2159,9 +2283,7 @@ function SessionDetailDrawer({
               label="Ended"
               value={
                 session.endedAt
-                  ? formatDateTime(
-                      session.endedAt,
-                    )
+                  ? formatDateTime(session.endedAt)
                   : "Still active"
               }
             />
@@ -2172,98 +2294,98 @@ function SessionDetailDrawer({
             />
           </DetailSection>
 
-          {/* DEVICE */}
-
           <DetailSection title="Device">
             <DetailRow
               label="Device Type"
-              value={
-                session.deviceType || "—"
-              }
+              value={session.deviceType || "—"}
             />
 
             <DetailRow
               label="Browser"
-              value={
-                session.browser || "—"
-              }
+              value={session.browser || "—"}
             />
 
             <DetailRow
               label="Operating System"
-              value={
-                session.operatingSystem || "—"
-              }
+              value={session.operatingSystem || "—"}
             />
           </DetailSection>
-
-          {/* NETWORK */}
 
           <DetailSection title="Network & Location">
             <DetailRow
               label="IP Address"
-              value={
-                session.ipAddress || "—"
-              }
+              value={session.ipAddress || "—"}
               mono
             />
 
             <DetailRow
               label="Country"
-              value={
-                session.country || "—"
-              }
+              value={session.country || "—"}
             />
 
             <DetailRow
               label="State"
-              value={
-                session.state || "—"
-              }
+              value={session.state || "—"}
             />
 
             <DetailRow
               label="City"
-              value={
-                session.city || "—"
-              }
+              value={session.city || "—"}
             />
 
             <DetailRow
               label="Timezone"
-              value={
-                session.timezone || "—"
-              }
+              value={session.timezone || "—"}
             />
           </DetailSection>
 
-          {/* TECHNICAL */}
-
           <DetailSection title="Technical">
-            <DetailRow
-              label="User Agent"
-              value={
-                session.userAgent || "—"
-              }
-            />
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs font-medium text-slate-500">
+                  User Agent
+                </span>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="max-w-[280px] cursor-help truncate text-right font-mono text-xs text-slate-700">
+                      {session.userAgent || "—"}
+                    </span>
+                  </TooltipTrigger>
+
+                  <TooltipContent className="max-w-sm break-all">
+                    {session.userAgent || "Unknown user agent"}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+
+            <Separator />
 
             <DetailRow
               label="Created"
-              value={formatDateTime(
-                session.createdAt,
-              )}
+              value={formatDateTime(session.createdAt)}
             />
 
             <DetailRow
               label="Updated"
-              value={formatDateTime(
-                session.updatedAt,
-              )}
+              value={formatDateTime(session.updatedAt)}
             />
           </DetailSection>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-800">
+              Security note
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-amber-700">
+              Session information is displayed for security auditing.
+              Sensitive authentication secrets are never displayed here.
+            </p>
+          </div>
         </div>
-      </aside>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -2813,16 +2935,57 @@ function SessionsLoading() {
     <div className="space-y-7">
       <div className="grid gap-4 sm:grid-cols-3">
         {[1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="h-32 animate-pulse rounded-2xl bg-gray-100"
-          />
+          <Card key={item}>
+            <CardContent className="space-y-4 p-5">
+              <div className="flex justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-9 w-20" />
+                </div>
+
+                <Skeleton className="h-11 w-11 rounded-xl" />
+              </div>
+
+              <Skeleton className="h-3 w-32" />
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      <div className="h-20 animate-pulse rounded-2xl bg-gray-100" />
+      <Card>
+        <CardContent className="space-y-4 p-5">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-72" />
 
-      <div className="h-[500px] animate-pulse rounded-2xl bg-gray-100" />
+          <div className="grid gap-3 lg:grid-cols-[1fr_200px_auto]">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-24" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-3 w-48" />
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-4"
+            >
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

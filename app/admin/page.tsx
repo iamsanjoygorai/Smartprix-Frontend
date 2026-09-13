@@ -133,29 +133,41 @@ export default function AdminDashboardPage() {
           Overview
         </h2>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <OverviewCard
-            title="Products"
-            value={overview.products}
-            href="/admin/products"
-          />
+       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <OverviewCard
+    title="Products"
+    value={overview.products}
+    href="/admin/products"
+  />
 
-          <OverviewCard
-            title="News"
-            value={overview.news}
-            href="/admin/news"
-          />
+  <OverviewCard
+    title="News"
+    value={overview.news}
+    href="/admin/news"
+  />
 
-          <OverviewCard
-            title="Users"
-            value={overview.users}
-          />
+  <OverviewCard
+    title="Users"
+    value={overview.users}
+  />
 
-          <OverviewCard
-            title="Brands"
-            value={overview.brands}
-          />
-        </div>
+  <OverviewCard
+    title="Brands"
+    value={overview.brands}
+  />
+
+  <OverviewCard
+    title="Audit Logs"
+    value={0}
+    href="/admin/audit-logs"
+  />
+
+  <OverviewCard
+    title="Audit & Security"
+    value={0}
+    href="/admin/audit"
+  />
+</div>
       </section>
 
       {/* Quick Actions */}

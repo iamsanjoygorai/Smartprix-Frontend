@@ -183,15 +183,36 @@ function getPopularText(item: unknown) {
   return "";
 }
 
-const recordSearch = async (query: string) => {
+const recordSearch = async (
+  query: string,
+  filters?: Record<string, unknown>,
+) => {
   try {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      return;
+    }
+
     const token = localStorage.getItem("smartprix_token");
+
+    const timezone =
+      typeof window !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : null;
 
     await fetch(`${API_URL}/search/record`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+
+        ...(timezone
+          ? {
+              "X-Timezone": timezone,
+            }
+          : {}),
+
         ...(token
           ? {
               Authorization: `Bearer ${token}`,
@@ -199,20 +220,14 @@ const recordSearch = async (query: string) => {
           : {}),
       },
       body: JSON.stringify({
-        query: query.trim(),
+        query: trimmedQuery,
+        filters: filters ?? null,
       }),
     });
   } catch (error) {
-    /*
-     * Analytics must never prevent the actual search.
-     */
-    console.error(
-      "Failed to record search:",
-      error,
-    );
+    console.error("Failed to record search:", error);
   }
 };
-
 
 
 

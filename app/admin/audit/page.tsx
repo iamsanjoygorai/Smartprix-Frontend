@@ -9,9 +9,11 @@ import {
 } from "react";
 
 import {
-  getAuditLogs,
+   getAuditLogs,
   getAllSessions,
   getAllSearchHistory,
+  type AuditLog,
+  type UserSession,
   type SearchHistoryItem,
 } from "@/lib/api/audit";
 
@@ -655,7 +657,7 @@ export default function AdminAuditPage() {
         ================================================= */}
 
         <div className="rounded-2xl border bg-white p-1.5 shadow-sm">
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-3">
             <TabButton
   active={tab === "audit"}
   icon="◉"
@@ -807,267 +809,582 @@ function TabButton({
 ========================================================= */
 
 function AuditLogsSection() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+const [logs, setLogs] = useState<AuditLog[]>([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("");
-  const [action, setAction] = useState("");
-  const [page, setPage] = useState(1);
+const [statistics, setStatistics] = useState({
+  total: 0,
+  active: 0,
+  ended: 0,
+});
 
-  const [pagination, setPagination] = useState({
-    page: 1,
+const [search, setSearch] = useState("");
+const [category, setCategory] = useState("");
+const [action, setAction] = useState("");
+const [page, setPage] = useState(1);
+
+const [pagination, setPagination] = useState({
+page: 1,
+limit: 50,
+total: 0,
+totalPages: 0,
+});
+
+const [selectedLog, setSelectedLog] =
+useState<AuditLog | null>(null);
+
+
+/* =======================================================
+LOAD AUDIT LOGS
+======================================================= */
+
+const loadLogs = useCallback(async () => {
+try {
+setLoading(true);
+setError("");
+
+ 
+  const response = await getAuditLogs({
+    page,
     limit: 50,
-    total: 0,
-    totalPages: 0,
+    user: search.trim() || undefined,
+    category: category || undefined,
+    action: action || undefined,
   });
 
-  const [selectedLog, setSelectedLog] =
-    useState<AuditLog | null>(null);
-
-  /* =======================================================
-     LOAD AUDIT LOGS
-  ======================================================= */
-
-  const loadLogs = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await getAuditLogs({
-        page,
-        limit: 50,
-        user: search.trim() || undefined,
-        category: category || undefined,
-        action: action || undefined,
-      });
-
-      if (!response.success) {
-        throw new Error(
-          response.message || "Failed to load audit history",
-        );
-      }
-
-      setLogs(response.data || []);
-
-      setPagination(
-        response.pagination || {
-          page,
-          limit: 50,
-          total: 0,
-          totalPages: 0,
-        },
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load audit history",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, category, action]);
-
-  useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
-
-  /* =======================================================
-     STATISTICS
-  ======================================================= */
-
-  const statistics = useMemo(() => {
-    const auth = logs.filter(
-      (log) =>
-        log.category?.toUpperCase() === "AUTH",
-    ).length;
-
-    const security = logs.filter(
-      (log) =>
-        log.category?.toUpperCase() === "SECURITY",
-    ).length;
-
-    const admin = logs.filter(
-      (log) =>
-        log.category?.toUpperCase() === "ADMIN",
-    ).length;
-
-    return {
-      total: pagination.total,
-      auth,
-      security,
-      admin,
-    };
-  }, [logs, pagination.total]);
-
-  /* =======================================================
-     CLEAR FILTERS
-  ======================================================= */
-
-  function clearFilters() {
-    setSearch("");
-    setCategory("");
-    setAction("");
-    setPage(1);
-  }
-
-  /* =======================================================
-     LOADING
-  ======================================================= */
-
-  if (loading && logs.length === 0) {
-    return <AuditLoading />;
-  }
-
-  /* =======================================================
-     ERROR
-  ======================================================= */
-
-  if (error && logs.length === 0) {
-    return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-            !
-          </div>
-
-          <div>
-            <h2 className="font-semibold text-red-900">
-              Unable to load audit history
-            </h2>
-
-            <p className="mt-1 text-sm text-red-700">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={loadLogs}
-              className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to load audit history",
     );
   }
 
-  return (
-    <>
-      {/* =================================================
-          STATISTICS
-      ================================================= */}
+  setLogs(response.data || []);
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Total Events"
-          value={statistics.total}
-          icon="◉"
-          description="All recorded activity"
-        />
+  setPagination(
+    response.pagination || {
+      page,
+      limit: 50,
+      total: 0,
+      totalPages: 0,
+    },
+  );
+} catch (err) {
+  console.error("Failed to load audit logs:", err);
 
-        <StatCard
-          label="Authentication"
-          value={statistics.auth}
-          icon="↪"
-          description="Login & account activity"
-        />
+  setError(
+    err instanceof Error
+      ? err.message
+      : "Failed to load audit history",
+  );
+} finally {
+  setLoading(false);
+}
+ 
 
-        <StatCard
-          label="Security"
-          value={statistics.security}
-          icon="◆"
-          description="Security-related events"
-        />
+}, [page, search, category, action]);
 
-        <StatCard
-          label="Admin Activity"
-          value={statistics.admin}
-          icon="★"
-          description="Administrative actions"
-        />
-      </section>
+useEffect(() => {
+loadLogs();
+}, [loadLogs]);
 
-      {/* =================================================
-          FILTERS
-      ================================================= */}
+/* =======================================================
+STATISTICS
+======================================================= */
 
-  
 
-      {/* =================================================
-          AUDIT TABLE
-      ================================================= */}
 
-      <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">
-              Audit Events
-            </h2>
+/* =======================================================
+FILTER STATE
+======================================================= */
 
-            <p className="mt-1 text-xs text-gray-500">
-              {pagination.total.toLocaleString("en-IN")} total events
-            </p>
-          </div>
+const hasFilters =
+Boolean(search.trim()) ||
+Boolean(category) ||
+Boolean(action);
 
-          {loading && (
-            <div className="text-xs font-medium text-blue-600">
-              Refreshing...
-            </div>
-          )}
+function clearFilters() {
+setSearch("");
+setCategory("");
+setAction("");
+setPage(1);
+}
+
+/* =======================================================
+LOADING
+======================================================= */
+
+if (loading && logs.length === 0) {
+return <AuditLoading />;
+}
+
+/* =======================================================
+ERROR
+======================================================= */
+
+if (error && logs.length === 0) {
+return ( <div className="rounded-2xl border border-red-200 bg-red-50 p-6"> <div className="flex items-start gap-4"> <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">
+! </div>
+
+ 
+      <div>
+        <h2 className="font-semibold text-red-900">
+          Unable to load audit history
+        </h2>
+
+        <p className="mt-1 text-sm text-red-700">
+          {error}
+        </p>
+
+        <button
+          type="button"
+          onClick={loadLogs}
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  </div>
+);
+ 
+
+}
+
+return (
+<>
+{/* =================================================
+STATISTICS
+================================================= */}
+
+ 
+  <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatCard
+      label="Total Events"
+      value={statistics.total}
+      icon="◉"
+      description="All recorded activity"
+    />
+
+    <StatCard
+      label="Authentication"
+      value={statistics.auth}
+      icon="↪"
+      description="Login & account activity"
+    />
+
+    <StatCard
+      label="Security"
+      value={statistics.security}
+      icon="◆"
+      description="Security-related events"
+    />
+
+    <StatCard
+      label="Admin Activity"
+      value={statistics.admin}
+      icon="★"
+      description="Administrative actions"
+    />
+  </section>
+
+  {/* =================================================
+      FILTERS
+  ================================================= */}
+
+  <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="border-b border-gray-100 px-5 py-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-gray-900">
+            Activity Filters
+          </h2>
+
+          <p className="mt-1 text-xs text-gray-500">
+            Search and filter recorded security activity.
+          </p>
         </div>
 
-        {logs.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="divide-y">
-            {logs.map((log) => (
-              <AuditRow
-                key={log.id}
-                log={log}
-                onClick={() => setSelectedLog(log)}
-              />
-            ))}
-          </div>
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-xs font-semibold text-gray-500 transition hover:text-red-600"
+          >
+            Clear all filters
+          </button>
         )}
-      </section>
+      </div>
+    </div>
 
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
+    <div className="p-5">
+      <div className="grid gap-3 lg:grid-cols-[1fr_190px_220px_auto]">
+        {/* SEARCH */}
 
-      {pagination.totalPages > 1 && (
-        <Pagination
-          page={pagination.page}
-          totalPages={pagination.totalPages}
-          onChange={setPage}
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            ⌕
+          </span>
+
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Search user, email, action or entity..."
+            className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
+
+        {/* CATEGORY */}
+
+        <select
+          value={category}
+          onChange={(event) => {
+            setCategory(event.target.value);
+            setPage(1);
+          }}
+          className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="">
+            All Categories
+          </option>
+
+          <option value="AUTH">
+            Authentication
+          </option>
+
+          <option value="ACCOUNT">
+            Account
+          </option>
+
+          <option value="PROFILE">
+            Profile
+          </option>
+
+          <option value="SECURITY">
+            Security
+          </option>
+
+          <option value="SESSION">
+            Session
+          </option>
+
+          <option value="SEARCH">
+            Search
+          </option>
+
+          <option value="PRODUCT">
+            Product
+          </option>
+
+          <option value="REVIEW">
+            Review
+          </option>
+
+          <option value="COMMENT">
+            Comment
+          </option>
+
+          <option value="SOCIAL">
+            Social
+          </option>
+
+          <option value="ADMIN">
+            Admin
+          </option>
+
+          <option value="CONTENT">
+            Content
+          </option>
+
+          <option value="PERMISSION">
+            Permission
+          </option>
+
+          <option value="SYSTEM">
+            System
+          </option>
+        </select>
+
+        {/* ACTION */}
+
+        <select
+          value={action}
+          onChange={(event) => {
+            setAction(event.target.value);
+            setPage(1);
+          }}
+          className="h-11 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="">
+            All Actions
+          </option>
+
+          <option value="ACCOUNT_REGISTERED">
+            Account Registered
+          </option>
+
+          <option value="LOGIN_SUCCESS">
+            Login Success
+          </option>
+
+          <option value="LOGIN_FAILED">
+            Login Failed
+          </option>
+
+          <option value="LOGOUT">
+            Logout
+          </option>
+
+          <option value="SESSION_CREATED">
+            Session Created
+          </option>
+
+          <option value="SESSION_ENDED">
+            Session Ended
+          </option>
+
+          <option value="PROFILE_UPDATED">
+            Profile Updated
+          </option>
+
+          <option value="PROFILE_IMAGE_UPLOADED">
+            Profile Image Uploaded
+          </option>
+
+          <option value="PROFILE_IMAGE_DELETED">
+            Profile Image Deleted
+          </option>
+
+          <option value="PASSWORD_CHANGED">
+            Password Changed
+          </option>
+
+          <option value="PASSWORD_RESET_REQUESTED">
+            Password Reset Requested
+          </option>
+
+          <option value="PASSWORD_RESET_COMPLETED">
+            Password Reset Completed
+          </option>
+
+          <option value="SEARCH_PERFORMED">
+            Search Performed
+          </option>
+
+          <option value="PRODUCT_VIEWED">
+            Product Viewed
+          </option>
+
+          <option value="PRODUCT_CREATED">
+            Product Created
+          </option>
+
+          <option value="PRODUCT_UPDATED">
+            Product Updated
+          </option>
+
+          <option value="PRODUCT_DELETED">
+            Product Deleted
+          </option>
+
+          <option value="REVIEW_CREATED">
+            Review Created
+          </option>
+
+          <option value="REVIEW_UPDATED">
+            Review Updated
+          </option>
+
+          <option value="REVIEW_DELETED">
+            Review Deleted
+          </option>
+
+          <option value="PRODUCT_SHARED">
+            Product Shared
+          </option>
+
+          <option value="PRODUCT_FAVORITED">
+            Product Favorited
+          </option>
+
+          <option value="PRODUCT_UNFAVORITED">
+            Product Unfavorited
+          </option>
+
+          <option value="USER_VIEWED">
+            User Viewed
+          </option>
+
+          <option value="USER_UPDATED">
+            User Updated
+          </option>
+
+          <option value="ADMIN_CREATED">
+            Admin Created
+          </option>
+
+          <option value="ADMIN_UPDATED">
+            Admin Updated
+          </option>
+
+          <option value="ADMIN_DISABLED">
+            Admin Disabled
+          </option>
+
+          <option value="ADMIN_ENABLED">
+            Admin Enabled
+          </option>
+
+          <option value="PERMISSION_GRANTED">
+            Permission Granted
+          </option>
+
+          <option value="PERMISSION_REVOKED">
+            Permission Revoked
+          </option>
+
+          <option value="AUDIT_HISTORY_VIEWED">
+            Audit History Viewed
+          </option>
+        </select>
+
+        {/* RESET */}
+
+        <button
+          type="button"
+          onClick={clearFilters}
+          disabled={!hasFilters}
+          className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* ACTIVE FILTERS */}
+
+      {hasFilters && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            Active:
+          </span>
+
+          {search.trim() && (
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              Search: {search.trim()}
+            </span>
+          )}
+
+          {category && (
+            <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+              Category: {category}
+            </span>
+          )}
+
+          {action && (
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              Action: {formatAction(action)}
+            </span>
+          )}
+        </div>
       )}
+    </div>
+  </section>
 
-      {/* =================================================
-          AUDIT DETAIL
-      ================================================= */}
+  {/* =================================================
+      AUDIT TABLE
+  ================================================= */}
 
-      {selectedLog && (
-        <AuditDetailDrawer
-          log={selectedLog}
-          onClose={() => setSelectedLog(null)}
-        />
-      )}
-    </>
-  );
+  <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div>
+        <h2 className="font-semibold text-gray-900">
+          Audit Events
+        </h2>
+
+        <p className="mt-1 text-xs text-gray-500">
+          {pagination.total.toLocaleString("en-IN")} total events
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {loading && (
+          <span className="text-xs font-medium text-blue-600">
+            Refreshing...
+          </span>
+        )}
+
+        <span className="rounded-full bg-gray-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+          Append Only
+        </span>
+      </div>
+    </div>
+
+    {error && logs.length > 0 && (
+      <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-medium text-red-700">
+        {error}
+      </div>
+    )}
+
+    {logs.length === 0 ? (
+      <EmptyState />
+    ) : (
+      <div className="divide-y divide-gray-100">
+        {logs.map((log) => (
+          <AuditRow
+            key={log.id}
+            log={log}
+            onClick={() => setSelectedLog(log)}
+          />
+        ))}
+      </div>
+    )}
+  </section>
+
+  {/* =================================================
+      PAGINATION
+  ================================================= */}
+
+  {pagination.totalPages > 1 && (
+    <Pagination
+      page={pagination.page}
+      totalPages={pagination.totalPages}
+      onChange={setPage}
+    />
+  )}
+
+  {/* =================================================
+      AUDIT DETAIL DRAWER
+  ================================================= */}
+
+  {selectedLog && (
+    <AuditDetailDrawer
+      log={selectedLog}
+      onClose={() => setSelectedLog(null)}
+    />
+  )}
+</>
+ 
+
+);
 }
+
 
 /* =========================================================
    SESSIONS SECTION
 ========================================================= */
 
 function SessionsSection() {
+
+const [statistics, setStatistics] = useState({
+  total: 0,
+  active: 0,
+  ended: 0,
+});
+
   const [sessions, setSessions] =
     useState<UserSession[]>([]);
 
@@ -1086,6 +1403,9 @@ function SessionsSection() {
   const [page, setPage] =
     useState(1);
 
+  const [now, setNow] =
+    useState(() => Date.now());
+
   const [pagination, setPagination] =
     useState({
       page: 1,
@@ -1098,77 +1418,77 @@ function SessionsSection() {
     useState<UserSession | null>(null);
 
   /* =======================================================
+     LIVE CLOCK
+     Updates active session duration automatically
+  ======================================================= */
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  /* =======================================================
      LOAD SESSIONS
   ======================================================= */
 
   const loadSessions = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
+  try {
+    setLoading(true);
+    setError("");
 
-      const response = await getAllSessions({
+    const response = await getAllSessions({
+      page,
+      limit: 50,
+      search: search.trim() || undefined,
+      status: status || undefined,
+    });
+
+    if (!response.success) {
+      throw new Error(
+        response.message || "Failed to load sessions",
+      );
+    }
+
+    setSessions(response.data || []);
+
+    setStatistics({
+      total: Number(response.statistics?.total ?? 0),
+      active: Number(response.statistics?.active ?? 0),
+      ended: Number(response.statistics?.ended ?? 0),
+    });
+
+    setPagination(
+      response.pagination || {
         page,
         limit: 50,
-        search: search.trim() || undefined,
-        status: status || undefined,
-      });
+        total: 0,
+        totalPages: 0,
+      },
+    );
+  } catch (err) {
+    console.error(err);
 
-      if (!response.success) {
-        throw new Error(
-          response.message ||
-            "Failed to load sessions",
-        );
-      }
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Failed to load sessions",
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [page, search, status]);
 
-      setSessions(response.data || []);
-
-      setPagination(
-        response.pagination || {
-          page,
-          limit: 50,
-          total: 0,
-          totalPages: 0,
-        },
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load sessions",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, status]);
-
-  useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+useEffect(() => {
+  loadSessions();
+}, [loadSessions]);
 
   /* =======================================================
-     STATISTICS
-  ======================================================= */
-
-  const statistics = useMemo(() => {
-    const active = sessions.filter(
-      (session) => session.isActive,
-    ).length;
-
-    const ended = sessions.filter(
-      (session) => !session.isActive,
-    ).length;
-
-    return {
-      total: pagination.total,
-      active,
-      ended,
-    };
-  }, [sessions, pagination.total]);
-
-  /* =======================================================
-     CLEAR
+     CLEAR FILTERS
   ======================================================= */
 
   function clearSessionFilters() {
@@ -1226,28 +1546,27 @@ function SessionsSection() {
       ================================================= */}
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <SessionStatCard
-          label="Total Sessions"
-          value={statistics.total}
-          icon="◌"
-          description="All recorded sessions"
-        />
+  <SessionStatCard
+    label="Total Sessions"
+    value={statistics.total}
+    icon="◌"
+    description="All recorded sessions"
+  />
 
-        <SessionStatCard
-          label="Active Sessions"
-          value={statistics.active}
-          icon="●"
-          description="Currently active"
-          active
-        />
+  <SessionStatCard
+    label="Active Sessions"
+    value={statistics.active}
+    icon="●"
+    description="Currently active"
+  />
 
-        <SessionStatCard
-          label="Ended Sessions"
-          value={statistics.ended}
-          icon="○"
-          description="Previously ended"
-        />
-      </section>
+  <SessionStatCard
+    label="Ended Sessions"
+    value={statistics.ended}
+    icon="✓"
+    description="Completed sessions"
+  />
+</section>
 
       {/* =================================================
           SESSION FILTERS
@@ -1260,7 +1579,8 @@ function SessionsSection() {
           </h2>
 
           <p className="mt-1 text-xs text-gray-500">
-            Super Admin view of user login sessions and connection details.
+            Super Admin view of user login sessions and
+            connection details.
           </p>
         </div>
 
@@ -1328,7 +1648,8 @@ function SessionsSection() {
             </h2>
 
             <p className="mt-1 text-xs text-gray-500">
-              {pagination.total.toLocaleString("en-IN")} sessions recorded
+              {pagination.total.toLocaleString("en-IN")}{" "}
+              sessions recorded
             </p>
           </div>
 
@@ -1343,7 +1664,7 @@ function SessionsSection() {
           <SessionsEmptyState />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px]">
+            <table className="w-full min-w-[1180px]">
               <thead>
                 <tr className="border-b bg-gray-50/80 text-left">
                   <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -1363,7 +1684,11 @@ function SessionsSection() {
                   </th>
 
                   <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                    Last Seen
+                    Last Activity
+                  </th>
+
+                  <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Duration
                   </th>
 
                   <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -1377,12 +1702,12 @@ function SessionsSection() {
               <tbody className="divide-y">
                 {sessions.map((session) => (
                   <SessionRow
-                    key={session.id}
-                    session={session}
-                    onClick={() =>
-                      setSelectedSession(session)
-                    }
-                  />
+  key={session.id}
+  session={session}
+  onClick={() =>
+    setSelectedSession(session)
+  }
+/>
                 ))}
               </tbody>
             </table>
@@ -1409,6 +1734,7 @@ function SessionsSection() {
       {selectedSession && (
         <SessionDetailDrawer
           session={selectedSession}
+          now={now}
           onClose={() =>
             setSelectedSession(null)
           }
@@ -1427,41 +1753,33 @@ function SessionStatCard({
   value,
   icon,
   description,
-  active = false,
 }: {
   label: string;
   value: number;
   icon: string;
   description: string;
-  active?: boolean;
 }) {
   return (
-    <div className="group rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">
+          <p className="text-sm font-medium text-slate-500">
             {label}
           </p>
 
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
-            {value.toLocaleString("en-IN")}
+          <p className="mt-2 text-3xl font-bold text-slate-900">
+            {Number(value ?? 0).toLocaleString()}
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            {description}
           </p>
         </div>
 
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg ${
-            active
-              ? "bg-emerald-50 text-emerald-600"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl">
           {icon}
         </div>
       </div>
-
-      <p className="mt-3 text-xs text-gray-400">
-        {description}
-      </p>
     </div>
   );
 }
@@ -1658,9 +1976,11 @@ function SessionStatusBadge({
 
 function SessionDetailDrawer({
   session,
+  now,
   onClose,
 }: {
   session: UserSession;
+  now: number;
   onClose: () => void;
 }) {
   const userName =
@@ -1668,6 +1988,11 @@ function SessionDetailDrawer({
     session.user?.email ||
     session.user?.mobile ||
     "Unknown User";
+
+  const duration = getSessionDuration(
+    session,
+    now,
+  );
 
   return (
     <div className="fixed inset-0 z-50">
@@ -1713,16 +2038,16 @@ function SessionDetailDrawer({
         {/* CONTENT */}
 
         <div className="space-y-6 p-6">
-          {/* STATUS */}
+          {/* STATUS + DURATION */}
 
           <div
-            className={`rounded-2xl border p-4 ${
+            className={`rounded-2xl border p-5 ${
               session.isActive
                 ? "border-emerald-200 bg-emerald-50"
                 : "border-gray-200 bg-gray-50"
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-medium text-gray-500">
                   Session Status
@@ -1735,9 +2060,21 @@ function SessionDetailDrawer({
                 </div>
               </div>
 
-              <span className="text-3xl">
-                {session.isActive ? "●" : "○"}
-              </span>
+              <div className="text-right">
+                <p className="text-xs font-medium text-gray-500">
+                  Duration
+                </p>
+
+                <p
+                  className={`mt-1 text-xl font-bold ${
+                    session.isActive
+                      ? "text-emerald-700"
+                      : "text-gray-800"
+                  }`}
+                >
+                  {duration}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1791,9 +2128,12 @@ function SessionDetailDrawer({
               label="Last Seen"
               value={
                 session.lastSeenAt
-                  ? formatDateTime(
+                  ? `${formatDateTime(
                       session.lastSeenAt,
-                    )
+                    )} (${formatRelativeTime(
+                      session.lastSeenAt,
+                      now,
+                    )})`
                   : "—"
               }
             />
@@ -1805,8 +2145,13 @@ function SessionDetailDrawer({
                   ? formatDateTime(
                       session.endedAt,
                     )
-                  : "—"
+                  : "Still active"
               }
+            />
+
+            <DetailRow
+              label="Duration"
+              value={duration}
             />
           </DetailSection>
 
@@ -2305,7 +2650,7 @@ function StatCard({
   description,
 }: {
   label: string;
-  value: number;
+  value?: number | null;
   icon: string;
   description: string;
 }) {
@@ -2318,7 +2663,7 @@ function StatCard({
           </p>
 
           <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
-            {value.toLocaleString("en-IN")}
+            {Number(value ?? 0).toLocaleString("en-IN")}
           </p>
         </div>
 
@@ -2625,6 +2970,131 @@ function formatLocation(
   }
 
   return "Location unavailable";
+}
+
+/* =========================================================
+   SESSION DURATION HELPERS
+========================================================= */
+
+function getSessionDuration(
+  session: UserSession,
+  now: number,
+) {
+  const startedAt =
+    new Date(session.startedAt).getTime();
+
+  if (!Number.isFinite(startedAt)) {
+    return "—";
+  }
+
+  let endAt: number;
+
+  if (
+    session.isActive ||
+    !session.endedAt
+  ) {
+    endAt = now;
+  } else {
+    endAt =
+      new Date(session.endedAt).getTime();
+
+    if (!Number.isFinite(endAt)) {
+      endAt = now;
+    }
+  }
+
+  const durationMs = Math.max(
+    0,
+    endAt - startedAt,
+  );
+
+  return formatDuration(durationMs);
+}
+
+function formatDuration(
+  durationMs: number,
+) {
+  const totalSeconds = Math.floor(
+    durationMs / 1000,
+  );
+
+  const days = Math.floor(
+    totalSeconds / 86400,
+  );
+
+  const hours = Math.floor(
+    (totalSeconds % 86400) / 3600,
+  );
+
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60,
+  );
+
+  const seconds =
+    totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${seconds}s`;
+}
+
+function formatRelativeTime(
+  date: string,
+  now: number,
+) {
+  const timestamp =
+    new Date(date).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return "Unknown";
+  }
+
+  const diffSeconds = Math.max(
+    0,
+    Math.floor(
+      (now - timestamp) / 1000,
+    ),
+  );
+
+  if (diffSeconds < 5) {
+    return "Just now";
+  }
+
+  if (diffSeconds < 60) {
+    return `${diffSeconds}s ago`;
+  }
+
+  const minutes = Math.floor(
+    diffSeconds / 60,
+  );
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(
+    minutes / 60,
+  );
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(
+    hours / 24,
+  );
+
+  return `${days}d ago`;
 }
 
 /* =========================================================

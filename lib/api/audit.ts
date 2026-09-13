@@ -192,12 +192,26 @@ export interface UserSession {
 
 export interface SessionsResponse {
   success: boolean;
-
   data: UserSession[];
 
-  pagination: SessionPagination;
+  statistics: {
+    total: number;
+    active: number;
+    ended: number;
+  };
 
-  message?: string;
+  filteredStatistics: {
+    total: number;
+    active: number;
+    ended: number;
+  };
+
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /* =========================================================

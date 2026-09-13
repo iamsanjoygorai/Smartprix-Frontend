@@ -456,6 +456,11 @@ export default function LoginPage() {
   setLoading(true);
 
   try {
+    const timezone =
+      typeof window !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : null;
+
     const response = await fetch(
       `${API_URL}/auth/login`,
       {
@@ -463,10 +468,16 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          ...(timezone
+            ? {
+                "X-Timezone": timezone,
+              }
+            : {}),
         },
         body: JSON.stringify({
           identifier: cleanIdentifier,
           password,
+          timezone,
         }),
       },
     );
@@ -495,26 +506,17 @@ export default function LoginPage() {
       return;
     }
 
-    /*
-     * Store the new token and user information.
-     */
-   saveLoginData(token, user);
+    saveLoginData(token, user);
 
-queryClient.setQueryData(
-  ["current-user"],
-  user ?? null,
-);
+    queryClient.setQueryData(
+      ["current-user"],
+      user ?? null,
+    );
 
-redirectAfterLogin(user);
- 
+    void queryClient.invalidateQueries({
+      queryKey: ["current-user"],
+    });
 
-void queryClient.invalidateQueries({
-  queryKey: ["current-user"],
-});
-
-    /*
-     * Redirect based on the user's role.
-     */
     redirectAfterLogin(user);
   } catch (error) {
     console.error("Login failed:", error);

@@ -27,6 +27,11 @@ export interface LoginResult {
 export async function login(
   input: LoginInput,
 ) {
+  const timezone =
+    typeof window !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : null;
+
   return apiFetch<{
     success: boolean;
     message?: string;
@@ -36,6 +41,7 @@ export async function login(
     body: JSON.stringify({
       identifier: input.identifier.trim(),
       password: input.password,
+      timezone,
     }),
   });
 }

@@ -25,6 +25,21 @@ export async function apiFetch<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
+  const timezone =
+  typeof window !== "undefined"
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : null;
+
+if (timezone) {
+  headers.set("X-Timezone", timezone);
+}
+
+console.log("CLIENT TIMEZONE:", timezone);
+console.log(
+  "CLIENT X-TIMEZONE HEADER:",
+  headers.get("X-Timezone"),
+);
+
   const url = `${API_URL}${endpoint}`;
 
   console.log("API Request:", {

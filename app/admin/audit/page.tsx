@@ -907,23 +907,18 @@ const loadLogs = useCallback(async () => {
       );
     }
 
-    const auditLogs = Array.isArray(response.data)
-      ? response.data
-      : response.data?.logs || [];
+    const auditLogs = response.data ?? [];
 
-    setLogs(auditLogs);
+setLogs(auditLogs);
 
-    setPagination(
-      !Array.isArray(response.data) &&
-      response.data?.pagination
-        ? response.data.pagination
-        : {
-            page,
-            limit: 50,
-            total: auditLogs.length,
-            totalPages: auditLogs.length > 0 ? 1 : 0,
-          },
-    );
+setPagination(
+  response.pagination ?? {
+    page,
+    limit: 50,
+    total: auditLogs.length,
+    totalPages: auditLogs.length > 0 ? 1 : 0,
+  },
+);
 
   } catch (err) {
     console.error("Failed to load audit logs:", err);

@@ -70,29 +70,9 @@ export interface AuditPagination {
 export interface AuditResponse {
   success: boolean;
 
-  data: {
-    logs: AuditLog[];
+  data: AuditLog[];
 
-    stats: {
-      total: number;
-      today: number;
-      adminActions: number;
-      failed: number;
-    };
-
-    filters: {
-      actions: string[];
-      resources: string[];
-      admins: Array<{
-        id: string;
-        name?: string | null;
-        email?: string | null;
-        role?: string | null;
-      }>;
-    };
-
-    pagination: AuditPagination;
-  };
+  pagination: AuditPagination;
 
   message?: string;
 }

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getAuditLogs } from "@/lib/api/audit";
 
 import {
   getAdminDashboard,
   type AdminDashboard,
 } from "@/lib/api/admin";
+import { getHistoryTimeline } from "@/lib/api/history";
 
 interface AdminUser {
   id: string;
@@ -22,37 +24,64 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const [auditCount, setAuditCount] = useState(0);
+  const [historyCount, setHistoryCount] = useState(0);
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        setLoading(true);
-        setError("");
+ useEffect(() => {
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        const response = await getAdminDashboard();
+      const [
+  dashboardResponse,
+  auditResponse,
+  historyResponse,
+] = await Promise.all([
+  getAdminDashboard(),
 
-        if (!response.success || !response.data) {
-          throw new Error(
-            response.message || "Failed to load dashboard",
-          );
-        }
+  getAuditLogs({
+    page: 1,
+    limit: 1,
+  }),
 
-        setDashboard(response.data);
-      } catch (error) {
-        console.error(error);
+  getHistoryTimeline({
+    page: 1,
+    limit: 1,
+  }),
+]);
 
-        setError(
-          error instanceof Error
-            ? error.message
-            : "Failed to load dashboard",
+      if (
+        !dashboardResponse.success ||
+        !dashboardResponse.data
+      ) {
+        throw new Error(
+          dashboardResponse.message ||
+            "Failed to load dashboard",
         );
-      } finally {
-        setLoading(false);
       }
-    };
 
-    loadDashboard();
-  }, []);
+      setDashboard(dashboardResponse.data);
+
+      setAuditCount(
+        auditResponse.pagination?.total ?? 0,
+      );
+      setHistoryCount(historyResponse.total ?? 0);
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load dashboard",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadDashboard();
+}, []);
 
   if (loading) {
     return (
@@ -133,7 +162,7 @@ export default function AdminDashboardPage() {
           Overview
         </h2>
 
-       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   <OverviewCard
     title="Products"
     value={overview.products}
@@ -157,16 +186,21 @@ export default function AdminDashboardPage() {
   />
 
   <OverviewCard
-    title="Audit Logs"
-    value={0}
-    href="/admin/audit-logs"
-  />
+  title="Audit Logs"
+  value={auditCount}
+  href="/admin/audit-logs"
+/>
 
   <OverviewCard
     title="Audit & Security"
     value={0}
     href="/admin/audit"
   />
+  <OverviewCard
+  title="History"
+  value={historyCount}
+  href="/admin/history"
+/>
 </div>
       </section>
 

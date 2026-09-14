@@ -3,20 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  type AdminPermission,
-} from "@/lib/admin/permissions";
-
 interface AdminUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  permissions: string[];
+  id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  permissions?: string[];
 }
 
 interface AdminPermissionGuardProps {
-  permission: AdminPermission;
+  permission: string;
   children: React.ReactNode;
 }
 
@@ -43,18 +39,29 @@ export default function AdminPermissionGuard({
         storedUser,
       ) as AdminUser;
 
+      const role = String(
+        user.role ?? "",
+      ).toUpperCase();
+
       const isAdminUser =
-        user.role === "ADMIN" ||
-        user.role === "SUPER_ADMIN" ||
-        user.role === "EDITOR";
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        role === "EDITOR";
 
       if (!isAdminUser) {
         router.replace("/");
         return;
       }
 
+      // SUPER_ADMIN has full access.
+      if (role === "SUPER_ADMIN") {
+        setAllowed(true);
+        return;
+      }
+
       const hasPermission =
-        user.permissions?.includes(permission);
+        Array.isArray(user.permissions) &&
+        user.permissions.includes(permission);
 
       if (!hasPermission) {
         router.replace("/admin");
@@ -63,8 +70,13 @@ export default function AdminPermissionGuard({
 
       setAllowed(true);
     } catch {
-      localStorage.removeItem("smartprix_user");
-      localStorage.removeItem("smartprix_token");
+      localStorage.removeItem(
+        "smartprix_user",
+      );
+
+      localStorage.removeItem(
+        "smartprix_token",
+      );
 
       router.replace("/login");
     } finally {

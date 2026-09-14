@@ -166,19 +166,7 @@ export default function UserSettingsPage() {
   // Password change
   // --------------------------------------------------
 
- if (!currentPassword || !newPassword || !confirmPassword) {
-  setPasswordMessage(
-    "Please fill in all password fields.",
-  );
-  return;
-}
 
-if (newPassword.length < 6) {
-  setPasswordMessage(
-    "New password must be at least 6 characters.",
-  );
-  return;
-}
 
 if (newPassword !== confirmPassword) {
   setPasswordMessage(

@@ -1,42 +1,93 @@
+import FooterBrand from "./footer/FooterBrand";
+import FooterBottom from "./footer/FooterBottom";
+import FooterColumn from "./footer/FooterColumn";
+
+import {
+  footerAbout,
+  footerCategories,
+  footerMobileBrands,
+  footerMobileLists,
+} from "./footer/footer.data";
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
 export default function Footer() {
   return (
-    <footer className="border-t bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="grid gap-8 sm:grid-cols-3">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Smartprix
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Compare products, prices, specifications and deals.
-            </p>
+    <footer className="border-t border-gray-200 bg-white">
+      <div
+        className="
+          mx-auto
+          w-full
+          max-w-[1035px]
+          px-4
+          py-4
+          sm:px-5
+        "
+      >
+        {/* =================================================
+            DESKTOP / TABLET FOOTER
+        ================================================= */}
+
+        <div
+          className="
+            grid
+            grid-cols-1
+            gap-6
+
+            sm:grid-cols-2
+            sm:gap-x-8
+            sm:gap-y-6
+
+            lg:grid-cols-5
+            lg:gap-6
+          "
+        >
+          {/* 1. Brand / Social */}
+          <div className="min-w-0">
+            <FooterBrand />
           </div>
 
-          <div>
-            <h3 className="font-semibold text-gray-900">
-              Explore
-            </h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li>Mobiles</li>
-              <li>Laptops</li>
-              <li>Compare</li>
-              <li>Brands</li>
-            </ul>
+          {/* 2. Categories */}
+          <div className="min-w-0">
+            <FooterColumn
+              title="Categories"
+              links={footerCategories}
+            />
           </div>
 
-          <div>
-            <h3 className="font-semibold text-gray-900">
-              Account
-            </h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li>Login</li>
-              <li>Register</li>
-            </ul>
+          {/* 3. Mobile Brands */}
+          <div className="min-w-0">
+            <FooterColumn
+              title="Mobile Brands"
+              links={footerMobileBrands}
+            />
+          </div>
+
+          {/* 4. Mobile Lists */}
+          <div className="min-w-0">
+            <FooterColumn
+              title="Mobile Lists"
+              links={footerMobileLists}
+            />
+          </div>
+
+          {/* 5. About */}
+          <div className="min-w-0">
+            <FooterColumn
+              title="About"
+              links={footerAbout}
+            />
           </div>
         </div>
 
-        <div className="mt-8 border-t pt-4 text-sm text-gray-500">
-          © 2026 Smartprix Clone. All rights reserved.
+        {/* =================================================
+            FOOTER BOTTOM
+        ================================================= */}
+
+        <div className="mt-5">
+          <FooterBottom />
         </div>
       </div>
     </footer>

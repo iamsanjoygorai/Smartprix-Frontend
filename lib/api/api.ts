@@ -18,22 +18,30 @@ export async function apiFetch<T>(
   }
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`,
+    );
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(
+    `${API_URL}${endpoint}`,
+    {
+      ...options,
+      headers,
+    },
+  );
+
+  const result = await response.json().catch(
+    () => null,
+  );
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => null);
-
     throw new Error(
-      errorData?.message ??
+      result?.message ??
         `API request failed: ${response.status}`,
     );
   }
 
-  return response.json() as Promise<T>;
+  return result as T;
 }

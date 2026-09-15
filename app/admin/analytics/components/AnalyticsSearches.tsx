@@ -73,27 +73,30 @@ function SearchRow({
       : 0;
 
   return (
-    <div className="group rounded-xl border border-slate-100 bg-white p-3 transition-all duration-200 hover:border-slate-200 hover:shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-xs font-bold text-slate-400 ring-1 ring-slate-200">
+    <div className="group rounded-xl border border-slate-100 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Rank */}
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-[11px] font-bold text-slate-400 ring-1 ring-slate-200">
           #{rank}
         </div>
 
+        {/* Query */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <Search
               className="h-3.5 w-3.5 shrink-0 text-slate-400"
               strokeWidth={2}
             />
 
             <p
-              className="truncate text-sm font-semibold text-slate-700"
+              className="min-w-0 truncate text-sm font-semibold text-slate-700"
               title={query}
             >
               {query}
             </p>
           </div>
 
+          {/* Search popularity */}
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div
               className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
@@ -104,6 +107,7 @@ function SearchRow({
           </div>
         </div>
 
+        {/* Search count */}
         <div className="shrink-0 text-right">
           <p className="text-sm font-bold text-slate-800">
             {formatNumber(count)}
@@ -142,26 +146,26 @@ export default function AnalyticsSearches({
       aria-labelledby="analytics-searches-heading"
       className="mb-6"
     >
-      <div className="mb-3 flex items-center gap-2">
+      {/* Section heading */}
+      <div className="mb-4 flex min-w-0 items-center gap-2 px-0.5">
         <Search
-          className="h-4 w-4 text-slate-400"
+          className="h-4 w-4 shrink-0 text-slate-400"
           strokeWidth={2}
         />
 
         <h2
           id="analytics-searches-heading"
-          className="text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="whitespace-nowrap text-sm font-bold uppercase tracking-wider text-slate-500"
         >
           Search Analytics
         </h2>
       </div>
 
+      {/* Main card */}
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
-
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
+        <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Title */}
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 ring-1 ring-cyan-100">
               <TrendingUp
@@ -171,21 +175,18 @@ export default function AnalyticsSearches({
             </div>
 
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="whitespace-nowrap text-sm font-bold text-slate-900">
                 Popular Searches
               </h3>
 
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 truncate text-xs text-slate-400">
                 Search demand • {data.range}
               </p>
             </div>
           </div>
 
-          {/* ===================================================
-              SUMMARY STATS
-          =================================================== */}
-
-          <div className="grid grid-cols-2 gap-5 sm:flex sm:items-center sm:gap-6">
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6">
             <div className="text-left sm:text-right">
               <p className="text-lg font-bold tracking-tight text-slate-900">
                 {formatNumber(data.totalSearches)}
@@ -196,7 +197,7 @@ export default function AnalyticsSearches({
               </p>
             </div>
 
-            <div className="h-8 w-px bg-slate-200" />
+            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
             <div className="text-left sm:text-right">
               <p className="text-lg font-bold tracking-tight text-slate-900">
@@ -210,32 +211,31 @@ export default function AnalyticsSearches({
           </div>
         </div>
 
-        {/* =====================================================
-            CONTENT
-        ===================================================== */}
-
+        {/* Content */}
         <div className="p-5">
           {searches.length === 0 ? (
             <EmptySearchState />
           ) : (
             <>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+              {/* Content heading */}
+              <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
                   <BarChart3
-                    className="h-4 w-4 text-slate-400"
+                    className="h-4 w-4 shrink-0 text-slate-400"
                     strokeWidth={2}
                   />
 
-                  <p className="text-xs font-semibold text-slate-600">
+                  <p className="truncate text-xs font-semibold text-slate-600">
                     Top search terms
                   </p>
                 </div>
 
-                <p className="text-[11px] text-slate-400">
+                <p className="shrink-0 text-[11px] text-slate-400">
                   Showing {searches.length}
                 </p>
               </div>
 
+              {/* Search rows */}
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {searches.map((search, index) => (
                   <SearchRow

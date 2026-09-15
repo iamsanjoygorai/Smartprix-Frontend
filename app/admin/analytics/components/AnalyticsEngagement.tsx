@@ -114,13 +114,18 @@ function EventRow({
       : 0;
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3 transition-all duration-200 hover:border-slate-200 hover:shadow-sm">
-      <div className="flex items-center gap-3">
+    <div className="group rounded-xl border border-slate-100 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Event icon */}
         <EventIcon eventType={eventType} />
 
+        {/* Event details */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-slate-700">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <p
+              className="min-w-0 truncate text-sm font-semibold text-slate-700"
+              title={formatEventName(eventType)}
+            >
               {formatEventName(eventType)}
             </p>
 
@@ -129,6 +134,7 @@ function EventRow({
             </span>
           </div>
 
+          {/* Percentage bar */}
           <div className="mt-2 flex items-center gap-2">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
               <div
@@ -164,26 +170,26 @@ export default function AnalyticsEngagement({
       aria-labelledby="analytics-engagement-heading"
       className="mb-6"
     >
-      <div className="mb-3 flex items-center gap-2">
+      {/* Section heading */}
+      <div className="mb-4 flex min-w-0 items-center gap-2 px-0.5">
         <Activity
-          className="h-4 w-4 text-slate-400"
+          className="h-4 w-4 shrink-0 text-slate-400"
           strokeWidth={2}
         />
 
         <h2
           id="analytics-engagement-heading"
-          className="text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="whitespace-nowrap text-sm font-bold uppercase tracking-wider text-slate-500"
         >
           Engagement Analytics
         </h2>
       </div>
 
+      {/* Main card */}
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
-
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
+        <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+          {/* Title */}
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
               <Activity
@@ -193,21 +199,18 @@ export default function AnalyticsEngagement({
             </div>
 
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="whitespace-nowrap text-sm font-bold text-slate-900">
                 User Engagement
               </h3>
 
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 truncate text-xs text-slate-400">
                 Interaction activity • {data.range}
               </p>
             </div>
           </div>
 
-          {/* ===================================================
-              SUMMARY
-          =================================================== */}
-
-          <div className="grid grid-cols-2 gap-5 sm:flex sm:items-center sm:gap-6">
+          {/* Summary */}
+          <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:gap-6">
             <div className="text-left sm:text-right">
               <p className="text-lg font-bold tracking-tight text-slate-900">
                 {formatNumber(data.totalEvents)}
@@ -218,7 +221,7 @@ export default function AnalyticsEngagement({
               </p>
             </div>
 
-            <div className="h-8 w-px bg-slate-200" />
+            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
             <div className="text-left sm:text-right">
               <p className="text-lg font-bold tracking-tight text-slate-900">
@@ -234,10 +237,7 @@ export default function AnalyticsEngagement({
           </div>
         </div>
 
-        {/* =====================================================
-            CONTENT
-        ===================================================== */}
-
+        {/* Event content */}
         <div className="p-5">
           {data.events.length === 0 ? (
             <EmptyState />
@@ -255,10 +255,7 @@ export default function AnalyticsEngagement({
           )}
         </div>
 
-        {/* =====================================================
-            PRODUCT VIEW INSIGHT
-        ===================================================== */}
-
+        {/* Product discovery insight */}
         {data.uniqueProductsViewed > 0 && (
           <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-4">
             <div className="flex items-center gap-3">

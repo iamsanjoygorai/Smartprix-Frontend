@@ -7,9 +7,7 @@ import {
   Users,
 } from "lucide-react";
 
-import type {
-  AnalyticsActivity,
-} from "@/lib/api/analytics";
+import type { AnalyticsActivity } from "@/lib/api/analytics";
 
 /* =========================================================
    TYPES
@@ -191,15 +189,16 @@ export default function AnalyticsActivity({
       aria-labelledby="analytics-activity-heading"
       className="mb-6"
     >
-      <div className="mb-3 flex items-center gap-2">
+      {/* Section heading */}
+      <div className="mb-4 flex min-w-0 items-center gap-2 px-0.5">
         <Activity
-          className="h-4 w-4 text-slate-400"
+          className="h-4 w-4 shrink-0 text-slate-400"
           strokeWidth={2}
         />
 
         <h2
           id="analytics-activity-heading"
-          className="text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="whitespace-nowrap text-sm font-bold uppercase tracking-wider text-slate-500"
         >
           Activity Analytics
         </h2>
@@ -211,7 +210,7 @@ export default function AnalyticsActivity({
         ===================================================== */}
 
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fuchsia-50 text-fuchsia-600 ring-1 ring-fuchsia-100">
               <ClipboardList
                 className="h-5 w-5"
@@ -219,12 +218,12 @@ export default function AnalyticsActivity({
               />
             </div>
 
-            <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900">
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-bold text-slate-900">
                 System Activity
               </h3>
 
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 truncate text-xs text-slate-400">
                 Audit activity • {data.range}
               </p>
             </div>
@@ -234,7 +233,7 @@ export default function AnalyticsActivity({
               TOTAL
           =================================================== */}
 
-          <div className="text-left sm:text-right">
+          <div className="shrink-0 text-left sm:text-right">
             <p className="text-xl font-bold tracking-tight text-slate-900">
               {formatNumber(data.totalActivities)}
             </p>
@@ -257,7 +256,7 @@ export default function AnalyticsActivity({
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Activity
-                    className="h-4 w-4 text-slate-400"
+                    className="h-4 w-4 shrink-0 text-slate-400"
                     strokeWidth={2}
                   />
 
@@ -266,7 +265,7 @@ export default function AnalyticsActivity({
                   </p>
                 </div>
 
-                <p className="text-[11px] text-slate-400">
+                <p className="shrink-0 text-[11px] text-slate-400">
                   Showing {data.activities.length}
                 </p>
               </div>

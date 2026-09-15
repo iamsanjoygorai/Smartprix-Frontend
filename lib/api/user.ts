@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api/api";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -295,11 +295,14 @@ export async function deleteProfileImage(): Promise<{
 
 export async function updateCompleteProfile(
   formData: FormData,
-) {
-  return apiFetch("/profile/complete", {
-    method: "PATCH",
-    body: formData,
-  });
+): Promise<UpdateProfileResponse> {
+  return apiFetch<UpdateProfileResponse>(
+    "/profile/complete",
+    {
+      method: "PATCH",
+      body: formData,
+    },
+  );
 }
 
 /* =========================================================

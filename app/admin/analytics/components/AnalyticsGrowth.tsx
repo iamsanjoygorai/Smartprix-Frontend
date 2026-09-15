@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  BarChart3,
-  Package,
-  Users,
-} from "lucide-react";
+import { BarChart3, Package, Users } from "lucide-react";
 
 import type {
   AnalyticsProductGrowth,
@@ -185,7 +181,11 @@ function GrowthChart({
 
   const areaPath =
     chartPoints.length > 0
-      ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${height - padding} L ${chartPoints[0].x} ${height - padding} Z`
+      ? `${linePath} L ${
+          chartPoints[chartPoints.length - 1].x
+        } ${height - padding} L ${
+          chartPoints[0].x
+        } ${height - padding} Z`
       : "";
 
   const maxValue = Math.max(
@@ -201,8 +201,8 @@ function GrowthChart({
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBackgroundClassName}`}
           >
@@ -212,12 +212,12 @@ function GrowthChart({
             />
           </div>
 
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-bold text-slate-900">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-bold leading-5 text-slate-900">
               {title}
             </h3>
 
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 truncate text-xs leading-4 text-slate-400">
               {subtitle}
             </p>
           </div>
@@ -271,28 +271,26 @@ function GrowthChart({
                 </defs>
 
                 {/* Horizontal grid */}
-                {[0, 1, 2, 3, 4].map(
-                  (line) => {
-                    const y =
-                      padding +
-                      (line / 4) *
-                        (height - padding * 2);
+                {[0, 1, 2, 3, 4].map((line) => {
+                  const y =
+                    padding +
+                    (line / 4) *
+                      (height - padding * 2);
 
-                    return (
-                      <line
-                        key={line}
-                        x1={padding}
-                        y1={y}
-                        x2={width - padding}
-                        y2={y}
-                        stroke="currentColor"
-                        className="text-slate-200"
-                        strokeWidth="1"
-                        strokeDasharray="4 6"
-                      />
-                    );
-                  },
-                )}
+                  return (
+                    <line
+                      key={line}
+                      x1={padding}
+                      y1={y}
+                      x2={width - padding}
+                      y2={y}
+                      stroke="currentColor"
+                      className="text-slate-200"
+                      strokeWidth="1"
+                      strokeDasharray="4 6"
+                    />
+                  );
+                })}
 
                 {/* Area */}
                 <path
@@ -313,20 +311,18 @@ function GrowthChart({
                 />
 
                 {/* Data points */}
-                {chartPoints.map(
-                  (point, index) => (
-                    <circle
-                      key={`${point.date}-${index}`}
-                      cx={point.x}
-                      cy={point.y}
-                      r="4"
-                      fill="white"
-                      stroke="currentColor"
-                      className="text-indigo-500"
-                      strokeWidth="2.5"
-                    />
-                  ),
-                )}
+                {chartPoints.map((point, index) => (
+                  <circle
+                    key={`${point.date}-${index}`}
+                    cx={point.x}
+                    cy={point.y}
+                    r="4"
+                    fill="white"
+                    stroke="currentColor"
+                    className="text-indigo-500"
+                    strokeWidth="2.5"
+                  />
+                ))}
               </svg>
 
               {/* Maximum value */}
@@ -363,8 +359,7 @@ function GrowthChart({
                     {points.length > 1 && (
                       <span className="shrink-0 text-[11px] font-medium text-slate-500">
                         {formatDate(
-                          points[points.length - 1]
-                            .date,
+                          points[points.length - 1].date,
                         )}
                       </span>
                     )}
@@ -392,15 +387,16 @@ export default function AnalyticsGrowth({
       aria-labelledby="analytics-growth-heading"
       className="mb-6"
     >
-      <div className="mb-3 flex items-center gap-2">
+      {/* Section heading */}
+      <div className="mb-4 flex min-w-0 items-center gap-2 px-0.5">
         <BarChart3
-          className="h-4 w-4 text-slate-400"
+          className="h-4 w-4 shrink-0 text-slate-400"
           strokeWidth={2}
         />
 
         <h2
           id="analytics-growth-heading"
-          className="text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="whitespace-nowrap text-sm font-bold uppercase tracking-wider text-slate-500"
         >
           Growth Trends
         </h2>

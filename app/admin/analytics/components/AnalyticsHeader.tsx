@@ -57,7 +57,8 @@ export default function AnalyticsHeader({
           {/* =====================================================
               TITLE
           ===================================================== */}
-          <div className="flex min-w-0 items-start gap-4">
+
+          <div className="flex min-w-0 flex-1 items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-lg shadow-indigo-200">
               <Sparkles
                 className="h-6 w-6"
@@ -71,14 +72,15 @@ export default function AnalyticsHeader({
                   Analytics
                 </h1>
 
-                <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
                   Admin
                 </span>
               </div>
 
               <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                Monitor users, products, searches, engagement,
-                and platform activity from one place.
+                Monitor users, products, searches,
+                engagement, and platform activity from
+                one place.
               </p>
             </div>
           </div>
@@ -86,39 +88,43 @@ export default function AnalyticsHeader({
           {/* =====================================================
               CONTROLS
           ===================================================== */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center lg:shrink-0">
             {/* Date range */}
-            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-              <div className="hidden items-center px-2 text-slate-400 sm:flex">
-                <CalendarDays
-                  className="h-4 w-4"
-                  strokeWidth={2}
-                />
+            <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <div className="flex min-w-max items-center gap-1">
+                <div className="hidden shrink-0 items-center px-2 text-slate-400 sm:flex">
+                  <CalendarDays
+                    className="h-4 w-4"
+                    strokeWidth={2}
+                  />
+                </div>
+
+                {RANGE_OPTIONS.map((option) => {
+                  const isActive =
+                    option.value === range;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        onRangeChange(option.value)
+                      }
+                      aria-pressed={isActive}
+                      className={[
+                        "shrink-0 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1",
+                        isActive
+                          ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
+                          : "text-slate-500 hover:bg-white/80 hover:text-slate-800",
+                      ].join(" ")}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
-
-              {RANGE_OPTIONS.map((option) => {
-                const isActive = option.value === range;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() =>
-                      onRangeChange(option.value)
-                    }
-                    aria-pressed={isActive}
-                    className={[
-                      "rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-200",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1",
-                      isActive
-                        ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200"
-                        : "text-slate-500 hover:bg-white/80 hover:text-slate-800",
-                    ].join(" ")}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
             </div>
 
             {/* Refresh */}
@@ -126,14 +132,12 @@ export default function AnalyticsHeader({
               type="button"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw
                 className={[
                   "h-4 w-4",
-                  isRefreshing
-                    ? "animate-spin"
-                    : "",
+                  isRefreshing ? "animate-spin" : "",
                 ].join(" ")}
                 strokeWidth={2}
               />

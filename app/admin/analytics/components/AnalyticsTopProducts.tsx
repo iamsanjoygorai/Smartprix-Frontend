@@ -34,7 +34,7 @@ function formatNumber(value: number): string {
 function RankIcon({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100">
         <Trophy
           className="h-4.5 w-4.5"
           strokeWidth={2}
@@ -45,7 +45,7 @@ function RankIcon({ rank }: { rank: number }) {
 
   if (rank === 2) {
     return (
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 ring-1 ring-slate-200">
         <Medal
           className="h-4.5 w-4.5"
           strokeWidth={2}
@@ -56,7 +56,7 @@ function RankIcon({ rank }: { rank: number }) {
 
   if (rank === 3) {
     return (
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100">
         <Medal
           className="h-4.5 w-4.5"
           strokeWidth={2}
@@ -66,7 +66,7 @@ function RankIcon({ rank }: { rank: number }) {
   }
 
   return (
-    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
       <span className="text-xs font-bold">
         {rank}
       </span>
@@ -126,10 +126,12 @@ function ProductRow({
       : 0;
 
   return (
-    <div className="group rounded-xl border border-slate-100 bg-white p-3 transition-all duration-200 hover:border-slate-200 hover:shadow-sm">
-      <div className="flex items-center gap-3">
+    <div className="group rounded-xl border border-slate-100 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Rank */}
         <RankIcon rank={rank} />
 
+        {/* Product information */}
         <div className="min-w-0 flex-1">
           <p
             className="truncate text-sm font-semibold text-slate-800"
@@ -146,6 +148,7 @@ function ProductRow({
           </p>
         </div>
 
+        {/* View count */}
         <div className="shrink-0 text-right">
           <p className="text-sm font-bold text-slate-800">
             {formatNumber(eventCount)}
@@ -157,6 +160,7 @@ function ProductRow({
         </div>
       </div>
 
+      {/* Progress */}
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
         <div
           className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
@@ -193,22 +197,25 @@ export default function AnalyticsTopProducts({
       aria-labelledby="analytics-top-products-heading"
       className="mb-6"
     >
-      <div className="mb-3 flex items-center gap-2">
+      {/* Section heading */}
+      <div className="mb-4 flex min-w-0 items-center gap-2 px-0.5">
         <BarChart3
-          className="h-4 w-4 text-slate-400"
+          className="h-4 w-4 shrink-0 text-slate-400"
           strokeWidth={2}
         />
 
         <h2
           id="analytics-top-products-heading"
-          className="text-sm font-bold uppercase tracking-wider text-slate-500"
+          className="whitespace-nowrap text-sm font-bold uppercase tracking-wider text-slate-500"
         >
           Top Products
         </h2>
       </div>
 
+      {/* Main card */}
       <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-100 p-5">
+        {/* Card header */}
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
               <Package
@@ -218,27 +225,30 @@ export default function AnalyticsTopProducts({
             </div>
 
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="whitespace-nowrap text-sm font-bold text-slate-900">
                 Most Viewed Products
               </h3>
 
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 truncate text-xs text-slate-400">
                 Product engagement • {data.range}
               </p>
             </div>
           </div>
 
-          <div className="shrink-0 text-right">
-            <p className="text-xl font-bold tracking-tight text-slate-900">
-              {formatNumber(data.totalEvents)}
-            </p>
+          <div className="flex shrink-0 items-center gap-2 sm:text-right">
+            <div>
+              <p className="text-xl font-bold tracking-tight text-slate-900">
+                {formatNumber(data.totalEvents)}
+              </p>
 
-            <p className="text-[11px] font-medium text-slate-400">
-              Total events
-            </p>
+              <p className="text-[11px] font-medium text-slate-400">
+                Total events
+              </p>
+            </div>
           </div>
         </div>
 
+        {/* Products */}
         <div className="p-5">
           {products.length === 0 ? (
             <EmptyState />

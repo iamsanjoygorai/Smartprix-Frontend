@@ -34,29 +34,19 @@ if (timezone) {
   headers.set("X-Timezone", timezone);
 }
 
-console.log("CLIENT TIMEZONE:", timezone);
-console.log(
-  "CLIENT X-TIMEZONE HEADER:",
-  headers.get("X-Timezone"),
-);
 
   const url = `${API_URL}${endpoint}`;
 
-  console.log("API Request:", {
-    method: options.method ?? "GET",
-    url,
-  });
+ 
 
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-    console.log("🔥 API FETCH FUNCTION RUNNING");
-console.log("🔥 RAW RESPONSE:", response);
+   const response = await fetch(url, {
+  ...options,
+  headers,
+  credentials: "include",
+});
 
     const responseText = await response.text();
-console.log("🔥 RESPONSE TEXT:", responseText.slice(0, 300));
     if (!response.ok) {
       console.error(
   "API REQUEST FAILED",

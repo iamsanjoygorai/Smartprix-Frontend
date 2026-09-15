@@ -9,6 +9,9 @@ import {
   removeFavorite,
 } from "@/lib/api/favorites";
 
+import { useCompare } from "@/components/comparison/CompareProvider";
+import type { CompareProduct } from "@/components/comparison/compare.mapper";
+
 interface Mobile {
   id: string;
   slug: string;
@@ -343,6 +346,9 @@ function SpecItem({
 export default function MobileCard({
   mobile,
 }: MobileCardProps) {
+
+  const { openCompareSheet } = useCompare();
+
   const [isFavorite, setIsFavorite] =
     useState(false);
 
@@ -631,6 +637,103 @@ export default function MobileCard({
         )
       : null;
 
+      const compareProduct: CompareProduct = {
+  id: mobile.id,
+  name: mobile.name,
+  slug: mobile.slug,
+  href: `/mobiles/${mobile.slug}`,
+  image: mobile.image || null,
+  brand: mobile.brand ?? "Unknown Brand",
+  brandSlug:
+    mobile.brand
+      ?.toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") ?? "",
+  price: (() => {
+    const numericPrice = Number(
+      String(mobile.price).replace(/[^0-9.]/g, ""),
+    );
+
+    return Number.isFinite(numericPrice)
+      ? numericPrice
+      : null;
+  })(),
+  rating:
+    Number.isFinite(rating) && rating > 0
+      ? rating
+      : null,
+  reviewCount:
+    Number.isFinite(mobile.reviewCount)
+      ? mobile.reviewCount
+      : 0,
+  specifications: [
+    {
+      key: "display",
+      label: "Display",
+      value: display ?? "—",
+    },
+    {
+      key: "processor",
+      label: "Processor",
+      value: processor ?? "—",
+    },
+    {
+      key: "ram",
+      label: "RAM",
+      value: ram ?? "—",
+    },
+    {
+      key: "storage",
+      label: "Storage",
+      value: storage ?? "—",
+    },
+    {
+      key: "battery",
+      label: "Battery",
+      value: battery ?? "—",
+    },
+    {
+      key: "rear-camera",
+      label: "Rear Camera",
+      value: camera ?? "—",
+    },
+    {
+      key: "front-camera",
+      label: "Front Camera",
+      value: frontCamera ?? "—",
+    },
+    {
+      key: "connectivity",
+      label: "Connectivity",
+      value: connectivity ?? "—",
+    },
+    {
+      key: "operating-system",
+      label: "Operating System",
+      value: operatingSystem ?? "—",
+    },
+    {
+      key: "wifi",
+      label: "Wi-Fi",
+      value: wifi ?? "—",
+    },
+    {
+      key: "bluetooth",
+      label: "Bluetooth",
+      value: bluetooth ?? "—",
+    },
+    {
+      key: "ip-rating",
+      label: "IP Rating",
+      value: ipRating ?? "—",
+    },
+  ].filter(
+    (specification) =>
+      specification.value !== "—",
+  ),
+};
+
   return (
     <article
       className="
@@ -749,9 +852,10 @@ export default function MobileCard({
               </Link>
 
               {/* Compare */}
-              <button
-                type="button"
-                aria-label={`Compare ${mobile.name}`}
+             <button
+  type="button"
+  onClick={() => openCompareSheet(compareProduct)}
+  aria-label={`Compare ${mobile.name}`}
                 className="
                   absolute -bottom-3 left-1/2 z-20
                   flex -translate-x-1/2
@@ -915,19 +1019,20 @@ export default function MobileCard({
             <div className="mt-4 flex flex-wrap items-center gap-2 border-y border-slate-100 py-2.5">
 
               {/* Compare */}
-              <button
-                type="button"
-                className="
-                  rounded-lg px-2.5 py-1.5
-                  text-[11px] font-bold
-                  text-slate-500
-                  transition
-                  hover:bg-indigo-50
-                  hover:text-indigo-600
-                "
-              >
-                + Compare
-              </button>
+             <button
+  type="button"
+  onClick={() => openCompareSheet(compareProduct)}
+  className="
+    rounded-lg px-2.5 py-1.5
+    text-[11px] font-bold
+    text-slate-500
+    transition
+    hover:bg-indigo-50
+    hover:text-indigo-600
+  "
+>
+  + Compare
+</button>
 
               {/* Like */}
               <button

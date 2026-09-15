@@ -4,6 +4,11 @@ import "./globals.css";
 
 import SiteLayout from "@/components/layout/SiteLayout";
 import ScrollToTop from "@/components/ScrollToTop";
+
+import CompareProvider from "@/components/comparison/CompareProvider";
+import CompareBottomSheet from "@/components/comparison/CompareBottomSheet";
+import CompareCatalogLoader from "@/components/comparison/CompareCatalogLoader";
+
 import Providers from "./providers";
 
 import { Geist } from "next/font/google";
@@ -27,12 +32,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html
+      lang="en"
+      className={cn("font-sans", geist.variable)}
+    >
       <body className="min-h-screen bg-gray-100 text-gray-900">
         <Providers>
           <TooltipProvider>
-            <ScrollToTop />
-            <SiteLayout>{children}</SiteLayout>
+            <CompareProvider>
+  <CompareCatalogLoader />
+
+  <ScrollToTop />
+  <SiteLayout>{children}</SiteLayout>
+
+  <CompareBottomSheet />
+</CompareProvider>
           </TooltipProvider>
         </Providers>
       </body>

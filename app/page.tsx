@@ -23,8 +23,9 @@ import ReviewsSection from "@/components/home/editorial/ReviewsSection";
 import NewsSection from "@/components/home/editorial/NewsSection";
 
 import HomeSectionCard from "@/components/home/shared/HomeSectionCard";
-
+import PopularMobileBrands from "@/components/home/brands/PopularMobileBrands";
 import type { Product } from "@/types/product";
+import CompareSection from "@/components/comparison/CompareSection";
 
 /* =========================================================
    TYPES
@@ -342,6 +343,10 @@ export default function HomePage() {
 
       <div className="mb-6">
        <HeroSection products={homeProducts} />
+      </div>
+
+      <div className="mb-6">
+        <PopularMobileBrands products={products} />
       </div>
 
       {/* =====================================================

@@ -560,7 +560,7 @@ export default function ProfilePage() {
             </div>
 
            <p className="mt-4 text-2xl font-extrabold text-gray-900">
-  {user.stats.reviews}
+  {user.stats?.reviews ?? 0}
 </p>
 
             <p className="mt-0.5 text-xs text-gray-500">
@@ -596,7 +596,7 @@ export default function ProfilePage() {
             </div>
 
             <p className="mt-4 text-2xl font-extrabold text-gray-900">
-  {user.stats.favorites}
+{user.stats?.favorites ?? 0}
 </p>
 
             <p className="mt-0.5 text-xs text-gray-500">

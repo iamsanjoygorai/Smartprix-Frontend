@@ -5,19 +5,19 @@ import {
   ChevronRight,
   History,
 } from "lucide-react";
+import { useState } from "react";
 
 import type { HistoryEvent } from "@/lib/api/history";
 
 import HistoryEventCard from "./HistoryEventCard";
+import HistoryVersionPanel from "./HistoryVersionPanel";
 
 interface HistoryTimelineProps {
   events: HistoryEvent[];
   page: number;
   totalPages: number;
   total: number;
-  onPageChange: (
-    page: number,
-  ) => void;
+  onPageChange: (page: number) => void;
   loading?: boolean;
 }
 
@@ -121,6 +121,17 @@ export default function HistoryTimeline({
   onPageChange,
   loading = false,
 }: HistoryTimelineProps) {
+  const [selectedEvent, setSelectedEvent] =
+    useState<HistoryEvent | null>(null);
+
+  const canOpenVersion =
+    Boolean(
+      selectedEvent?.entityType &&
+        selectedEvent?.entityId &&
+        selectedEvent?.version &&
+        selectedEvent.version > 0,
+    );
+
   return (
     <section>
       {/* Timeline header */}
@@ -150,133 +161,204 @@ export default function HistoryTimeline({
       )}
 
       {/* Empty */}
-      {!loading &&
-        events.length === 0 && (
-          <EmptyState />
-        )}
+      {!loading && events.length === 0 && (
+        <EmptyState />
+      )}
 
       {/* Events */}
-      {!loading &&
-        events.length > 0 && (
-          <>
-            <div className="relative space-y-3">
-              {/* Timeline rail */}
-              <div className="pointer-events-none absolute bottom-6 left-[20px] top-6 hidden w-px bg-gradient-to-b from-violet-200 via-slate-200 to-transparent sm:block" />
+      {!loading && events.length > 0 && (
+        <>
+          <div className="relative space-y-3">
+            {/* Timeline rail */}
+            <div className="pointer-events-none absolute bottom-6 left-[20px] top-6 hidden w-px bg-gradient-to-b from-violet-200 via-slate-200 to-transparent sm:block" />
 
-              {events.map((event) => (
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className="relative sm:pl-10"
+              >
+                <div className="absolute left-[15px] top-5 z-10 hidden h-3 w-3 rounded-full border-2 border-white bg-violet-500 shadow-sm sm:block" />
+
                 <div
-                  key={event.id}
-                  className="relative sm:pl-10"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    setSelectedEvent(event)
+                  }
+                  onKeyDown={(keyboardEvent) => {
+                    if (
+                      keyboardEvent.key ===
+                        "Enter" ||
+                      keyboardEvent.key ===
+                        " "
+                    ) {
+                      keyboardEvent.preventDefault();
+                      setSelectedEvent(event);
+                    }
+                  }}
+                  className="cursor-pointer rounded-2xl outline-none transition hover:-translate-y-[1px] hover:shadow-md focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                 >
-                  <div className="absolute left-[15px] top-5 z-10 hidden h-3 w-3 rounded-full border-2 border-white bg-violet-500 shadow-sm sm:block" />
-
                   <HistoryEventCard
                     event={event}
                   />
                 </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <p className="px-2 text-xs font-medium text-slate-500">
-                  Page{" "}
-                  <span className="font-bold text-slate-800">
-                    {page}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-bold text-slate-800">
-                    {totalPages}
-                  </span>
-                </p>
-
-                <div className="flex items-center justify-center gap-1">
-                  <button
-                    type="button"
-                    disabled={
-                      page <= 1 ||
-                      loading
-                    }
-                    onClick={() =>
-                      onPageChange(
-                        page - 1,
-                      )
-                    }
-                    aria-label="Previous page"
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  {getPageNumbers(
-                    page,
-                    totalPages,
-                  ).map(
-                    (
-                      pageNumber,
-                      index,
-                    ) =>
-                      pageNumber ===
-                      "..." ? (
-                        <span
-                          key={`ellipsis-${index}`}
-                          className="flex h-9 w-8 items-center justify-center text-xs font-bold text-slate-400"
-                        >
-                          …
-                        </span>
-                      ) : (
-                        <button
-                          key={
-                            pageNumber
-                          }
-                          type="button"
-                          disabled={
-                            loading
-                          }
-                          onClick={() =>
-                            onPageChange(
-                              pageNumber,
-                            )
-                          }
-                          className={[
-                            "h-9 min-w-9 rounded-lg px-2 text-xs font-bold transition",
-                            pageNumber ===
-                            page
-                              ? "bg-violet-600 text-white shadow-sm shadow-violet-200"
-                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-                          ].join(
-                            " ",
-                          )}
-                        >
-                          {
-                            pageNumber
-                          }
-                        </button>
-                      ),
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={
-                      page >=
-                        totalPages ||
-                      loading
-                    }
-                    onClick={() =>
-                      onPageChange(
-                        page + 1,
-                      )
-                    }
-                    aria-label="Next page"
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
               </div>
-            )}
-          </>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="px-2 text-xs font-medium text-slate-500">
+                Page{" "}
+                <span className="font-bold text-slate-800">
+                  {page}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-slate-800">
+                  {totalPages}
+                </span>
+              </p>
+
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  type="button"
+                  disabled={
+                    page <= 1 || loading
+                  }
+                  onClick={() =>
+                    onPageChange(page - 1)
+                  }
+                  aria-label="Previous page"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {getPageNumbers(
+                  page,
+                  totalPages,
+                ).map(
+                  (
+                    pageNumber,
+                    index,
+                  ) =>
+                    pageNumber ===
+                    "..." ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="flex h-9 w-8 items-center justify-center text-xs font-bold text-slate-400"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={pageNumber}
+                        type="button"
+                        disabled={loading}
+                        onClick={() =>
+                          onPageChange(
+                            pageNumber,
+                          )
+                        }
+                        className={[
+                          "h-9 min-w-9 rounded-lg px-2 text-xs font-bold transition",
+                          pageNumber ===
+                          page
+                            ? "bg-violet-600 text-white shadow-sm shadow-violet-200"
+                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                        ].join(" ")}
+                      >
+                        {pageNumber}
+                      </button>
+                    ),
+                )}
+
+                <button
+                  type="button"
+                  disabled={
+                    page >= totalPages ||
+                    loading
+                  }
+                  onClick={() =>
+                    onPageChange(page + 1)
+                  }
+                  aria-label="Next page"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Git-like version panel */}
+      {selectedEvent &&
+        canOpenVersion && (
+          <HistoryVersionPanel
+            entityType={
+              selectedEvent.entityType!
+            }
+            entityId={
+              selectedEvent.entityId!
+            }
+            version={
+              selectedEvent.version!
+            }
+            onClose={() =>
+              setSelectedEvent(null)
+            }
+          />
+        )}
+
+      {/* Events without version/entity data */}
+      {selectedEvent &&
+        !canOpenVersion && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[2px]">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    History Event
+                  </p>
+
+                  <h3 className="mt-1 text-lg font-black text-slate-950">
+                    {selectedEvent.title}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedEvent(null)
+                  }
+                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  ×
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-slate-500">
+                This event does not have a
+                versioned entity snapshot to
+                compare.
+              </p>
+
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedEvent(null)
+                  }
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
     </section>
   );

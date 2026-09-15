@@ -101,7 +101,7 @@ export default function AdminSidebar({
           }
         `}
       >
-         {/* ===================================================
+        {/* ===================================================
     SIDEBAR HEADER
 =================================================== */}
 
@@ -122,113 +122,124 @@ export default function AdminSidebar({
     }
   `}
 >
-  {/* Logo */}
+  {/* =================================================
+      EXPANDED LOGO
+  ================================================= */}
 
-  <Link
-    href="/admin"
-    onClick={onMobileClose}
-    className="flex items-center gap-3"
-    title={
-      collapsed
-        ? "Smartprix Admin Studio"
-        : undefined
-    }
-  >
-    <div
+  {!collapsed && (
+    <>
+      <Link
+        href="/admin"
+        onClick={onMobileClose}
+        className="flex items-center gap-3"
+      >
+        <div
+          className="
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-xl
+            bg-gradient-to-br
+            from-emerald-400
+            to-green-600
+            shadow-lg
+            shadow-green-500/20
+          "
+        >
+          <Sparkles className="h-5 w-5 text-white" />
+        </div>
+
+        <div>
+          <p
+            className="
+              whitespace-nowrap
+              text-[15px]
+              font-bold
+              tracking-tight
+            "
+          >
+            Smartprix
+          </p>
+
+          <p
+            className="
+              whitespace-nowrap
+              text-[11px]
+              font-medium
+              text-white/40
+            "
+          >
+            ADMIN STUDIO
+          </p>
+        </div>
+      </Link>
+
+      {/* Collapse */}
+
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        title="Collapse sidebar"
+        aria-label="Collapse sidebar"
+        className="
+          flex
+          h-8
+          w-8
+          items-center
+          justify-center
+          rounded-lg
+          border
+          border-white/[0.08]
+          bg-white/[0.03]
+          text-white/40
+          transition-all
+          hover:bg-white/[0.08]
+          hover:text-white
+        "
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+    </>
+  )}
+
+  {/* =================================================
+      COLLAPSED MODE
+      ONLY EXPAND BUTTON — NO LOGO
+  ================================================= */}
+
+  {collapsed && (
+    <button
+      type="button"
+      onClick={onToggleCollapse}
+      title="Expand sidebar"
+      aria-label="Expand sidebar"
       className="
         flex
         h-10
         w-10
-        shrink-0
         items-center
         justify-center
         rounded-xl
-        bg-gradient-to-br
-        from-emerald-400
-        to-green-600
-        shadow-lg
-        shadow-green-500/20
+        border
+        border-white/[0.08]
+        bg-white/[0.04]
+        text-white/50
+        transition-all
+        hover:border-emerald-400/30
+        hover:bg-emerald-400/10
+        hover:text-emerald-400
       "
     >
-      <Sparkles className="h-5 w-5 text-white" />
-    </div>
+      <ChevronRight className="h-5 w-5" />
+    </button>
+  )}
 
-    {/* Brand text */}
-
-    {!collapsed && (
-      <div className="overflow-hidden">
-        <p
-          className="
-            whitespace-nowrap
-            text-[15px]
-            font-bold
-            tracking-tight
-          "
-        >
-          Smartprix
-        </p>
-
-        <p
-          className="
-            whitespace-nowrap
-            text-[11px]
-            font-medium
-            text-white/40
-          "
-        >
-          ADMIN STUDIO
-        </p>
-      </div>
-    )}
-  </Link>
-
-  {/* Desktop collapse / expand */}
-
-  <button
-    type="button"
-    onClick={onToggleCollapse}
-    title={
-      collapsed
-        ? "Expand sidebar"
-        : "Collapse sidebar"
-    }
-    aria-label={
-      collapsed
-        ? "Expand sidebar"
-        : "Collapse sidebar"
-    }
-    className={`
-      hidden
-      h-7
-      w-7
-      items-center
-      justify-center
-      rounded-md
-      border
-      border-white/[0.08]
-      bg-white/[0.04]
-      text-white/40
-      transition-all
-      duration-200
-      hover:bg-white/[0.09]
-      hover:text-white
-      lg:flex
-
-      ${
-        collapsed
-          ? "absolute right-1 top-1/2 -translate-y-1/2"
-          : ""
-      }
-    `}
-  >
-    {collapsed ? (
-      <ChevronRight className="h-3.5 w-3.5" />
-    ) : (
-      <ChevronLeft className="h-3.5 w-3.5" />
-    )}
-  </button>
-
-  {/* Mobile close */}
+  {/* =================================================
+      MOBILE CLOSE
+  ================================================= */}
 
   <button
     type="button"

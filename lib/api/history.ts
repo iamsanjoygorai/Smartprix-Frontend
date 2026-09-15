@@ -112,3 +112,195 @@ export async function getHistoryTimeline(
 
   return response.data;
 }
+
+
+/* =========================================================
+   GIT-LIKE HISTORY TYPES
+========================================================= */
+
+export interface HistoryVersionResponse {
+  version: number;
+  snapshot: Record<string, unknown> | null;
+  event: {
+    id: string;
+    eventType: string;
+    title: string;
+    description: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export interface HistoryLatestVersionResponse {
+  entityType: string;
+  entityId: string;
+  version: number;
+}
+
+export interface HistoryDiffResponse {
+  entityType: string;
+  entityId: string;
+  fromVersion: number;
+  toVersion: number;
+  changes: Record<
+    string,
+    HistoryChange
+  >;
+}
+
+/* =========================================================
+   GET ENTITY HISTORY
+========================================================= */
+
+export async function getEntityHistory(
+  entityType: string,
+  entityId: string,
+  params: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    eventType?: string;
+    operation?: string;
+  } = {},
+): Promise<HistoryTimelineResponse> {
+  const searchParams =
+    new URLSearchParams();
+
+  Object.entries(params).forEach(
+    ([key, value]) => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== ""
+      ) {
+        searchParams.set(
+          key,
+          String(value),
+        );
+      }
+    },
+  );
+
+  const query =
+    searchParams.toString();
+
+  const response =
+    await apiFetch<{
+      success: boolean;
+      data: HistoryTimelineResponse;
+      message?: string;
+    }>(
+      `/admin/history/entity/${encodeURIComponent(
+        entityType,
+      )}/${encodeURIComponent(
+        entityId,
+      )}${query ? `?${query}` : ""}`,
+    );
+
+  return response.data;
+}
+
+/* =========================================================
+   GET EVENT DETAILS
+========================================================= */
+
+export async function getHistoryEvent(
+  eventId: string,
+): Promise<HistoryEvent> {
+  const response =
+    await apiFetch<{
+      success: boolean;
+      data: HistoryEvent;
+      message?: string;
+    }>(
+      `/admin/history/event/${encodeURIComponent(
+        eventId,
+      )}`,
+    );
+
+  return response.data;
+}
+
+/* =========================================================
+   GET VERSION
+========================================================= */
+
+export async function getHistoryVersion(
+  entityType: string,
+  entityId: string,
+  version: number,
+): Promise<HistoryVersionResponse> {
+  const response =
+    await apiFetch<{
+      success: boolean;
+      data: HistoryVersionResponse;
+      message?: string;
+    }>(
+      `/admin/history/version/${encodeURIComponent(
+        entityType,
+      )}/${encodeURIComponent(
+        entityId,
+      )}/${version}`,
+    );
+
+  return response.data;
+}
+
+/* =========================================================
+   GET LATEST VERSION
+========================================================= */
+
+export async function getLatestHistoryVersion(
+  entityType: string,
+  entityId: string,
+): Promise<HistoryLatestVersionResponse> {
+  const response =
+    await apiFetch<{
+      success: boolean;
+      data: HistoryLatestVersionResponse;
+      message?: string;
+    }>(
+      `/admin/history/latest/${encodeURIComponent(
+        entityType,
+      )}/${encodeURIComponent(
+        entityId,
+      )}`,
+    );
+
+  return response.data;
+}
+
+/* =========================================================
+   COMPARE TWO VERSIONS
+========================================================= */
+
+export async function getHistoryDiff(
+  entityType: string,
+  entityId: string,
+  fromVersion: number,
+  toVersion: number,
+): Promise<HistoryDiffResponse> {
+  const searchParams =
+    new URLSearchParams({
+      fromVersion: String(
+        fromVersion,
+      ),
+      toVersion: String(
+        toVersion,
+      ),
+    });
+
+  const response =
+    await apiFetch<{
+      success: boolean;
+      data: HistoryDiffResponse;
+      message?: string;
+    }>(
+      `/admin/history/diff/${encodeURIComponent(
+        entityType,
+      )}/${encodeURIComponent(
+        entityId,
+      )}?${searchParams.toString()}`,
+    );
+
+  return response.data;
+}

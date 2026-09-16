@@ -61,7 +61,7 @@ const navItems = [
 
 export default function Navbar() {
   return (
-    <nav className="relative z-50 border-b border-blue-900 bg-[#0c468d]">
+    <nav className="fixed left-0 right-0 top-[70px] z-[100] w-full border-b border-blue-900 bg-[#0c468d]">
       <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-11 items-center justify-between">
 

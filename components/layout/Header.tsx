@@ -951,7 +951,7 @@ const profileInitial =
    */ 
 
   return (
-    <header className="sticky top-0 z-[100] w-full bg-white shadow-sm">
+    <header className="fixed left-0 right-0 top-0 z-[110] w-full bg-white shadow-sm">
       <div className="mx-auto flex h-[70px] max-w-[1400px] items-center gap-5 px-4 lg:px-6">
         {/* LOGO */}
         <Link

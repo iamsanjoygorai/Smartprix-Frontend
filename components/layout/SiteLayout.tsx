@@ -32,7 +32,10 @@ export default function SiteLayout({
       <Header />
       <Navbar />
 
-      <main>{children}</main>
+
+    <main className="pt-[114px]">
+        {children}
+    </main>
 
       <Footer />
     </>

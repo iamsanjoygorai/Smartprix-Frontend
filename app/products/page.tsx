@@ -1,5 +1,7 @@
 import ProductCard from "@/components/products/ProductCard";
+
 import { getProducts } from "@/lib/api/products";
+
 import type { Product } from "@/types/product";
 
 interface ProductsPageProps {
@@ -31,7 +33,7 @@ export default async function ProductsPage({
   let products: Product[] = [];
 
   try {
-   const response = (await getProducts()) as ProductsResponse;
+    const response = (await getProducts()) as ProductsResponse;
 
     products = Array.isArray(response.data?.products)
       ? response.data.products
@@ -43,6 +45,7 @@ export default async function ProductsPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
           {params.search
@@ -55,6 +58,7 @@ export default async function ProductsPage({
         </p>
       </div>
 
+      {/* Products */}
       {products.length === 0 ? (
         <div className="rounded-xl bg-white p-8 text-center shadow-sm">
           <p className="text-gray-600">
@@ -63,12 +67,36 @@ export default async function ProductsPage({
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
-          ))}
+          {products.map((product) => {
+  const primaryImage =
+    product.images?.[0]?.url ?? null;
+
+  const validPrices =
+    product.prices
+      ?.map((price) => Number(price.amount))
+      .filter(
+        (price) => Number.isFinite(price) && price > 0,
+      ) ?? [];
+
+  const lowestPrice =
+    validPrices.length > 0
+      ? Math.min(...validPrices)
+      : null;
+
+  return (
+    <ProductCard
+      key={product.id}
+      product={{
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        image: primaryImage,
+        price: lowestPrice,
+        rating: product.rating ?? null,
+      }}
+    />
+  );
+})}
         </div>
       )}
     </div>

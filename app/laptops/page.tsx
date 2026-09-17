@@ -6,7 +6,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 
-import { apiFetch } from "@/lib/api/api";
+import { apiFetch } from "@/lib/api/client";
 
 import LaptopFilters from "@/components/laptops/LaptopFilters";
 import LaptopList from "@/components/laptops/LaptopList";

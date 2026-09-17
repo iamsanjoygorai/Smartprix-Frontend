@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/api";
+import { apiFetch } from "@/lib/api/client";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -59,6 +59,7 @@ function getToken(): string | null {
    GET PROFILE
 ========================================================= */
 
+
 export async function getUserProfile(): Promise<{
   success: boolean;
   message?: string;
@@ -73,52 +74,32 @@ export async function getUserProfile(): Promise<{
     };
   }
 
-  try {
-    const response = await fetch(
-      `${API_URL}/user/profile`,
-      {
-        method: "GET",
-
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-
-        cache: "no-store",
+  const response = await apiFetch<ProfileResponse>(
+    "/user/profile",
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
       },
-    );
+      cache: "no-store",
+    },
+  );
 
-    const result =
-      (await response.json()) as ProfileResponse;
-
-    if (!response.ok) {
-      return {
-        success: false,
-        message:
-          result.message ??
-          "Failed to fetch profile",
-      };
-    }
-
-    return {
-      success: result.success === true,
-      message: result.message,
-      data: result.data,
-    };
-  } catch (error) {
-    console.error(
-      "Get user profile failed:",
-      error,
-    );
-
+  if (!response?.success) {
     return {
       success: false,
       message:
-        "Unable to connect to the server",
+        response?.message ??
+        "Unable to load user profile.",
     };
   }
-}
 
+  return {
+    success: true,
+    message: response.message,
+    data: response.data,
+  };
+}
 
 export async function uploadProfileImage(
   file: File,

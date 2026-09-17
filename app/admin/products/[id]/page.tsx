@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 import { apiFetch } from "@/lib/api/client";
 import { getCategories } from "@/lib/api/categories";
@@ -15,6 +15,7 @@ import type { Product } from "@/types/product";
 import type { AdminCategory } from "@/lib/api/categories";
 import type { AdminBrand } from "@/lib/api/brands";
 import type { AdminSeller } from "@/lib/api/sellers";
+import ProductSpecificationEditor from "@/components/admin/products/ProductSpecificationEditor";
 
 interface FormOptions {
   categories: AdminCategory[];
@@ -52,7 +53,6 @@ function getFullImageUrl(url: string) {
 
 export default function EditProductPage() {
   const params = useParams();
-  const router = useRouter();
 
   const productId = String(params.id);
 
@@ -65,10 +65,10 @@ export default function EditProductPage() {
 
   const [images, setImages] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState("");
+  
+const [specificationRefreshKey, setSpecificationRefreshKey] =
+  useState(0);
 
-  const [ram, setRam] = useState("");
-  const [storage, setStorage] = useState("");
-  const [processor, setProcessor] = useState("");
 
   const [options, setOptions] = useState<FormOptions>({
     categories: [],
@@ -132,37 +132,7 @@ export default function EditProductPage() {
           sellers: sellersResponse.data,
         });
 
-        const specificationResponse =
-          await apiFetch<
-            ApiResponse<
-              Array<{
-                id: string;
-                key: string;
-                value: {
-                  id: string;
-                  specificationId: string;
-                  value: string;
-                  createdAt: string;
-                } | null;
-              }>
-            >
-          >(`/products/${productId}/specifications`);
-
-        for (const specification of specificationResponse.data) {
-          if (!specification.value) continue;
-
-          if (specification.key === "ram") {
-            setRam(specification.value.value);
-          }
-
-          if (specification.key === "storage") {
-            setStorage(specification.value.value);
-          }
-
-          if (specification.key === "processor") {
-            setProcessor(specification.value.value);
-          }
-        }
+         
       } catch (err) {
         setError(
           err instanceof Error
@@ -365,53 +335,33 @@ export default function EditProductPage() {
     setSaving(true);
 
     try {
-      const specifications: Record<string, string> = {};
+  const response = await updateProduct(productId, {
+    name: name.trim(),
+    description: description.trim(),
+    brandSlug,
+    categorySlug,
+    images,
+    price: Number(price),
+    sellerSlug,
+  });
 
-      if (ram.trim()) {
-        specifications.ram = ram.trim();
-      }
+  // Tell the schema-driven specification editor
+  // that the product category may have changed.
+  setSpecificationRefreshKey((current) => current + 1);
 
-      if (storage.trim()) {
-        specifications.storage = storage.trim();
-      }
-
-      if (processor.trim()) {
-        specifications.processor =
-          processor.trim();
-      }
-
-      const response = await updateProduct(
-        productId,
-        {
-          name: name.trim(),
-          description: description.trim(),
-          brandSlug,
-          categorySlug,
-          images,
-          price: Number(price),
-          sellerSlug,
-          specifications,
-        },
-      );
-
-      setMessage(
-        response.message ??
-          "Product updated successfully.",
-      );
-
-      setTimeout(() => {
-        router.push("/admin/products");
-      }, 900);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update product.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  setMessage(
+    response.message ??
+      "Product updated successfully.",
+  );
+} catch (err) {
+  setError(
+    err instanceof Error
+      ? err.message
+      : "Failed to update product.",
+  );
+} finally {
+  setSaving(false);
+}}
 
   if (loading) {
     return (
@@ -932,93 +882,10 @@ export default function EditProductPage() {
                   </p>
                 </div>
               </section>
-
-              {/* Specifications */}
-              <section className="overflow-hidden rounded-3xl border border-violet-100 bg-white shadow-lg shadow-violet-100/40">
-                <div className="border-b border-violet-100 bg-gradient-to-r from-violet-50 to-fuchsia-50 px-6 py-5">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-600 text-xl text-white shadow-lg shadow-violet-200">
-                      ⚙️
-                    </div>
-
-                    <div>
-                      <h2 className="font-bold text-slate-900">
-                        Specifications
-                      </h2>
-
-                      <p className="text-sm text-slate-500">
-                        Technical product information
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-5 p-6 md:grid-cols-3">
-                  <div>
-                    <label
-                      htmlFor="ram"
-                      className="mb-2 block text-sm font-bold text-slate-700"
-                    >
-                      RAM
-                    </label>
-
-                    <input
-                      id="ram"
-                      type="text"
-                      value={ram}
-                      onChange={(event) =>
-                        setRam(event.target.value)
-                      }
-                      placeholder="e.g. 8GB"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="storage"
-                      className="mb-2 block text-sm font-bold text-slate-700"
-                    >
-                      Storage
-                    </label>
-
-                    <input
-                      id="storage"
-                      type="text"
-                      value={storage}
-                      onChange={(event) =>
-                        setStorage(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="e.g. 128GB"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none transition focus:border-fuchsia-400 focus:bg-white focus:ring-4 focus:ring-fuchsia-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="processor"
-                      className="mb-2 block text-sm font-bold text-slate-700"
-                    >
-                      Processor
-                    </label>
-
-                    <input
-                      id="processor"
-                      type="text"
-                      value={processor}
-                      onChange={(event) =>
-                        setProcessor(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="e.g. Snapdragon 8 Gen 3"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none transition focus:border-fuchsia-400 focus:bg-white focus:ring-4 focus:ring-fuchsia-100"
-                    />
-                  </div>
-                </div>
-              </section>
+<ProductSpecificationEditor
+  productId={productId}
+  refreshKey={specificationRefreshKey}
+/>
             </div>
 
             {/* Preview */}

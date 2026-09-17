@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/api";
+import { apiFetch } from "@/lib/api/client";
 
 /* =========================================================
    API RESPONSE

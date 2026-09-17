@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 
   images: {
+    dangerouslyAllowLocalIP: true,
+
     remotePatterns: [
       {
         protocol: "http",

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+
 import { getProducts } from "@/lib/api/products";
-import {
-  mapProductsToCompareProducts,
-} from "./compare.mapper";
+import { mapProductsToCompareProducts } from "./compare.mapper";
 import { useCompare } from "./CompareProvider";
 
 export default function CompareCatalogLoader() {
@@ -29,19 +28,17 @@ export default function CompareCatalogLoader() {
           mapProductsToCompareProducts(products);
 
         setAvailableProducts(compareProducts);
-      } catch (error) {
-        console.error(
-          "Failed to load comparison product catalog:",
-          error,
-        );
-
+      } catch {
+        // Backend unavailable or network request failed.
+        // Keep the comparison catalog empty without
+        // producing a runtime/console error.
         if (!cancelled) {
           setAvailableProducts([]);
         }
       }
     };
 
-    loadProducts();
+    void loadProducts();
 
     return () => {
       cancelled = true;

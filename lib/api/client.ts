@@ -25,83 +25,76 @@ export async function apiFetch<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const timezone =
-  typeof window !== "undefined"
-    ? Intl.DateTimeFormat().resolvedOptions().timeZone
-    : null;
+  if (typeof window !== "undefined") {
+    const timezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-if (timezone) {
-  headers.set("X-Timezone", timezone);
-}
-
+    if (timezone) {
+      headers.set("X-Timezone", timezone);
+    }
+  }
 
   const url = `${API_URL}${endpoint}`;
 
- 
-
   try {
-   const response = await fetch(url, {
-  ...options,
-  headers,
-  credentials: "include",
-});
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
 
     const responseText = await response.text();
-    if (!response.ok) {
-      console.error(
-  "API REQUEST FAILED",
-  "\nURL:", url,
-  "\nMETHOD:", options.method ?? "GET",
-  "\nSTATUS:", response.status,
-  "\nSTATUS TEXT:", response.statusText,
-  "\nRESPONSE:", responseText,
-);
 
-      let errorMessage = `API request failed: ${response.status}`;
+    // HTTP errors
+    if (!response.ok) {
+      let message =
+        `Request failed with status ${response.status}.`;
 
       if (responseText) {
         try {
           const errorData = JSON.parse(responseText);
 
-          errorMessage =
+          message =
             errorData?.message ??
             errorData?.error ??
             errorData?.details ??
-            errorMessage;
+            message;
         } catch {
-          errorMessage = responseText;
+          // Keep default message.
         }
       }
 
-      throw new Error(errorMessage);
+      return {
+        success: false,
+        message,
+        error: "API_REQUEST_FAILED",
+        status: response.status,
+      } as T;
     }
 
+    // Empty successful response
     if (!responseText) {
       return {} as T;
     }
 
+    // JSON response
     try {
       return JSON.parse(responseText) as T;
     } catch {
-      console.error("API returned invalid JSON:", {
-        url,
+      return {
+        success: false,
+        message: "The server returned an invalid response.",
+        error: "INVALID_JSON_RESPONSE",
         status: response.status,
-        response: responseText,
-      });
-
-      throw new Error("API returned an invalid JSON response");
+      } as T;
     }
-  } catch (error) {
-    console.error("apiFetch error:", {
-      url,
-      method: options.method ?? "GET",
-      error,
-      message:
-        error instanceof Error
-          ? error.message
-          : String(error),
-    });
-
-    throw error;
+  } catch {
+    // Backend unavailable / network failure
+    return {
+      success: false,
+      message: "Unable to connect to the server.",
+      error: "SERVER_UNAVAILABLE",
+      status: 0,
+    } as T;
   }
 }
